@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "Field Service",
+    "slug": "field-service",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "cz.fieldservice.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Aplikace potřebuje přístup k fotoaparátu pro skenování čárových kódů a fotodokumentaci.",
+        "NSLocationWhenInUseUsageDescription": "Aplikace potřebuje přístup k vaší poloze pro sledování techniků v terénu.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Aplikace potřebuje přístup k vaší poloze i v pozadí pro sledování techniků v terénu."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "cz.fieldservice.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-camera",
+      "expo-location",
+      "expo-file-system",
+      "expo-print",
+      "expo-sharing"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    },
+    "owner": "fieldservice"
+  }
+}
