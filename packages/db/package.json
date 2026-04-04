@@ -9,7 +9,7 @@
     "push": "drizzle-kit push",
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",
-    "db:seed": "tsx migrate.ts"
+    "db:seed": "tsx seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.38.0",

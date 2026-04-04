@@ -20,6 +20,8 @@ export interface Task {
   technician_id: string | null;
   created_at: string;
   updated_at: string;
+  version: number;
+  synced: number;
 }
 
 // Technician types
@@ -50,6 +52,8 @@ export interface Report {
   signature: string | null;
   created_at: string;
   updated_at: string;
+  version: number;
+  synced: number;
 }
 
 // Location types

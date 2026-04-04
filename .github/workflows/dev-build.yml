@@ -1,4 +1,4 @@
-giname: Development Build
+name: Development Build
 
 on:
   workflow_dispatch:

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -102,6 +102,8 @@ export default function TaskDetailScreen() {
     }
   };
 
+  const queryClient = useQueryClient();
+
   const handleStartWork = async () => {
     if (!task) return;
     try {
@@ -111,6 +113,11 @@ export default function TaskDetailScreen() {
         .eq('id', task.id);
       
       if (error) throw error;
+      
+      // Invalidovat cache
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['task', id] });
+      
       Alert.alert('Úspěch', 'Úkol byl zahájen');
       router.back();
     } catch (err) {

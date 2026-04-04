@@ -1,9 +1,10 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-provider';
+import { supabase } from '@/lib/supabase';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -12,6 +13,19 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, signOut } = useAuth();
   const router = useRouter();
+
+  // Auth check - redirect to login if not authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
 
   const handleSignOut = async () => {
     try {

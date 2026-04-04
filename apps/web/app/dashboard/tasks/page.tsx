@@ -50,7 +50,7 @@ const getStatusColor = (status: string) => {
 export default function TasksPage() {
   const [filter, setFilter] = useState<'all' | 'assigned' | 'in_progress' | 'completed'>('all');
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks', filter],
     queryFn: async () => {
       let query = supabase.from('tasks').select('*');
@@ -59,7 +59,8 @@ export default function TasksPage() {
         query = query.eq('status', filter);
       }
       
-      const { data } = await query.order('created_at', { ascending: false });
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
       return data || [];
     },
   });
@@ -104,7 +105,9 @@ export default function TasksPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+            <div className="text-center py-8 text-gray-500">Načítání...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">Chyba: {error.message}</div>
           ) : filteredTasks.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No tasks found</div>
           ) : (

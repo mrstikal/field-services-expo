@@ -17,24 +17,55 @@ interface Technician {
 }
 
 export default function DashboardPage() {
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
-      const { data } = await supabase.from('tasks').select('*');
+      const { data, error } = await supabase.from('tasks').select('*');
+      if (error) throw error;
       return data || [];
     },
   });
 
-  const { data: technicians = [] } = useQuery({
+  const { data: technicians = [], isLoading: techLoading, error: techError } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('role', 'technician');
+      if (error) throw error;
       return data || [];
     },
   });
+
+  if (tasksLoading || techLoading) {
+    return (
+      <div className="p-8">
+        <div className="text-center py-8">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
+          <div className="mt-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="text-gray-500 mt-2">Načítání...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (tasksError || techError) {
+    return (
+      <div className="p-8">
+        <div className="text-center py-8">
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
+          <div className="mt-4">
+            <p className="text-red-600">Chyba: {tasksError?.message || techError?.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stats = {
     totalTasks: tasks.length,
