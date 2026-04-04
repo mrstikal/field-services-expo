@@ -1,0 +1,2 @@
+Assets placeholder
+Place your icon.png, splash.png, and adaptive-icon.png here

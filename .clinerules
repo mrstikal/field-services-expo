@@ -1,0 +1,11 @@
+# TaskForge – Pravidla pro AI asistenta
+
+## Upozonění: Implementace projektu probíhá na Windows, používej Powershell
+
+## Jazyk komunikace
+- Komunikuj česky
+- Kód, komentáře v kódu, commit messages, názvy proměnných/tříd/metod = ANGLICKY
+- README a dokumentace = anglicky
+
+## Dávkování pro ACT mode
+- velmi krátké úseky, chráníme se před pády typu spotřebovaný kontext nebo server timeout
