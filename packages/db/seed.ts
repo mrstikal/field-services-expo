@@ -1,64 +1,116 @@
 import { db } from './index';
 import { users, tasks, reports, parts, locations } from './schema';
 import { eq, and } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
+
+// Generate UUIDs for references
+const dispatcher1Id = randomUUID();
+const dispatcher2Id = randomUUID();
+const technik1Id = randomUUID();
+const technik2Id = randomUUID();
+const technik3Id = randomUUID();
+const technik4Id = randomUUID();
+const technik5Id = randomUUID();
+const task1Id = randomUUID();
+const task2Id = randomUUID();
+const task3Id = randomUUID();
+const task4Id = randomUUID();
+const task5Id = randomUUID();
+const report1Id = randomUUID();
+const report2Id = randomUUID();
+const part1Id = randomUUID();
+const part2Id = randomUUID();
+const part3Id = randomUUID();
+const part4Id = randomUUID();
+const part5Id = randomUUID();
+const location1Id = randomUUID();
+const location2Id = randomUUID();
 
 // Demo users
 const demoUsers = [
   {
-    id: 'dispatcher1',
+    id: dispatcher1Id,
     email: 'dispatcher1@demo.cz',
     role: 'dispatcher' as const,
     name: 'John Smith',
     phone: '+420 123 456 789',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'dispatcher2',
+    id: dispatcher2Id,
     email: 'dispatcher2@demo.cz',
     role: 'dispatcher' as const,
     name: 'Jane Doe',
     phone: '+420 123 456 790',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'technik1',
+    id: technik1Id,
     email: 'technik1@demo.cz',
     role: 'technician' as const,
     name: 'Peter Johnson',
     phone: '+420 777 111 222',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'technik2',
+    id: technik2Id,
     email: 'technik2@demo.cz',
     role: 'technician' as const,
     name: 'Anna Williams',
     phone: '+420 777 111 223',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'technik3',
+    id: technik3Id,
     email: 'technik3@demo.cz',
     role: 'technician' as const,
     name: 'Thomas Brown',
     phone: '+420 777 111 224',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'technik4',
+    id: technik4Id,
     email: 'technik4@demo.cz',
     role: 'technician' as const,
     name: 'Michael Davis',
     phone: '+420 777 111 225',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
   {
-    id: 'technik5',
+    id: technik5Id,
     email: 'technik5@demo.cz',
     role: 'technician' as const,
     name: 'David Miller',
     phone: '+420 777 111 226',
+    avatar_url: null,
+    is_online: false,
+    last_location_lat: null,
+    last_location_lng: null,
   },
 ];
 
 // Demo tasks
 const demoTasks = [
   {
-    id: 'task1',
+    id: task1Id,
     title: 'Switchboard repair',
     description: 'Urgent switchboard malfunction requiring immediate repair',
     address: 'Václavské nám. 1, Praha 1',
@@ -71,9 +123,10 @@ const demoTasks = [
     customer_name: 'John Smith',
     customer_phone: '+420 123 456 789',
     estimated_time: 120,
+    technician_id: null,
   },
   {
-    id: 'task2',
+    id: task2Id,
     title: 'Circuit breaker installation',
     description: 'Replacement of old circuit breakers in residential building',
     address: 'Nám. Svobody 5, Brno',
@@ -86,9 +139,10 @@ const demoTasks = [
     customer_name: 'Paul Smith',
     customer_phone: '+420 123 456 790',
     estimated_time: 180,
+    technician_id: null,
   },
   {
-    id: 'task3',
+    id: task3Id,
     title: 'Electrical installation inspection',
     description: 'Regular electrical installation inspection',
     address: 'Milady Horákové 10, Praha 7',
@@ -101,9 +155,10 @@ const demoTasks = [
     customer_name: 'Anna Johnson',
     customer_phone: '+420 123 456 791',
     estimated_time: 90,
+    technician_id: null,
   },
   {
-    id: 'task4',
+    id: task4Id,
     title: 'Switchboard maintenance',
     description: 'Switchboard inspection and maintenance',
     address: 'Vinohrady, Praha 2',
@@ -116,9 +171,10 @@ const demoTasks = [
     customer_name: 'Peter Brown',
     customer_phone: '+420 123 456 792',
     estimated_time: 120,
+    technician_id: technik1Id,
   },
   {
-    id: 'task5',
+    id: task5Id,
     title: 'Cable replacement',
     description: 'Replacement of old cables in switchboard',
     address: 'Králova Pole, Brno',
@@ -131,22 +187,23 @@ const demoTasks = [
     customer_name: 'Charles Wilson',
     customer_phone: '+420 123 456 793',
     estimated_time: 240,
+    technician_id: technik2Id,
   },
 ];
 
 // Demo reports
 const demoReports = [
   {
-    id: 'report1',
-    task_id: 'task4',
+    id: report1Id,
+    task_id: task4Id,
     status: 'completed' as const,
     photos: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
     form_data: { description: 'Repair completed', parts_used: '3x circuit breaker' },
     signature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
   },
   {
-    id: 'report2',
-    task_id: 'task5',
+    id: report2Id,
+    task_id: task5Id,
     status: 'completed' as const,
     photos: ['https://example.com/photo3.jpg'],
     form_data: { description: 'Replacement completed', parts_used: '5x cable' },
@@ -157,7 +214,7 @@ const demoReports = [
 // Demo parts
 const demoParts = [
   {
-    id: 'part1',
+    id: part1Id,
     name: 'Circuit breaker 16A',
     description: 'Circuit breaker 16A, 2-pole',
     barcode: '5901234123457',
@@ -166,7 +223,7 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: 'part2',
+    id: part2Id,
     name: 'Circuit breaker 25A',
     description: 'Circuit breaker 25A, 2-pole',
     barcode: '5901234123458',
@@ -175,7 +232,7 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: 'part3',
+    id: part3Id,
     name: 'Circuit breaker 32A',
     description: 'Circuit breaker 32A, 2-pole',
     barcode: '5901234123459',
@@ -184,7 +241,7 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: 'part4',
+    id: part4Id,
     name: 'Cable 2.5mm²',
     description: 'Cable 2.5mm², 100m',
     barcode: '5901234123460',
@@ -193,7 +250,7 @@ const demoParts = [
     category: 'cables',
   },
   {
-    id: 'part5',
+    id: part5Id,
     name: 'Cable 1.5mm²',
     description: 'Cable 1.5mm², 100m',
     barcode: '5901234123461',
@@ -206,16 +263,16 @@ const demoParts = [
 // Demo locations
 const demoLocations = [
   {
-    id: 'location1',
-    technician_id: 'technik1',
+    id: location1Id,
+    technician_id: technik1Id,
     latitude: '50.0755',
     longitude: '14.4378',
     accuracy: '10',
     timestamp: new Date(),
   },
   {
-    id: 'location2',
-    technician_id: 'technik2',
+    id: location2Id,
+    technician_id: technik2Id,
     latitude: '49.1955',
     longitude: '16.6081',
     accuracy: '10',

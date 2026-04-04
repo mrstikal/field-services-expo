@@ -1,8 +1,11 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { taskRepository } from '@/lib/db/task-repository';
+import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
+import { useIsOnline } from '@/lib/hooks/use-network-status';
 
 interface Task {
   id: string;
@@ -15,29 +18,79 @@ interface Task {
 export default function HomeScreen() {
   const router = useRouter();
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
+  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const isOnline = useIsOnline();
+  const { sync, isSyncing } = useOfflineSync();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['tasks', 'today'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('status', 'assigned')
-        .order('created_at', { ascending: false });
-      return data || [];
-    },
-  });
-
+  // Fetch from local database first (offline-first)
   useEffect(() => {
-    if (data) {
-      setTodayTasks(data);
+    const fetchLocalTasks = async () => {
+      try {
+        const tasks = await taskRepository.getAll();
+        setLocalTasks(tasks);
+        
+        // Filter for today's assigned tasks
+        const today = new Date().toISOString().split('T')[0];
+        const filtered = tasks.filter(
+          (t) => t.status === 'assigned' && t.due_date.startsWith(today)
+        );
+        setTodayTasks(filtered);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching local tasks:', error);
+        setIsLoading(false);
+      }
+    };
+
+    fetchLocalTasks();
+  }, []);
+
+  // Sync with server when online
+  useEffect(() => {
+    if (isOnline && !isSyncing) {
+      sync();
     }
-  }, [data]);
+  }, [isOnline, isSyncing, sync]);
+
+  // Fallback to server if local data is empty and online
+  useEffect(() => {
+    if (isOnline && localTasks.length === 0 && !isLoading) {
+      const fetchServerTasks = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('status', 'assigned')
+            .order('created_at', { ascending: false });
+          
+          if (data && data.length > 0) {
+            // Save to local database
+            for (const task of data) {
+              await taskRepository.create(task);
+            }
+            setLocalTasks(data);
+            
+            const today = new Date().toISOString().split('T')[0];
+            const filtered = data.filter(
+              (t) => t.status === 'assigned' && t.due_date.startsWith(today)
+            );
+            setTodayTasks(filtered);
+          }
+        } catch (error) {
+          console.error('Error fetching server tasks:', error);
+        }
+      };
+
+      fetchServerTasks();
+    }
+  }, [isOnline, localTasks.length, isLoading]);
 
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <Text>Loading...</Text>
+        <ActivityIndicator size="large" color="#1e40af" />
+        <Text style={styles.loadingText}>Loading tasks...</Text>
       </View>
     );
   }
@@ -55,11 +108,15 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>New Tasks</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>0</Text>
+          <Text style={styles.statNumber}>
+            {localTasks.filter((t) => t.status === 'completed').length}
+          </Text>
           <Text style={styles.statLabel}>Completed</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>0</Text>
+          <Text style={styles.statNumber}>
+            {localTasks.filter((t) => new Date(t.due_date) < new Date() && t.status !== 'completed').length}
+          </Text>
           <Text style={styles.statLabel}>Overdue</Text>
         </View>
       </View>
@@ -158,5 +215,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#6b7280',
     padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    color: '#6b7280',
   },
 });

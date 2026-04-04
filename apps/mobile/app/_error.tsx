@@ -1,15 +1,18 @@
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Button } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
-export default function ErrorBoundary({ error, reset }: { error: Error; reset: () => void }) {
+export default function ErrorBoundary() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Něco se pokazilo</Text>
-      <Text style={styles.message}>{error.message}</Text>
-      <Button title="Zkusit znovu" onPress={() => reset()} />
-      <Button title="Zpět na domov" onPress={() => router.replace('/')} />
+      <View style={styles.iconContainer}>
+        <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
+      </View>
+      <Text style={styles.title}>Something went wrong</Text>
+      <Text style={styles.subtitle}>We apologize, but an unexpected error occurred</Text>
+      <Button title="Back to home" onPress={() => router.push('/')} />
     </View>
   );
 }
@@ -17,21 +20,24 @@ export default function ErrorBoundary({ error, reset }: { error: Error; reset: (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f9fafb',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
+  },
+  iconContainer: {
+    marginBottom: 24,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ef4444',
-    marginBottom: 16,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 8,
   },
-  message: {
+  subtitle: {
     fontSize: 16,
     color: '#6b7280',
-    marginBottom: 24,
+    marginBottom: 32,
     textAlign: 'center',
   },
 });

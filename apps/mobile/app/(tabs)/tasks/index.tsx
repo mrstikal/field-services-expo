@@ -44,13 +44,15 @@ const getStatusLabel = (status: string) => {
 export default function TasksListScreen() {
   const router = useRouter();
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      if (error) throw error;
       return data || [];
     },
   });
@@ -99,6 +101,11 @@ export default function TasksListScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <Text>Loading tasks...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
+          <Text style={styles.errorText}>Error loading tasks: {error.message}</Text>
         </View>
       ) : tasks.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -214,6 +221,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    marginTop: 12,
   },
   emptyContainer: {
     flex: 1,

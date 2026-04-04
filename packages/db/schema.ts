@@ -45,6 +45,7 @@ export const tasks = pgTable('tasks', {
   technician_id: uuid('technician_id').references(() => users.id),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+  version: integer('version').notNull().default(1),
 });
 
 export const tasksSchema = createSelectSchema(tasks);
@@ -59,6 +60,7 @@ export const reports = pgTable('reports', {
   signature: text('signature'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+  version: integer('version').notNull().default(1),
 });
 
 export const reportsSchema = createSelectSchema(reports);

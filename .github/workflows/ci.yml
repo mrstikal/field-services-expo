@@ -44,7 +44,7 @@ jobs:
         run: pnpm lint
       
       - name: Check code formatting
-        run: pnpm format --check
+        run: pnpm prettier --check "**/*.{ts,tsx,js,jsx,json,md}"
 
   typecheck:
     name: TypeScript Type Check

@@ -7,7 +7,9 @@
       "@/*": ["./*"],
       "@lib/*": ["./lib/*"],
       "@components/*": ["./components/*"],
-      "@shared/*": ["../../packages/shared-types/*"]
+      "@shared/*": ["../../packages/shared-types/*"],
+      "@db/*": ["../../packages/db/*"],
+      "@db": ["../../packages/db/index"]
     },
     "moduleResolution": "bundler",
     "jsx": "react-jsx",

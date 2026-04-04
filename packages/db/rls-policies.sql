@@ -16,7 +16,7 @@ ALTER TABLE sync_queue ENABLE ROW LEVEL SECURITY;
 -- Users can view their own profile
 CREATE POLICY "Users can view own profile"
 ON users FOR SELECT
-USING (auth.uid()::text = id);
+USING (auth.uid() = id);
 
 -- Dispatchers can view all technicians
 CREATE POLICY "Dispatchers can view all technicians"
@@ -29,7 +29,7 @@ USING (
 -- Users can update their own profile
 CREATE POLICY "Users can update own profile"
 ON users FOR UPDATE
-USING (auth.uid()::text = id);
+USING (auth.uid() = id);
 
 -- ============================================================================
 -- TASKS TABLE POLICIES
@@ -40,7 +40,7 @@ CREATE POLICY "Technicians can view own tasks"
 ON tasks FOR SELECT
 USING (
   auth.jwt() ->> 'role' = 'technician'
-  AND technician_id = auth.uid()::text
+  AND technician_id = auth.uid()
 );
 
 -- Dispatchers can view all tasks
@@ -63,7 +63,7 @@ CREATE POLICY "Technicians can update own tasks"
 ON tasks FOR UPDATE
 USING (
   auth.jwt() ->> 'role' = 'technician'
-  AND technician_id = auth.uid()::text
+  AND technician_id = auth.uid()
 );
 
 -- Dispatchers can delete tasks
@@ -81,7 +81,7 @@ ON reports FOR SELECT
 USING (
   auth.jwt() ->> 'role' = 'technician'
   AND task_id IN (
-    SELECT id FROM tasks WHERE technician_id = auth.uid()::text
+    SELECT id FROM tasks WHERE technician_id = auth.uid()
   )
 );
 
@@ -96,7 +96,7 @@ ON reports FOR INSERT
 WITH CHECK (
   auth.jwt() ->> 'role' = 'technician'
   AND task_id IN (
-    SELECT id FROM tasks WHERE technician_id = auth.uid()::text
+    SELECT id FROM tasks WHERE technician_id = auth.uid()
   )
 );
 
@@ -106,7 +106,7 @@ ON reports FOR UPDATE
 USING (
   auth.jwt() ->> 'role' = 'technician'
   AND task_id IN (
-    SELECT id FROM tasks WHERE technician_id = auth.uid()::text
+    SELECT id FROM tasks WHERE technician_id = auth.uid()
   )
 );
 
@@ -124,7 +124,7 @@ CREATE POLICY "Technicians can view own locations"
 ON locations FOR SELECT
 USING (
   auth.jwt() ->> 'role' = 'technician'
-  AND technician_id = auth.uid()::text
+  AND technician_id = auth.uid()
 );
 
 -- Dispatchers can view all technician locations
@@ -137,7 +137,7 @@ CREATE POLICY "Technicians can insert own locations"
 ON locations FOR INSERT
 WITH CHECK (
   auth.jwt() ->> 'role' = 'technician'
-  AND technician_id = auth.uid()::text
+  AND technician_id = auth.uid()
 );
 
 -- Technicians can update their own locations
@@ -145,7 +145,7 @@ CREATE POLICY "Technicians can update own locations"
 ON locations FOR UPDATE
 USING (
   auth.jwt() ->> 'role' = 'technician'
-  AND technician_id = auth.uid()::text
+  AND technician_id = auth.uid()
 );
 
 -- ============================================================================

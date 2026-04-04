@@ -1,10 +1,16 @@
+'use client';
+
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { LayoutDashboard, ClipboardList, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { auth } from '@/app/middleware';
+import { supabase } from '@/lib/supabase';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -21,13 +27,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
               Overview
             </Button>
           </Link>
-          <Link href="/tasks">
+          <Link href="/dashboard/tasks">
             <Button variant="ghost" className="w-full justify-start">
               <ClipboardList className="mr-2 h-4 w-4" />
               Tasks
             </Button>
           </Link>
-          <Link href="/technicians">
+          <Link href="/dashboard/technicians">
             <Button variant="ghost" className="w-full justify-start">
               <Users className="mr-2 h-4 w-4" />
               Technicians
@@ -36,7 +42,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <Button variant="outline" className="w-full justify-start" onClick={() => auth.signOut()}>
+          <Button variant="outline" className="w-full justify-start" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
           </Button>
@@ -48,7 +54,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Mobile Header */}
         <div className="md:hidden p-4 bg-white border-b border-gray-200 flex items-center justify-between">
           <h1 className="text-xl font-bold">Field Service</h1>
-          <Button variant="ghost" onClick={() => auth.signOut()}>
+          <Button variant="ghost" onClick={handleSignOut}>
             <LogOut className="h-5 w-5" />
           </Button>
         </div>

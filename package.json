@@ -8,8 +8,9 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
+    "db:seed": "pnpm --filter @field-service/db db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "setup": "pnpm install && pnpm db:seed"
+    "setup": "pnpm install && pnpm --filter @field-service/db db:seed"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
@@ -18,6 +19,8 @@
   },
   "packageManager": "pnpm@10.28.1",
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.10.0",
     "class-variance-authority": "^0.7.1",
     "next": "^16.2.2"
   }
