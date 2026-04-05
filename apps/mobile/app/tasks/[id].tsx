@@ -1,8 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native';
+/* eslint-disable react-native/no-color-literals, react-native/no-inline-styles */
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import { useRealtimeTask } from '@/lib/hooks/use-realtime-tasks';
 
 interface Task {
   id: string;
@@ -41,11 +44,11 @@ const getPriorityColor = (priority: string) => {
 const getStatusLabel = (status: string) => {
   switch (status) {
     case 'assigned':
-      return 'Přiřazeno';
+      return 'Assigned';
     case 'in_progress':
-      return 'Rozpracováno';
+      return 'In Progress';
     case 'completed':
-      return 'Dokončeno';
+      return 'Completed';
     default:
       return status;
   }
@@ -54,13 +57,13 @@ const getStatusLabel = (status: string) => {
 const getCategoryLabel = (category: string) => {
   switch (category) {
     case 'repair':
-      return 'Oprava';
+      return 'Repair';
     case 'installation':
-      return 'Instalace';
+      return 'Installation';
     case 'maintenance':
-      return 'Údržba';
+      return 'Maintenance';
     case 'inspection':
-      return 'Kontrola';
+      return 'Inspection';
     default:
       return category;
   }
@@ -69,6 +72,9 @@ const getCategoryLabel = (category: string) => {
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+
+  // Enable real-time updates for this specific task
+  useRealtimeTask(id);
 
   const { data: task, isLoading, error } = useQuery({
     queryKey: ['task', id],
@@ -85,11 +91,13 @@ export default function TaskDetailScreen() {
     enabled: !!id,
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const handleNavigate = () => {
     if (task?.latitude && task?.longitude) {
       const url = `geo:${task.latitude},${task.longitude}?q=${encodeURIComponent(task.address)}`;
       Linking.openURL(url).catch(() => {
-        Alert.alert('Chyba', 'Mapy nejsou dostupné');
+        Alert.alert('Error', 'Maps are not available');
       });
     }
   };
@@ -97,7 +105,7 @@ export default function TaskDetailScreen() {
   const handleCall = () => {
     if (task?.customer_phone) {
       Linking.openURL(`tel:${task.customer_phone}`).catch(() => {
-        Alert.alert('Chyba', 'Telefonování není dostupné');
+        Alert.alert('Error', 'Calling is not available');
       });
     }
   };
@@ -112,17 +120,26 @@ export default function TaskDetailScreen() {
         .update({ status: 'in_progress', updated_at: new Date().toISOString() })
         .eq('id', task.id);
       
-      if (error) throw error;
-      
-      // Invalidovat cache
+      if (error) {
+        Alert.alert('Error', 'Failed to start task');
+        return;
+      }
+
+      // Invalidate cache
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
       await queryClient.invalidateQueries({ queryKey: ['task', id] });
       
-      Alert.alert('Úspěch', 'Úkol byl zahájen');
+      Alert.alert('Success', 'Task has been started');
       router.back();
-    } catch (err) {
-      Alert.alert('Chyba', 'Nepodařilo se zahájit úkol');
+    } catch {
+      Alert.alert('Error', 'Failed to start task');
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ['task', id] });
+    setRefreshing(false);
   };
 
   if (isLoading) {
@@ -132,11 +149,11 @@ export default function TaskDetailScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="#1e40af" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detail úkolu</Text>
+          <Text style={styles.headerTitle}>Task Detail</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <Text>Načítání...</Text>
+          <Text>Loading...</Text>
         </View>
       </View>
     );
@@ -149,12 +166,12 @@ export default function TaskDetailScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={24} color="#1e40af" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Detail úkolu</Text>
+          <Text style={styles.headerTitle}>Task Detail</Text>
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-          <Text style={styles.errorText}>Úkol se nepodařilo načíst</Text>
+          <Text style={styles.errorText}>Failed to load task</Text>
         </View>
       </View>
     );
@@ -166,11 +183,15 @@ export default function TaskDetailScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#1e40af" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Detail úkolu</Text>
+        <Text style={styles.headerTitle}>Task Detail</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         {/* Title and Status */}
         <View style={styles.section}>
           <View style={styles.titleRow}>
@@ -192,7 +213,7 @@ export default function TaskDetailScreen() {
         {/* Status */}
         <View style={styles.section}>
           <View style={styles.statusRow}>
-            <Text style={styles.label}>Stav:</Text>
+            <Text style={styles.label}>Status:</Text>
             <View style={styles.statusIndicator}>
               <View
                 style={[
@@ -214,13 +235,13 @@ export default function TaskDetailScreen() {
 
         {/* Description */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popis práce</Text>
+          <Text style={styles.sectionTitle}>Work Description</Text>
           <Text style={styles.description}>{task.description}</Text>
         </View>
 
         {/* Customer Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Kontakt na zákazníka</Text>
+          <Text style={styles.sectionTitle}>Customer Contact</Text>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Ionicons name="person-outline" size={16} color="#6b7280" />
@@ -235,7 +256,7 @@ export default function TaskDetailScreen() {
 
         {/* Location */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Místo práce</Text>
+          <Text style={styles.sectionTitle}>Work Location</Text>
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Ionicons name="location-outline" size={16} color="#6b7280" />
@@ -254,11 +275,11 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <View style={styles.twoColumnRow}>
             <View style={styles.column}>
-              <Text style={styles.label}>Odhadovaný čas:</Text>
-              <Text style={styles.value}>{task.estimated_time} minut</Text>
+              <Text style={styles.label}>Estimated Time:</Text>
+              <Text style={styles.value}>{task.estimated_time} minutes</Text>
             </View>
             <View style={styles.column}>
-              <Text style={styles.label}>Priorita:</Text>
+              <Text style={styles.label}>Priority:</Text>
               <Text style={[styles.value, { color: getPriorityColor(task.priority) }]}>
                 {task.priority.toUpperCase()}
               </Text>
@@ -268,9 +289,9 @@ export default function TaskDetailScreen() {
 
         {/* Due Date */}
         <View style={styles.section}>
-          <Text style={styles.label}>Termín:</Text>
+          <Text style={styles.label}>Due Date:</Text>
           <Text style={styles.value}>
-            {new Date(task.due_date).toLocaleDateString('cs-CZ', {
+            {new Date(task.due_date).toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -285,12 +306,12 @@ export default function TaskDetailScreen() {
         <View style={styles.section}>
           <TouchableOpacity style={styles.actionButton} onPress={handleNavigate}>
             <Ionicons name="navigate" size={20} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Navigovat</Text>
+            <Text style={styles.actionButtonText}>Navigate</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionButton, styles.callButton]} onPress={handleCall}>
             <Ionicons name="call" size={20} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Zavolat</Text>
+            <Text style={styles.actionButtonText}>Call</Text>
           </TouchableOpacity>
 
           {task.status !== 'completed' && (
@@ -300,7 +321,7 @@ export default function TaskDetailScreen() {
             >
               <Ionicons name="play" size={20} color="#ffffff" />
               <Text style={styles.actionButtonText}>
-                {task.status === 'in_progress' ? 'Rozpracováno' : 'Zahájit práci'}
+                {task.status === 'in_progress' ? 'In Progress' : 'Start Work'}
               </Text>
             </TouchableOpacity>
           )}
@@ -311,163 +332,163 @@ export default function TaskDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  header: {
-    flexDirection: 'row',
+  actionButton: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#1e40af',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
   },
-  headerTitle: {
-    fontSize: 18,
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    marginLeft: 8,
+  },
+  callButton: {
+    backgroundColor: '#059669',
+  },
+  category: {
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  column: {
+    flex: 1,
+  },
+  container: {
+    backgroundColor: '#f9fafb',
+    flex: 1,
   },
   content: {
     flex: 1,
     padding: 16,
   },
-  section: {
-    marginBottom: 20,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  category: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginLeft: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ffffff',
-    textTransform: 'capitalize',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
   description: {
-    fontSize: 14,
     color: '#4b5563',
+    fontSize: 14,
     lineHeight: 20,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 16,
+    marginTop: 12,
+  },
+  header: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    color: '#1f2937',
+    fontSize: 18,
+    fontWeight: '600',
   },
   infoCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
     borderColor: '#e5e7eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
   },
   infoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
+    flexDirection: 'row',
     marginBottom: 12,
   },
   infoText: {
-    fontSize: 14,
     color: '#1f2937',
-    marginLeft: 12,
     flex: 1,
+    fontSize: 14,
+    marginLeft: 12,
   },
   label: {
+    color: '#6b7280',
     fontSize: 12,
     fontWeight: '600',
-    color: '#6b7280',
-    textTransform: 'uppercase',
     marginBottom: 4,
+    textTransform: 'uppercase',
   },
-  value: {
+  loadingContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    color: '#1f2937',
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 12,
+  },
+  startButton: {
+    backgroundColor: '#f97316',
+  },
+  statusBadge: {
+    borderRadius: 6,
+    marginLeft: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  statusDot: {
+    borderRadius: 4,
+    height: 8,
+    marginRight: 8,
+    width: 8,
+  },
+  statusIndicator: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  statusRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  statusValue: {
     color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  title: {
+    color: '#1f2937',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  titleRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   twoColumnRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  column: {
-    flex: 1,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1e40af',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  callButton: {
-    backgroundColor: '#059669',
-  },
-  startButton: {
-    backgroundColor: '#f97316',
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
+  value: {
+    color: '#1f2937',
     fontSize: 16,
-    color: '#ef4444',
-    marginTop: 12,
+    fontWeight: '600',
   },
 });

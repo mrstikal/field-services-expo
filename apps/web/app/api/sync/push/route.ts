@@ -1,7 +1,8 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { syncQueue, tasks, reports, locations, users } from '@db/schema';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { db, connect } from '@db';
 
 /**
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Authorization helper function
-async function checkAuthorization(userId: string, userRole: string, type: string, action: string, data: any): Promise<boolean> {
+async function checkAuthorization(userId: string, userRole: string, type: string, action: string, data: Record<string, unknown>): Promise<boolean> {
   switch (type) {
     case 'task':
       // Dispatcher can do anything with tasks
@@ -168,8 +169,8 @@ async function checkAuthorization(userId: string, userRole: string, type: string
           // Technician can only create tasks assigned to themselves
           return data.technician_id === userId;
         } else {
-          // For update/delete, check if the existing task belongs to the technician
-          const task = await db.select().from(tasks).where(eq(tasks.id, data.id)).limit(1);
+           // For update/delete, check if the existing task belongs to the technician
+           const task = await db.select().from(tasks).where(eq(tasks.id, data.id as string)).limit(1);
           if (!task.length) {
             // If task doesn't exist and it's an update/delete, authorize based on whether it should exist
             // In practice, we should check the sync queue or have the client send more context
@@ -194,13 +195,13 @@ async function checkAuthorization(userId: string, userRole: string, type: string
           .select({ technician_id: tasks.technician_id })
           .from(reports)
           .leftJoin(tasks, eq(reports.task_id, tasks.id))
-          .where(eq(reports.id, data.id))
+          .where(eq(reports.id, data.id as string))
           .limit(1);
 
         if (reportTask.length === 0) {
           // If creating a new report, check the task it belongs to
           if (action === 'create') {
-            const task = await db.select().from(tasks).where(eq(tasks.id, data.task_id)).limit(1);
+            const task = await db.select().from(tasks).where(eq(tasks.id, data.task_id as string)).limit(1);
             if (task.length === 0) {
               // Task doesn't exist, can't validate ownership
               return false;
@@ -214,7 +215,7 @@ async function checkAuthorization(userId: string, userRole: string, type: string
               .select({ technician_id: tasks.technician_id })
               .from(reports)
               .leftJoin(tasks, eq(reports.task_id, tasks.id))
-              .where(eq(reports.id, data.id))
+              .where(eq(reports.id, data.id as string))
               .limit(1);
               
             if (taskOfReport.length === 0) {
@@ -265,78 +266,78 @@ async function getLocalVersion(type: string, id: string): Promise<number | null>
 }
 
 // Helper: Process task changes
-async function processTaskChange(action: string, data: any) {
+async function processTaskChange(action: string, data: Record<string, unknown>) {
   switch (action) {
     case 'create':
       // Use upsert with ON CONFLICT to handle duplicate keys gracefully
-      await db.insert(tasks).values(data).onConflictDoUpdate({
-        target: tasks.id,
-        set: {
-          title: data.title,
-          description: data.description,
-          address: data.address,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          status: data.status,
-          priority: data.priority,
-          category: data.category,
-          due_date: data.due_date,
-          customer_name: data.customer_name,
-          customer_phone: data.customer_phone,
-          estimated_time: data.estimated_time,
-          technician_id: data.technician_id,
-          updated_at: data.updated_at,
-          version: data.version
-        }
-      });
+       await db.insert(tasks).values(data as typeof tasks.$inferInsert).onConflictDoUpdate({
+         target: tasks.id,
+         set: {
+           title: (data.title as string) || '',
+           description: (data.description as string) || '',
+           address: (data.address as string) || '',
+           latitude: data.latitude as number | null,
+           longitude: data.longitude as number | null,
+           status: (data.status as 'assigned' | 'in_progress' | 'completed') || 'assigned',
+           priority: (data.priority as 'low' | 'medium' | 'high' | 'urgent') || 'medium',
+           category: (data.category as 'repair' | 'installation' | 'maintenance' | 'inspection') || 'repair',
+           due_date: new Date(data.due_date as string),
+           customer_name: (data.customer_name as string) || '',
+           customer_phone: (data.customer_phone as string) || '',
+           estimated_time: (data.estimated_time as number) || 0,
+           technician_id: data.technician_id as string | undefined,
+           updated_at: new Date(data.updated_at as string),
+           version: (data.version as number) || 1
+         }
+       });
       break;
     case 'update':
-      await db.update(tasks).set(data).where(eq(tasks.id, data.id));
+      await db.update(tasks).set(data).where(eq(tasks.id, data.id as string));
       break;
     case 'delete':
-      await db.delete(tasks).where(eq(tasks.id, data.id));
+      await db.delete(tasks).where(eq(tasks.id, data.id as string));
       break;
   }
 }
 
 // Helper: Process report changes
-async function processReportChange(action: string, data: any) {
+async function processReportChange(action: string, data: Record<string, unknown>) {
   switch (action) {
     case 'create':
       // Use upsert with ON CONFLICT to handle duplicate keys gracefully
-      await db.insert(reports).values(data).onConflictDoUpdate({
+      await db.insert(reports).values(data as typeof reports.$inferInsert).onConflictDoUpdate({
         target: reports.id,
         set: {
-          task_id: data.task_id,
-          status: data.status,
-          photos: data.photos,
-          form_data: data.form_data,
-          signature: data.signature,
-          updated_at: data.updated_at,
-          version: data.version
+          task_id: (data.task_id as string) || '',
+          status: (data.status as 'draft' | 'completed' | 'synced') || 'draft',
+          photos: (data.photos as string[]) || [],
+          form_data: (data.form_data as Record<string, unknown>) || {},
+          signature: data.signature as string | undefined,
+          updated_at: new Date(data.updated_at as string),
+          version: (data.version as number) || 1
         }
       });
       break;
     case 'update':
-      await db.update(reports).set(data).where(eq(reports.id, data.id));
+      await db.update(reports).set(data).where(eq(reports.id, data.id as string));
       break;
     case 'delete':
-      await db.delete(reports).where(eq(reports.id, data.id));
+      await db.delete(reports).where(eq(reports.id, data.id as string));
       break;
   }
 }
 
 // Helper: Process location changes
-async function processLocationChange(action: string, data: any) {
+async function processLocationChange(action: string, data: Record<string, unknown>) {
   switch (action) {
     case 'create':
-      await db.insert(locations).values(data);
+      await db.insert(locations).values(data as typeof locations.$inferInsert);
       break;
     case 'update':
-      await db.update(locations).set(data).where(eq(locations.id, data.id));
+      await db.update(locations).set(data as typeof locations.$inferInsert).where(eq(locations.id, data.id as string));
       break;
     case 'delete':
-      await db.delete(locations).where(eq(locations.id, data.id));
+      await db.delete(locations).where(eq(locations.id, data.id as string));
       break;
   }
 }

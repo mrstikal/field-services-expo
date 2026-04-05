@@ -7,7 +7,7 @@ import { SQLiteDatabase } from 'expo-sqlite';
  * Implements offline-first pattern with sync queue integration
  */
 export class ReportRepository {
-  private db: any | null = null;
+  private db: SQLiteDatabase | null = null;
 
   private getDb(): SQLiteDatabase {
     if (!this.db) {
@@ -22,9 +22,9 @@ export class ReportRepository {
     * Create a new report locally
     * Automatically adds to sync_queue for later sync
     */
-   async create(report: Omit<Report, 'created_at' | 'updated_at' | 'version' | 'synced'>): Promise<Report> {
-     const now = new Date().toISOString();
-     const id = report.id || crypto.randomUUID();
+    async create(report: Omit<Report, 'created_at' | 'updated_at' | 'version' | 'synced'>): Promise<Report> {
+      const now = new Date().toISOString();
+      const id = (report as Omit<Report, 'created_at' | 'updated_at' | 'version' | 'synced'> & { id?: string }).id || crypto.randomUUID();
      const version = 1;
 
      const newReport: Report = {
@@ -34,7 +34,7 @@ export class ReportRepository {
        updated_at: now,
        version,
        synced: 0,
-     };
+     } as Report;
 
      // Insert report
      await this.getDb().runAsync(
@@ -184,9 +184,9 @@ export class ReportRepository {
     const now = new Date().toISOString();
     const version = existing.version + 1;
 
-    // Build update query dynamically
-    const updateFields: string[] = [];
-    const params: any[] = [];
+     // Build update query dynamically
+     const updateFields: string[] = [];
+     const params: (string | number | null)[] = [];
 
     if (updates.task_id !== undefined) {
       updateFields.push('task_id = ?');
@@ -265,7 +265,7 @@ export class ReportRepository {
   private async addToSyncQueue(
     type: 'task' | 'report' | 'location',
     action: 'create' | 'update' | 'delete',
-    data: any,
+    data: Record<string, unknown>,
     version: number
   ): Promise<void> {
     const now = new Date().toISOString();

@@ -39,27 +39,56 @@ export function useOfflineSync() {
     lastPush: null,
   });
 
-  // Use global lock from sync engine instead of local ref
-  const isSyncInProgress = globalSyncEngine.isSyncInProgress();
+   // Use global lock from sync engine instead of local ref
+   const isSyncInProgress = globalSyncEngine.isSyncInProgress();
 
-  // Initialize sync engine when user logs in
-  useEffect(() => {
-    if (user) {
-      globalSyncEngine.initialize();
-    }
-  }, [user]);
+   // Perform full sync (pull + push)
+   const performFullSync = useCallback(async () => {
+     if (!user) return;
+     if (!globalSyncEngine.beginSync()) return;
 
-  // Auto-sync when going online
-  useEffect(() => {
-    if (isOnline && !isSyncInProgress && user) {
-      // Debounce to avoid multiple rapid syncs
-      const timeoutId = setTimeout(() => {
-        performFullSync();
-      }, 1000);
+     setSyncState((prev) => ({ ...prev, isSyncing: true }));
 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isOnline, user, isSyncInProgress]);
+     try {
+       const syncPromise = globalSyncEngine.fullSync();
+       const timeoutPromise = new Promise((_, reject) =>
+         setTimeout(() => reject(new Error('Sync timeout')), 30000)
+       );
+       
+        const result = await Promise.race([syncPromise, timeoutPromise]);
+
+        setSyncState((prev) => ({
+          ...prev,
+          lastPull: (result as Record<string, unknown>).pulled as typeof prev.lastPull,
+          lastPush: (result as Record<string, unknown>).pushed as typeof prev.lastPush,
+          isSyncing: false,
+        }));
+     } catch (error) {
+       console.error('Full sync failed:', error);
+       setSyncState((prev) => ({ ...prev, isSyncing: false }));
+     } finally {
+       globalSyncEngine.endSync();
+     }
+   }, [user]);
+
+   // Initialize sync engine when user logs in
+   useEffect(() => {
+     if (user) {
+       globalSyncEngine.initialize();
+     }
+   }, [user]);
+
+   // Auto-sync when going online
+   useEffect(() => {
+     if (isOnline && !isSyncInProgress && user) {
+       // Debounce to avoid multiple rapid syncs
+       const timeoutId = setTimeout(() => {
+         performFullSync();
+       }, 1000);
+
+       return () => clearTimeout(timeoutId);
+     }
+   }, [isOnline, user, isSyncInProgress, performFullSync]);
 
   // Fetch sync status periodically
   useEffect(() => {
@@ -75,30 +104,6 @@ export function useOfflineSync() {
     }, 30000); // Update every 30 seconds
 
     return () => clearInterval(intervalId);
-  }, [user]);
-
-  // Perform full sync (pull + push)
-  const performFullSync = useCallback(async () => {
-    if (!user) return;
-    if (!globalSyncEngine.beginSync()) return;
-
-    setSyncState((prev) => ({ ...prev, isSyncing: true }));
-
-    try {
-      const result = await globalSyncEngine.fullSync();
-
-      setSyncState((prev) => ({
-        ...prev,
-        lastPull: result.pulled,
-        lastPush: result.pushed,
-        isSyncing: false,
-      }));
-    } catch (error) {
-      console.error('Full sync failed:', error);
-      setSyncState((prev) => ({ ...prev, isSyncing: false }));
-    } finally {
-      globalSyncEngine.endSync();
-    }
   }, [user]);
 
   // Manual sync trigger
@@ -197,7 +202,7 @@ export function useOfflineSync() {
 /**
  * Hook that triggers callback when sync completes successfully
  */
-export function useOnSyncComplete(callback: (result: any) => void) {
+export function useOnSyncComplete(callback: (result: { pull: SyncState['lastPull']; push: SyncState['lastPush'] }) => void) {
   const { syncState } = useOfflineSync();
 
   useEffect(() => {

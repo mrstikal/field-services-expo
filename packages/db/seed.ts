@@ -1,6 +1,5 @@
 import { db } from './index';
 import { users, tasks, reports, parts, locations } from './schema';
-import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 // Generate UUIDs for references
@@ -109,13 +108,13 @@ const demoUsers = [
 
 // Demo tasks
 const demoTasks = [
-  {
-    id: task1Id,
-    title: 'Switchboard repair',
-    description: 'Urgent switchboard malfunction requiring immediate repair',
-    address: 'Václavské nám. 1, Praha 1',
-    latitude: '50.0755',
-    longitude: '14.4378',
+   {
+     id: task1Id,
+     title: 'Switchboard repair',
+     description: 'Urgent switchboard malfunction requiring immediate repair',
+     address: 'Václavské nám. 1, Praha 1',
+     latitude: 50.0755,
+     longitude: 14.4378,
     status: 'assigned' as const,
     priority: 'urgent' as const,
     category: 'repair' as const,
@@ -130,8 +129,8 @@ const demoTasks = [
     title: 'Circuit breaker installation',
     description: 'Replacement of old circuit breakers in residential building',
     address: 'Nám. Svobody 5, Brno',
-    latitude: '49.1955',
-    longitude: '16.6081',
+    latitude: 49.1955,
+    longitude: 16.6081,
     status: 'assigned' as const,
     priority: 'high' as const,
     category: 'installation' as const,
@@ -146,8 +145,8 @@ const demoTasks = [
     title: 'Electrical installation inspection',
     description: 'Regular electrical installation inspection',
     address: 'Milady Horákové 10, Praha 7',
-    latitude: '50.0886',
-    longitude: '14.4206',
+    latitude: 50.0886,
+    longitude: 14.4206,
     status: 'assigned' as const,
     priority: 'medium' as const,
     category: 'inspection' as const,
@@ -162,8 +161,8 @@ const demoTasks = [
     title: 'Switchboard maintenance',
     description: 'Switchboard inspection and maintenance',
     address: 'Vinohrady, Praha 2',
-    latitude: '50.0833',
-    longitude: '14.4458',
+    latitude: 50.0833,
+    longitude: 14.4458,
     status: 'in_progress' as const,
     priority: 'medium' as const,
     category: 'maintenance' as const,
@@ -178,8 +177,8 @@ const demoTasks = [
     title: 'Cable replacement',
     description: 'Replacement of old cables in switchboard',
     address: 'Králova Pole, Brno',
-    latitude: '49.1833',
-    longitude: '16.6000',
+    latitude: 49.1833,
+    longitude: 16.6000,
     status: 'in_progress' as const,
     priority: 'high' as const,
     category: 'repair' as const,
@@ -265,17 +264,17 @@ const demoLocations = [
   {
     id: location1Id,
     technician_id: technik1Id,
-    latitude: '50.0755',
-    longitude: '14.4378',
-    accuracy: '10',
+    latitude: 50.0755,
+    longitude: 14.4378,
+    accuracy: 10,
     timestamp: new Date(),
   },
   {
     id: location2Id,
     technician_id: technik2Id,
-    latitude: '49.1955',
-    longitude: '16.6081',
-    accuracy: '10',
+    latitude: 49.1955,
+    longitude: 16.6081,
+    accuracy: 10,
     timestamp: new Date(),
   },
 ];

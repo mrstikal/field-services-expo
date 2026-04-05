@@ -22,6 +22,7 @@ export interface Task {
   updated_at: string;
   version: number;
   synced: number;
+  [key: string]: unknown;
 }
 
 // Technician types
@@ -54,6 +55,7 @@ export interface Report {
   updated_at: string;
   version: number;
   synced: number;
+  [key: string]: unknown;
 }
 
 // Location types

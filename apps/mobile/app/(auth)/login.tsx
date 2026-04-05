@@ -1,5 +1,6 @@
+/* eslint-disable react-native/no-color-literals */
 import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -105,51 +106,51 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
     backgroundColor: '#f5f5f5',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-    color: '#1e40af',
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 30,
-    color: '#6b7280',
-  },
-  input: {
-    backgroundColor: 'white',
-    padding: 12,
+  demoSection: {
+    backgroundColor: '#f3f4f6',
     borderRadius: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    marginTop: 20,
+    padding: 16,
+  },
+  demoText: {
+    color: '#6b7280',
+    fontSize: 12,
+    textAlign: 'center',
   },
   error: {
     color: '#ef4444',
-    textAlign: 'center',
     marginBottom: 12,
+    textAlign: 'center',
   },
   errorText: {
     color: '#ef4444',
     fontSize: 12,
     marginBottom: 8,
   },
-  demoSection: {
-    marginTop: 20,
-    padding: 16,
-    backgroundColor: '#f3f4f6',
+  input: {
+    backgroundColor: 'white',
+    borderColor: '#e5e7eb',
     borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 12,
+    padding: 12,
   },
-  demoText: {
-    fontSize: 12,
-    textAlign: 'center',
+  subtitle: {
     color: '#6b7280',
+    fontSize: 16,
+    marginBottom: 30,
+    textAlign: 'center',
+  },
+  title: {
+    color: '#1e40af',
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 });

@@ -1,11 +1,10 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 
 export default function ReportDetailScreen() {
   const { id } = useLocalSearchParams();
-  const router = useRouter();
 
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['report', id],
@@ -51,16 +50,17 @@ export default function ReportDetailScreen() {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#f9fafb',
-  },
   center: {
+    alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+  container: {
+    backgroundColor: '#f9fafb',
+    flex: 1,
+    padding: 16,
   },
   title: {
     fontSize: 20,

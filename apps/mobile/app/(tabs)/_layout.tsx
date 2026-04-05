@@ -21,7 +21,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Domů',
+          title: 'Home',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
@@ -31,7 +31,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tasks/index"
         options={{
-          title: 'Úkoly',
+          title: 'Tasks',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list-outline" size={size} color={color} />
@@ -41,7 +41,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="reports/index"
         options={{
-          title: 'Reporty',
+          title: 'Reports',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="document-text-outline" size={size} color={color} />
@@ -51,7 +51,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
+          title: 'Profile',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />

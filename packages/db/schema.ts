@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, boolean, numeric, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, boolean, numeric, integer, jsonb, doublePrecision } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
@@ -11,8 +11,8 @@ export const users = pgTable('users', {
   phone: text('phone'),
   avatar_url: text('avatar_url'),
   is_online: boolean('is_online').default(false),
-  last_location_lat: numeric('last_location_lat'),
-  last_location_lng: numeric('last_location_lng'),
+  last_location_lat: doublePrecision('last_location_lat'),
+  last_location_lng: doublePrecision('last_location_lng'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -33,8 +33,8 @@ export const tasks = pgTable('tasks', {
   title: text('title').notNull(),
   description: text('description').notNull(),
   address: text('address').notNull(),
-  latitude: numeric('latitude').notNull(),
-  longitude: numeric('longitude').notNull(),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   status: text('status', { enum: ['assigned', 'in_progress', 'completed'] }).notNull().default('assigned'),
   priority: text('priority', { enum: ['low', 'medium', 'high', 'urgent'] }).notNull().default('medium'),
   category: text('category', { enum: ['repair', 'installation', 'maintenance', 'inspection'] }).notNull(),
@@ -69,9 +69,9 @@ export const reportsSchema = createSelectSchema(reports);
 export const locations = pgTable('locations', {
   id: uuid('id').primaryKey().defaultRandom(),
   technician_id: uuid('technician_id').notNull().references(() => users.id),
-  latitude: numeric('latitude').notNull(),
-  longitude: numeric('longitude').notNull(),
-  accuracy: numeric('accuracy').notNull(),
+  latitude: doublePrecision('latitude').notNull(),
+  longitude: doublePrecision('longitude').notNull(),
+  accuracy: doublePrecision('accuracy').notNull(),
   timestamp: timestamp('timestamp').notNull(),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });

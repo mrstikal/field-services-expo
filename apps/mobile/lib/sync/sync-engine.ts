@@ -9,7 +9,7 @@ interface SyncQueueItem {
   id: string;
   type: 'task' | 'report' | 'location';
   action: 'create' | 'update' | 'delete';
-  data: any;
+  data: Record<string, unknown>;
   version: number;
   status: 'pending' | 'synced' | 'failed';
   error?: string;
@@ -165,29 +165,30 @@ export class SyncEngine {
     }
   }
 
+    /**
+     * Upsert task with conflict resolution
+     */
+    private async upsertTask(serverTask: Record<string, unknown>): Promise<void> {
+      // Use upsertFromServer to avoid adding to sync queue
+      await taskRepository.upsertFromServer(serverTask as Task);
+    }
+
    /**
-    * Upsert task with conflict resolution
+    * Upsert report with conflict resolution
     */
-   private async upsertTask(serverTask: any): Promise<void> {
+   private async upsertReport(serverReport: Record<string, unknown>): Promise<void> {
      // Use upsertFromServer to avoid adding to sync queue
-     await taskRepository.upsertFromServer(serverTask);
+     await reportRepository.upsertFromServer(serverReport as Report);
    }
 
-  /**
-   * Upsert report with conflict resolution
-   */
-  private async upsertReport(serverReport: any): Promise<void> {
-    // Use upsertFromServer to avoid adding to sync queue
-    await reportRepository.upsertFromServer(serverReport);
-  }
-
-  /**
-   * Upsert location (stub implementation for now)
-   */
-  private async upsertLocation(_serverLocation: any): Promise<void> {
-    // Currently we don't store locations locally, so just ignore
-    // Future enhancement: implement local storage for locations if needed
-  }
+    /**
+     * Upsert location (stub implementation for now)
+     */
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      private async upsertLocation(location: Record<string, unknown>): Promise<void> {
+        // Currently we don't store locations locally, so just ignore
+        // Future enhancement: implement local storage for locations if needed
+      }
 
   // ==================== PUSH SYNC ====================
 
