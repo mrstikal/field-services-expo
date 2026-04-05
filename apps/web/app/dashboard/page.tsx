@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import MapView from '@/components/map-view';
 
 interface Task {
   id: string;
@@ -264,6 +265,16 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Map View */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Technicians Map</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MapView height="400px" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -4,10 +4,15 @@ import { supabase } from '@/lib/supabase';
 import { taskRepository } from '@/lib/db/task-repository';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
 import { useIsOnline } from '@/lib/hooks/use-network-status';
+import { useLocationTracking } from '@/lib/hooks/use-location-tracking';
+import { useGeofencing } from '@/lib/hooks/use-geofencing';
 
 interface Task {
   id: string;
   title: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
   status: 'assigned' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date: string;
@@ -19,6 +24,8 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const isOnline = useIsOnline();
   const { sync, isSyncing } = useOfflineSync();
+  const { location, isTracking, requestPermissions, startTracking, stopTracking } = useLocationTracking();
+  const { currentTask, isNearTask, updateLocation, setTrackedTasks, checkGeofence } = useGeofencing();
 
   // Fetch from local database first (offline-first)
   useEffect(() => {
@@ -49,6 +56,42 @@ export default function HomeScreen() {
       sync();
     }
   }, [isOnline, isSyncing, sync]);
+
+  // Start lightweight foreground location tracking for geofence checks.
+  useEffect(() => {
+    const bootstrapLocationTracking = async () => {
+      const permission = await requestPermissions();
+      if (permission.status === 'granted') {
+        await startTracking();
+      }
+    };
+
+    bootstrapLocationTracking();
+
+    return () => {
+      stopTracking();
+    };
+  }, [requestPermissions, startTracking, stopTracking]);
+
+  useEffect(() => {
+    if (location) {
+      updateLocation(location);
+    }
+  }, [location, updateLocation]);
+
+  useEffect(() => {
+    const geofenceTasks = todayTasks
+      .map(task => ({
+        id: task.id,
+        title: task.title,
+        latitude: task.latitude,
+        longitude: task.longitude,
+        address: task.address ?? 'Unknown address',
+      }));
+
+    setTrackedTasks(geofenceTasks);
+    checkGeofence(geofenceTasks);
+  }, [todayTasks, setTrackedTasks, checkGeofence]);
 
   // Fallback to server if local data is empty and online
   useEffect(() => {
@@ -97,6 +140,14 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Hello, Technician!</Text>
         <Text style={styles.subtitle}>You have {todayTasks.length} new tasks</Text>
+        <Text style={styles.trackingStatus}>
+          Tracking: {isTracking ? 'active' : 'inactive'}
+        </Text>
+        {isNearTask && currentTask ? (
+          <View style={styles.geofenceBanner}>
+            <Text style={styles.geofenceBannerText}>You are near: {currentTask.title}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.stats}>
@@ -217,6 +268,25 @@ const styles = StyleSheet.create({
     color: '#1e40af',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  trackingStatus: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 8,
+  },
+  geofenceBanner: {
+    backgroundColor: '#e0f2fe',
+    borderColor: '#7dd3fc',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  geofenceBannerText: {
+    color: '#0c4a6e',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 /* eslint-enable react-native/no-color-literals */

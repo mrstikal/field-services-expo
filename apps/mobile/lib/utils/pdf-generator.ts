@@ -1,0 +1,262 @@
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+
+interface ReportData {
+  id: string;
+  taskTitle: string;
+  taskDescription: string;
+  taskAddress: string;
+  customerName: string;
+  customerPhone: string;
+  technicianName: string;
+  technicianId: string;
+  photos: string[];
+  formData: Record<string, string>;
+  signature: string | null;
+  createdAt: string;
+  completedAt: string;
+}
+
+/**
+ * Generate HTML content for PDF report
+ */
+function generateReportHTML(data: ReportData): string {
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const photosHtml = data.photos
+    .map(
+      photo =>
+        `<div style="margin-bottom: 16px;"><img src="${photo}" style="max-width: 100%; border-radius: 8px;" /></div>`
+    )
+    .join('');
+
+  const formDataHtml = Object.entries(data.formData)
+    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`);
+  const signatureHtml = data.signature
+    ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+         <p><strong>Customer Signature:</strong></p>
+         <img src="${data.signature}" style="max-width: 200px; margin-top: 8px;" />
+       </div>`
+    : '';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Report #${data.id}</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          line-height: 1.6;
+          color: #1f2937;
+          padding: 24px;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 32px;
+          padding-bottom: 16px;
+          border-bottom: 2px solid #1e40af;
+        }
+        .header h1 {
+          color: #1e40af;
+          margin: 0;
+          font-size: 28px;
+        }
+        .header p {
+          color: #6b7280;
+          margin: 4px 0 0;
+        }
+        .section {
+          margin-bottom: 24px;
+        }
+        .section h2 {
+          color: #1f2937;
+          font-size: 18px;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        .info-row {
+          display: flex;
+          margin-bottom: 8px;
+        }
+        .info-label {
+          font-weight: 600;
+          color: #6b7280;
+          min-width: 120px;
+        }
+        .info-value {
+          color: #1f2937;
+        }
+        .photos {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        .photo {
+          width: 150px;
+          height: 150px;
+          object-fit: cover;
+          border-radius: 8px;
+        }
+        .footer {
+          margin-top: 48px;
+          text-align: center;
+          color: #9ca3af;
+          font-size: 12px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Service Report</h1>
+        <p>Report ID: ${data.id} | ${formatDate(data.createdAt)}</p>
+      </div>
+
+      <div class="section">
+        <h2>Task Details</h2>
+        <p><strong>Title:</strong> ${data.taskTitle}</p>
+        <p><strong>Description:</strong> ${data.taskDescription}</p>
+        <p><strong>Address:</strong> ${data.taskAddress}</p>
+      </div>
+
+      <div class="section">
+        <h2>Customer Information</h2>
+        <div class="info-row">
+          <span class="info-label">Name:</span>
+          <span class="info-value">${data.customerName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Phone:</span>
+          <span class="info-value">${data.customerPhone}</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Technician Information</h2>
+        <div class="info-row">
+          <span class="info-label">Name:</span>
+          <span class="info-value">${data.technicianName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">ID:</span>
+          <span class="info-value">${data.technicianId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Completed:</span>
+          <span class="info-value">${formatDate(data.completedAt)}</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Form Data</h2>
+        ${formDataHtml.join('')}
+      </div>
+
+      <div class="section">
+        <h2>Photos</h2>
+        <div class="photos">
+          ${photosHtml}
+        </div>
+      </div>
+
+      ${signatureHtml}
+
+      <div class="footer">
+        <p>Generated by Field Service App</p>
+        <p>Report ID: ${data.id}</p>
+      </div>
+    </body>
+    </html>
+  `;
+}
+
+/**
+ * Generate PDF from report data
+ * @param data Report data to include in PDF
+ * @returns Promise with PDF file URI
+ */
+export async function generatePDF(data: ReportData): Promise<string> {
+  try {
+    const html = generateReportHTML(data);
+
+    // Generate PDF
+    const { uri } = await Print.printToFileAsync({
+      html,
+      base64: false,
+    });
+
+    return uri;
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw new Error('Failed to generate PDF');
+  }
+}
+
+/**
+ * Share PDF file
+ * @param uri URI of the PDF file to share
+ */
+export async function sharePDF(uri: string): Promise<void> {
+  try {
+    if (!(await Sharing.isAvailableAsync())) {
+      throw new Error('Sharing is not available on this device');
+    }
+
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: 'Share Report',
+      UTI: '.pdf',
+    });
+  } catch (error) {
+    console.error('Error sharing PDF:', error);
+    throw new Error('Failed to share PDF');
+  }
+}
+
+/**
+ * Save PDF to file system
+ * @param uri URI of the PDF file to save
+ * @param filename Filename for the saved PDF
+ * @returns Promise with saved file URI
+ */
+export async function savePDF(uri: string, filename: string): Promise<string> {
+  try {
+    const destinationUri = `${FileSystem.documentDirectory}${filename}`;
+
+    await FileSystem.copyAsync({
+      from: uri,
+      to: destinationUri,
+    });
+
+    return destinationUri;
+  } catch (error) {
+    console.error('Error saving PDF:', error);
+    throw new Error('Failed to save PDF');
+  }
+}
+
+/**
+ * Delete PDF file
+ * @param uri URI of the PDF file to delete
+ */
+export async function deletePDF(uri: string): Promise<void> {
+  try {
+    await FileSystem.deleteAsync(uri);
+  } catch (error) {
+    console.error('Error deleting PDF:', error);
+  }
+}
