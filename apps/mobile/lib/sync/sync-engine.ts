@@ -160,7 +160,7 @@ export class SyncEngine {
 
       return result;
     } catch (error) {
-      console.error('Pull sync error:', error);
+      // Re-throw so the caller (hook) can handle/log the error once
       throw error;
     }
   }
@@ -288,7 +288,7 @@ export class SyncEngine {
 
       return result;
     } catch (error) {
-      console.error('Push sync error:', error);
+      // Re-throw so the caller (hook) can handle/log the error once
       throw error;
     }
   }

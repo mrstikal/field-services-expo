@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { useRealtimeTask } from '@/lib/hooks/use-realtime-tasks';
+import TaskDetailTransition from '@/components/task-detail-transition';
 
 interface Task {
   id: string;
@@ -214,11 +215,12 @@ export default function TaskDetailScreen() {
         <View className="w-6" />
       </View>
 
-      <ScrollView 
-        className="flex-1 px-4"
-        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
-        showsVerticalScrollIndicator={false}
-      >
+      <TaskDetailTransition isActive>
+        <ScrollView
+          className="flex-1 px-4"
+          refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Title and Status */}
         <View className="mb-5">
           <View className="flex-row items-start justify-between">
@@ -338,7 +340,8 @@ export default function TaskDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </ScrollView>
+        </ScrollView>
+      </TaskDetailTransition>
     </View>
   );
 }

@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/lib/auth-provider';
+import { AuthProvider } from '@lib/auth-provider';
+import { QueryProvider } from '@lib/query-provider';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Field Service - Dispatcher',
   description: 'Field Service Management Dashboard',
 };
@@ -15,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50 text-gray-900">
-        <AuthProvider>{children}</AuthProvider>
+        <QueryProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

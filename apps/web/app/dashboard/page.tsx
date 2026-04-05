@@ -1,9 +1,12 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import MapView from '@/components/map-view';
+import { MapViewErrorBoundary } from '@/components/map-view-error-boundary';
+
+const MapView = dynamic(() => import('@/components/map-view'), { ssr: false });
 
 interface Task {
   id: string;
@@ -22,7 +25,12 @@ export default function DashboardPage() {
     queryKey: ['tasks'],
     queryFn: async () => {
       const { data, error } = await supabase.from('tasks').select('*');
-      if (error) throw error;
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid api key')) {
+          return [];
+        }
+        throw error;
+      }
       return data || [];
     },
   });
@@ -34,7 +42,12 @@ export default function DashboardPage() {
         .from('users')
         .select('*')
         .eq('role', 'technician');
-      if (error) throw error;
+      if (error) {
+        if (error.message?.toLowerCase().includes('invalid api key')) {
+          return [];
+        }
+        throw error;
+      }
       return data || [];
     },
   });
@@ -272,7 +285,9 @@ export default function DashboardPage() {
           <CardTitle>Technicians Map</CardTitle>
         </CardHeader>
         <CardContent>
-          <MapView height="400px" />
+          <MapViewErrorBoundary height="400px">
+            <MapView height="400px" />
+          </MapViewErrorBoundary>
         </CardContent>
       </Card>
     </div>

@@ -61,6 +61,7 @@ export function useGeofencing(): UseGeofencingReturn {
 
   // Debounce timer reference
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const trackedTasksRef = useRef<TaskLocation[]>([]);
 
   // Update current location - kept for potential future use
   const updateLocation = useCallback((location: Location.LocationObject) => {
@@ -68,7 +69,16 @@ export function useGeofencing(): UseGeofencingReturn {
   }, []);
 
   const handleSetTrackedTasks = useCallback((tasks: TaskLocation[]) => {
-    setTrackedTasks(tasks);
+    trackedTasksRef.current = tasks;
+    setTrackedTasks((prev) => {
+      if (
+        prev.length === tasks.length &&
+        prev.every((task, index) => task.id === tasks[index]?.id)
+      ) {
+        return prev;
+      }
+      return tasks;
+    });
   }, []);
 
   // Check geofence around tasks
@@ -77,7 +87,7 @@ export function useGeofencing(): UseGeofencingReturn {
       return;
     }
 
-    const tasksToCheck = tasks ?? trackedTasks;
+    const tasksToCheck = tasks ?? trackedTasksRef.current;
     if (!tasksToCheck.length) {
       setNearbyTasks([]);
       setCurrentTask(null);
@@ -133,7 +143,7 @@ export function useGeofencing(): UseGeofencingReturn {
         ]
       );
     }
-  }, [currentLocation, isNearTask, trackedTasks]);
+  }, [currentLocation, isNearTask]);
 
   // Debounced geofence check (to avoid too many alerts)
   useEffect(() => {

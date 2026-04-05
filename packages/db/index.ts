@@ -3,7 +3,11 @@ export * from './schema';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client } from 'pg';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/field_service';
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL environment variable is not set. Please configure it in env.local');
+}
+
+const connectionString = process.env.DATABASE_URL;
 
 export const client = new Client({ connectionString });
 

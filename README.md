@@ -13,23 +13,51 @@ A modern, full-stack field service management application built with Expo (React
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Node.js 20+
+- pnpm 10+
+- Supabase project with PostgreSQL database
+
+### Setup
+
 ```bash
-# 1. Clone and install
+# 1. Clone repository
 git clone https://github.com/your-org/field-service.git
 cd field-service
-pnpm install
 
-# 2. Set up environment
+# 2. Configure environment
 cp env.local.example env.local
-# Edit env.local with your Supabase credentials
+# Edit env.local with your Supabase credentials:
+# - SUPABASE_URL
+# - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_KEY
 
-# 3. Start development
+# 3. Install dependencies and reset demo database
+pnpm setup
+# This will:
+# - Approve required build scripts (sharp, sqlite3, esbuild, etc.)
+# - Install all dependencies
+# - Reset Supabase database with demo data
+
+# 4. Start development
 pnpm dev
 ```
 
 **Demo Credentials:**
 - Technician: `technik1@demo.cz` / `demo123`
 - Dispatcher: `dispatcher1@demo.cz` / `demo123`
+
+### Available Commands
+
+```bash
+pnpm dev              # Start all apps in development mode
+pnpm build            # Build all apps
+pnpm lint             # Run ESLint
+pnpm typecheck        # Run TypeScript type checking
+pnpm format           # Format code with Prettier
+pnpm demo:reset       # Reset Supabase database with demo data
+pnpm approve-builds   # Approve build scripts for dependencies
+```
 
 For detailed setup instructions, see [SETUP.md](./docs/SETUP.md).
 

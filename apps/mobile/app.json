@@ -37,9 +37,8 @@
       "expo-camera",
       "expo-location",
       "expo-file-system",
-      "expo-print",
-      "expo-sharing",
-      "expo-task-manager"
+      "expo-task-manager",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
@@ -47,11 +46,7 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "your-eas-project-id"
       }
-    },
-    "owner": "fieldservice"
+    }
   }
 }

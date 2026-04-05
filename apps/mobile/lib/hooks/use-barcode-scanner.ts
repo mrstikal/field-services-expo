@@ -17,7 +17,7 @@ interface UseBarcodeScannerReturn {
   hasPermission: boolean | null;
   isScanning: boolean;
   scannedBarcode: BarcodeResult | null;
-  cameraRef: React.RefObject<Camera.CameraView>;
+  cameraRef: React.RefObject<Camera.CameraView | null>;
   requestPermission: () => Promise<boolean>;
   startScanning: () => void;
   stopScanning: () => void;

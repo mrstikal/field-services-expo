@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SyncEngine } from '@/lib/sync/sync-engine';
 import { useNetworkStatus, useIsOnline } from '@/lib/hooks/use-network-status';
 import { useAuth } from '@/lib/auth-context';
@@ -39,8 +39,12 @@ export function useOfflineSync() {
     lastPush: null,
   });
 
-   // Use global lock from sync engine instead of local ref
-   const isSyncInProgress = globalSyncEngine.isSyncInProgress();
+
+   // Ref to track the previous online state and last sync error time
+   const prevIsOnlineRef = useRef<boolean>(false);
+   const lastSyncErrorAtRef = useRef<number>(0);
+   // Minimum ms to wait before retrying after a network error
+   const SYNC_ERROR_COOLDOWN_MS = 60_000;
 
    // Perform full sync (pull + push)
    const performFullSync = useCallback(async () => {
@@ -64,6 +68,8 @@ export function useOfflineSync() {
           isSyncing: false,
         }));
      } catch (error) {
+       // Record error time for cooldown so we don't hammer a down server
+       lastSyncErrorAtRef.current = Date.now();
        console.error('Full sync failed:', error);
        setSyncState((prev) => ({ ...prev, isSyncing: false }));
      } finally {
@@ -78,17 +84,28 @@ export function useOfflineSync() {
      }
    }, [user]);
 
-   // Auto-sync when going online
+   // Auto-sync ONLY when transitioning from offline → online (or on first mount when online).
+   // Using a ref to track previous value avoids re-triggering after every sync completion,
+   // which would cause an infinite retry loop when the server is unreachable.
    useEffect(() => {
-     if (isOnline && !isSyncInProgress && user) {
-       // Debounce to avoid multiple rapid syncs
-       const timeoutId = setTimeout(() => {
-         performFullSync();
-       }, 1000);
+     const wentOnline = isOnline && !prevIsOnlineRef.current;
+     prevIsOnlineRef.current = isOnline;
 
-       return () => clearTimeout(timeoutId);
-     }
-   }, [isOnline, user, isSyncInProgress, performFullSync]);
+     if (!wentOnline || !user) return;
+
+     // Respect cooldown after a recent sync error to avoid hammering a down server
+     const msSinceLastError = Date.now() - lastSyncErrorAtRef.current;
+     const delay = msSinceLastError < SYNC_ERROR_COOLDOWN_MS
+       ? SYNC_ERROR_COOLDOWN_MS - msSinceLastError + 1000
+       : 1000;
+
+     const timeoutId = setTimeout(() => {
+       performFullSync();
+     }, delay);
+
+     return () => clearTimeout(timeoutId);
+   // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [isOnline, user, performFullSync]);
 
   // Fetch sync status periodically
   useEffect(() => {

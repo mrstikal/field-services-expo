@@ -314,13 +314,16 @@ export async function seed() {
 
 // Run seed if executed directly
 if (require.main === module) {
-  seed()
-    .then(() => {
+  (async () => {
+    try {
+      const { connect } = await import('./index');
+      await connect();
+      await seed();
       console.log('Seed completed successfully');
       process.exit(0);
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error('Error during seeding:', error);
       process.exit(1);
-    });
+    }
+  })();
 }

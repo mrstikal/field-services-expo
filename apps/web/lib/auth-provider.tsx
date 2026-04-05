@@ -18,6 +18,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEMO_USERS: Record<string, { password: string; role: 'dispatcher' | 'technician' }> = {
+  'dispatcher1@demo.cz': { password: 'demo123', role: 'dispatcher' },
+  'dispatcher2@demo.cz': { password: 'demo123', role: 'dispatcher' },
+  'technik1@demo.cz': { password: 'demo123', role: 'technician' },
+};
+
+const DEMO_USER_STORAGE_KEY = 'demo-auth-user';
+
+function setDemoCookie(enabled: boolean) {
+  if (typeof document === 'undefined') return;
+  if (enabled) {
+    document.cookie = 'demo-auth=1; Path=/; SameSite=Lax';
+    return;
+  }
+  document.cookie = 'demo-auth=; Path=/; Max-Age=0; SameSite=Lax';
+}
+
 export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +45,16 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
 
   const bootstrapAsync = async () => {
     try {
+      if (typeof window !== 'undefined') {
+        const raw = window.localStorage.getItem(DEMO_USER_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as User;
+          setUser(parsed);
+          setDemoCookie(true);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.auth.getUser();
       
       if (data.user && !error) {
@@ -48,12 +75,32 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      // Check demo users first (faster and always available)
+      const demoUser = DEMO_USERS[email.toLowerCase()];
+      if (demoUser && demoUser.password === password) {
+        const userData: User = {
+          id: `demo-${email.toLowerCase()}`,
+          email,
+          role: demoUser.role,
+        };
+        setUser(userData);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(DEMO_USER_STORAGE_KEY, JSON.stringify(userData));
+        }
+        setDemoCookie(true);
+        return;
+      }
+
+      // Try Supabase auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // If Supabase fails, show error (demo didn't match either)
+        throw error;
+      }
 
       if (data.user) {
         const userData: User = {
@@ -62,6 +109,10 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
           role: (data.user.user_metadata?.role as 'technician' | 'dispatcher') || 'dispatcher',
         };
         setUser(userData);
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+        }
+        setDemoCookie(false);
       }
     } catch (error) {
       console.error('Sign in error:', error);
@@ -75,11 +126,15 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     setIsLoading(true);
     try {
       await supabase.auth.signOut();
-      setUser(null);
     } catch (error) {
-      console.error('Sign out error:', error);
-      throw error;
+      // In local demo mode we still clear client state even if Supabase is unreachable.
+      console.error('Sign out warning:', error);
     } finally {
+      setUser(null);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(DEMO_USER_STORAGE_KEY);
+      }
+      setDemoCookie(false);
       setIsLoading(false);
     }
   };

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import MapGL, { Marker, Popup, NavigationControl, GeolocateControl } from '@mapbox/react-map-gl';
+import MapGL, { Marker, Popup, NavigationControl, GeolocateControl, MapRef } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/lib/supabase';
+
 
 interface Technician {
   id: string;
@@ -48,9 +50,16 @@ export default function MapView({ height }: MapViewProps) {
     bearing: 0,
     pitch: 0,
   });
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  type ViewportState = typeof viewport;
-  const mapRef = useRef<typeof MapGL>(null);
+  const mapRef = useRef<MapRef>(null);
+
+  // Only render MapGL after component is mounted on client
+  useEffect(() => {
+    setIsMounted(true);
+    setIsMapReady(true);
+  }, []);
 
   const clusterPrecision = viewport.zoom < 7 ? 1 : viewport.zoom < 9 ? 2 : 3;
   const clusteredPoints = useMemo<ClusterPoint[]>(() => {
@@ -101,7 +110,11 @@ export default function MapView({ height }: MapViewProps) {
 
         const { data, error } = usersResult;
         if (error) {
-          console.error('Error loading technicians:', error);
+          if (error.message === 'Invalid API key') {
+            console.error('Supabase API key is invalid. Please check NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.');
+          } else {
+            console.error('Error loading technicians:', error);
+          }
           return;
         }
 
@@ -165,6 +178,15 @@ export default function MapView({ height }: MapViewProps) {
   // Handle marker click
   const handleMarkerClick = (technician: Technician) => {
     setSelectedTechnician(technician);
+    // Center map on technician
+    if (technician.last_location) {
+      setViewport(prev => ({
+        ...prev,
+        latitude: technician.last_location!.latitude,
+        longitude: technician.last_location!.longitude,
+        zoom: Math.max(prev.zoom, 10),
+      }));
+    }
   };
 
   const handleClusterClick = (cluster: ClusterPoint) => {
@@ -201,23 +223,35 @@ export default function MapView({ height }: MapViewProps) {
     return `${days}d ago`;
   };
 
+  if (!isMapReady) {
+    return (
+      <div className="relative flex items-center justify-center bg-gray-100" style={{ height: height || '400px' }}>
+        <div className="text-gray-500">Loading map...</div>
+      </div>
+    );
+  }
+
+
+  if (viewport.latitude === 0 && viewport.longitude === 0) {
+    return (
+      <div className="flex items-center justify-center bg-gray-100 rounded-lg" style={{ height: height || '400px' }}>
+        <div className="text-gray-500">Initializing map...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative" style={{ height: height || '400px' }}>
-      <MapGL
-        ref={mapRef}
-        {...viewport}
-        accessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        interactiveLayerIds={['technicians-layer']}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
-        onViewportChange={(newViewport) => setViewport({
-          latitude: newViewport.latitude,
-          longitude: newViewport.longitude,
-          zoom: newViewport.zoom,
-          bearing: newViewport.bearing ?? 0,
-          pitch: newViewport.pitch ?? 0,
-        } as ViewportState)}
-         style={styles.mapContainer}
-      >
+    <div className="relative" style={{ height: height || '400px' }} suppressHydrationWarning>
+      {isMounted && isMapReady ? (
+        <MapGL
+          ref={mapRef}
+          initialViewState={viewport}
+          onMove={evt => setViewport(evt.viewState)}
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          interactiveLayerIds={['technicians-layer']}
+          mapStyle="mapbox://styles/mapbox/streets-v12"
+          style={styles.mapContainer}
+        >
         {/* Navigation controls */}
         <div className="absolute top-4 right-4 z-10">
           <NavigationControl position="top-right" />
@@ -280,6 +314,7 @@ export default function MapView({ height }: MapViewProps) {
             latitude={selectedTechnician.last_location?.latitude || 0}
             longitude={selectedTechnician.last_location?.longitude || 0}
             onClose={closePopup}
+            maxWidth="300px"
           >
             <div className="p-2">
               <h3 className="font-bold text-gray-900">{selectedTechnician.name}</h3>
@@ -299,7 +334,8 @@ export default function MapView({ height }: MapViewProps) {
               </p>
             </div>
           </Popup> : null}
-      </MapGL>
+        </MapGL>
+      ) : null}
     </div>
   );
 }
@@ -308,15 +344,16 @@ const styles = {
   mapContainer: {
     width: '100%',
     height: '100%',
-  },
+  } as React.CSSProperties,
   markerShadow: {
     boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-  },
+  } as React.CSSProperties,
   geofenceCircle: {
     backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    border: '1px solid rgba(245, 158, 11, 0.8)',
+    border: '2px solid rgba(245, 158, 11, 0.8)',
     borderRadius: '9999px',
-    height: '44px',
-    width: '44px',
-  },
+    height: '60px',
+    width: '60px',
+    pointerEvents: 'none',
+  } as React.CSSProperties,
 };

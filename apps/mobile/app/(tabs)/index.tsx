@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const isOnline = useIsOnline();
   const { sync, isSyncing } = useOfflineSync();
   const { location, isTracking, requestPermissions, startTracking, stopTracking } = useLocationTracking();
-  const { currentTask, isNearTask, updateLocation, setTrackedTasks, checkGeofence } = useGeofencing();
+  const { currentTask, isNearTask, updateLocation, setTrackedTasks } = useGeofencing();
 
   // Fetch from local database first (offline-first)
   useEffect(() => {
@@ -90,8 +90,7 @@ export default function HomeScreen() {
       }));
 
     setTrackedTasks(geofenceTasks);
-    checkGeofence(geofenceTasks);
-  }, [todayTasks, setTrackedTasks, checkGeofence]);
+  }, [todayTasks, setTrackedTasks]);
 
   // Fallback to server if local data is empty and online
   useEffect(() => {
