@@ -1,9 +1,5 @@
-import React, { useEffect } from 'react';
-import Animated, {
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming
-} from 'react-native-reanimated';
+import React from 'react';
+import { Animated } from 'react-native';
 
 interface TaskDetailTransitionProps {
   readonly children: React.ReactNode;
@@ -14,43 +10,27 @@ interface TaskDetailTransitionProps {
 const TaskDetailTransition: React.FC<TaskDetailTransitionProps> = ({
   children,
   isActive,
-  onComplete
+  onComplete,
 }) => {
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-  const borderRadius = useSharedValue(8);
+  const opacity = React.useRef(new Animated.Value(isActive ? 1 : 0)).current;
 
-  useEffect(() => {
-    if (isActive) {
-      // Animate when transition is activated
-      scale.value = withTiming(0.95, { duration: 300 });
-      opacity.value = withTiming(0.8, { duration: 300 });
-      borderRadius.value = withTiming(16, { duration: 300 });
-    } else {
-      // Animate back when transition is deactivated
-      scale.value = withTiming(1, { duration: 300 }, (finished) => {
-        if (finished && onComplete) {
-          onComplete();
-        }
-      });
-      opacity.value = withTiming(1, { duration: 300 });
-      borderRadius.value = withTiming(8, { duration: 300 });
-    }
-  }, [isActive, scale, opacity, borderRadius, onComplete]);
+  React.useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: isActive ? 1 : 0,
+      duration: isActive ? 220 : 180,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && isActive && onComplete) {
+        onComplete();
+      }
+    });
+  }, [isActive, onComplete, opacity]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-      opacity: opacity.value,
-      borderRadius: borderRadius.value,
-    };
-  });
-
-   return (
-     <Animated.View 
-       className="bg-gray-50 flex-1 m-2 overflow-hidden"
-       style={animatedStyle}
-     >
+  return (
+    <Animated.View
+      className="m-2 flex-1 overflow-hidden bg-gray-50"
+      style={{ opacity }}
+    >
       {children}
     </Animated.View>
   );

@@ -1,37 +1,24 @@
 import React from 'react';
-import { 
-  View, 
-  Text, 
+import {
+  View,
+  Text,
   TouchableOpacity,
-  Platform,
-  UIManager
+  Animated,
+  PanResponder,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-   
-  runOnJS 
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Task } from '@field-service/shared-types';
 import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 
-// Enable layout animation for Android
-if (Platform.OS === 'android') {
-  if (UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-  }
-}
-
 interface SwipeableTaskCardProps {
   readonly item: Task;
   readonly onPress?: () => void;
 }
 
+const SWIPE_LIMIT = 110;
+const SWIPE_THRESHOLD = 70;
 
 const getStatusLabel = (status: string) => {
   switch (status) {
@@ -62,108 +49,127 @@ const getPriorityClassName = (priority: string) => {
 };
 
 const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) => {
-  const translateX = useSharedValue(0);
+  const translateX = React.useRef(new Animated.Value(0)).current;
   const queryClient = useQueryClient();
 
-  const completeTask = async () => {
+  const resetCard = React.useCallback(() => {
+    Animated.spring(translateX, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 6,
+      speed: 16,
+    }).start();
+  }, [translateX]);
+
+  const completeTask = React.useCallback(async () => {
     try {
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
         .eq('id', item.id);
-      
+
       if (error) {
         console.error('Error completing task:', error.message);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
-      
-  // Invalidate cache
-  await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
-  
-  // Haptic feedback
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error completing task:', err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  };
+  }, [item.id, queryClient]);
 
-  const dismissTask = async () => {
+  const dismissTask = React.useCallback(async () => {
     try {
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'assigned', updated_at: new Date().toISOString() })
         .eq('id', item.id);
-      
+
       if (error) {
         console.error('Error dismissing task:', error.message);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         return;
       }
-      
-  await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-  await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
-  
-  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error dismissing task:', err);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  };
+  }, [item.id, queryClient]);
 
-  const panGesture = Gesture.Pan()
-    .onBegin(() => {
-      translateX.value = withSpring(0);
-    })
-    .onUpdate((event) => {
-      if (event.translationX > 0) {
-        // Dismiss to left
-        translateX.value = withSpring(Math.min(event.translationX / 2, 0));
-      } else {
-        // Complete to right
-        translateX.value = withSpring(Math.max(event.translationX / 2, 0));
-      }
-    })
-    .onEnd((event) => {
-      if (event.translationX > 50) {
-        // Dismiss to left
-        translateX.value = withSpring(-100, {}, (finished) => {
-          if (finished) {
-            runOnJS(dismissTask)();
-          }
+  const runSwipeAction = React.useCallback(
+    (toValue: number, action: () => Promise<void>) => {
+      Animated.timing(translateX, {
+        toValue,
+        duration: 150,
+        useNativeDriver: true,
+      }).start(() => {
+        void action().finally(() => {
+          resetCard();
         });
-      } else if (event.translationX < -50) {
-        // Complete to right
-        translateX.value = withSpring(100, {}, (finished) => {
-          if (finished) {
-            runOnJS(completeTask)();
+      });
+    },
+    [resetCard, translateX]
+  );
+
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        onPanResponderMove: (_, gestureState) => {
+          const clamped = Math.max(-SWIPE_LIMIT, Math.min(SWIPE_LIMIT, gestureState.dx));
+          translateX.setValue(clamped);
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          if (gestureState.dx >= SWIPE_THRESHOLD) {
+            runSwipeAction(SWIPE_LIMIT, completeTask);
+            return;
           }
-        });
-      } else {
-        // Return to original position
-        translateX.value = withSpring(0);
-      }
-    });
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
+          if (gestureState.dx <= -SWIPE_THRESHOLD) {
+            runSwipeAction(-SWIPE_LIMIT, dismissTask);
+            return;
+          }
 
-   return (
-     <GestureDetector gesture={panGesture}>
-       <Animated.View
-         className="bg-white border-l-4 border-l-blue-600 rounded-lg flex-row mb-3 overflow-hidden"
-         style={animatedStyle}
-       >
-        {/* Main task card */}
-        <TouchableOpacity
-          className="flex-1 p-3"
-          onPress={onPress}
-        >
+          resetCard();
+        },
+        onPanResponderTerminate: resetCard,
+      }),
+    [completeTask, dismissTask, resetCard, runSwipeAction, translateX]
+  );
+
+  return (
+    <View className="mb-3 overflow-hidden rounded-lg">
+      <View className="absolute bottom-0 left-0 right-0 top-0 flex-row">
+        <View className="flex-1 items-start justify-center bg-red-500 px-4">
+          <View className="items-center">
+            <Ionicons color="#ffffff" name="close" size={22} />
+            <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
+          </View>
+        </View>
+        <View className="flex-1 items-end justify-center bg-green-500 px-4">
+          <View className="items-center">
+            <Ionicons color="#ffffff" name="checkmark" size={22} />
+            <Text className="mt-1 text-xs font-bold text-white">Complete</Text>
+          </View>
+        </View>
+      </View>
+
+      <Animated.View
+        className="rounded-lg border-l-4 border-l-blue-600 bg-white"
+        style={{ transform: [{ translateX }] }}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity className="p-3" onPress={onPress}>
           <View className="mb-2 flex-row items-start justify-between">
             <View className="flex-1">
               <Text className="text-sm font-semibold text-gray-800">{item.title}</Text>
@@ -172,9 +178,7 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
                 <Text className="ml-1 flex-1 text-xs text-gray-500">{item.address}</Text>
               </View>
             </View>
-            <View
-              className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
-            >
+            <View className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}>
               <Text className="text-[10px] font-semibold capitalize text-white">{item.priority}</Text>
             </View>
           </View>
@@ -188,22 +192,10 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
             </View>
           </View>
         </TouchableOpacity>
-
-        {/* Right action (Complete) */}
-        <View className="ml-auto w-20 items-center justify-center bg-green-500 p-3">
-          <Ionicons color="#ffffff" name="checkmark" size={24} />
-          <Text className="mt-1 text-xs font-bold text-white">Complete</Text>
-        </View>
-
-        {/* Left action (Dismiss) */}
-        <View className="w-20 items-center justify-center bg-red-500 p-3">
-          <Ionicons color="#ffffff" name="close" size={24} />
-          <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
-        </View>
       </Animated.View>
-    </GestureDetector>
+    </View>
   );
 };
 
-
 export default SwipeableTaskCard;
+

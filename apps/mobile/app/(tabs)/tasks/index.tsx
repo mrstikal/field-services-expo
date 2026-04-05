@@ -4,10 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableTaskCard from '@/components/swipeable-task-card';
-import TaskFilters from '@/components/task-filters';
 import SkeletonTaskList from '@/components/skeleton-task-list';
-import { useRef, useState, useCallback } from 'react';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { useState, useCallback } from 'react';
 import { Task } from '@field-service/shared-types';
 import { useRealtimeTasks } from '@/lib/hooks/use-realtime-tasks';
 import { paddingStyles } from '@/lib/styles';
@@ -19,7 +17,6 @@ export default function TasksListScreen() {
     priority: null as string | null,
     dateRange: null as string | null,
   });
-  const bottomSheetRef = useRef<BottomSheetModal>(null);
 
   // Enable real-time updates for tasks
   useRealtimeTasks();
@@ -69,16 +66,6 @@ export default function TasksListScreen() {
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
 
-  const handleFilterChange = (filterType: string, value: string | null) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterType]: value
-    }));
-  };
-
-  const handleApplyFilters = () => {
-    bottomSheetRef.current?.dismiss();
-  };
 
   const handleResetFilters = () => {
     setFilters({
@@ -86,7 +73,6 @@ export default function TasksListScreen() {
       priority: null,
       dateRange: null,
     });
-    bottomSheetRef.current?.dismiss();
   };
 
   const handleTaskPress = useCallback((taskId: string) => {
@@ -94,8 +80,8 @@ export default function TasksListScreen() {
   }, [router]);
 
   const renderTaskCard = useCallback(({ item }: { readonly item: Task }) => (
-    <SwipeableTaskCard 
-      item={item} 
+    <SwipeableTaskCard
+      item={item}
       onPress={() => handleTaskPress(item.id)} 
     />
   ), [handleTaskPress]);
@@ -116,7 +102,7 @@ export default function TasksListScreen() {
           <Text className="text-sm text-gray-500">{filteredTasks.length} tasks</Text>
           <TouchableOpacity
             className="p-1" 
-            onPress={() => bottomSheetRef.current?.present()}
+            onPress={handleResetFilters}
           >
             <Ionicons color="#1e40af" name="filter" size={20} />
           </TouchableOpacity>
@@ -151,14 +137,6 @@ export default function TasksListScreen() {
           windowSize={10}
         />
       )}
-
-      <TaskFilters
-        bottomSheetRef={bottomSheetRef}
-        filters={filters}
-        onApplyFilters={handleApplyFilters}
-        onFilterChange={handleFilterChange}
-        onResetFilters={handleResetFilters}
-      />
     </View>
   );
 }

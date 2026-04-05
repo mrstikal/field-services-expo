@@ -121,16 +121,18 @@ EXPO_PUBLIC_APP_NAME="Field Service"
 
 ## 🏃 Running Applications
 
+For daily development on Windows + Android USB, see [`docs/DAILY_RUN.md`](./DAILY_RUN.md).
+
 ### Mobile App (Expo)
 
 ```bash
 # Start dev server
-pnpm --filter mobile dev
+pnpm --filter field-service-mobile dev
 
 # Or specific platform
-pnpm --filter mobile android
-pnpm --filter mobile ios
-pnpm --filter mobile web
+pnpm --filter field-service-mobile android
+pnpm --filter field-service-mobile ios
+pnpm --filter field-service-mobile web
 ```
 
 App opens at `http://localhost:8081`
@@ -143,11 +145,11 @@ App opens at `http://localhost:8081`
 
 ```bash
 # Start dev server
-pnpm --filter web dev
+pnpm --filter field-service-web dev
 
 # Or build for production
-pnpm --filter web build
-pnpm --filter web start
+pnpm --filter field-service-web build
+pnpm --filter field-service-web start
 ```
 
 App opens at `http://localhost:3000`
@@ -185,8 +187,8 @@ pnpm typecheck
 pnpm build
 
 # Or specific application
-pnpm --filter mobile build
-pnpm --filter web build
+pnpm --filter field-service-mobile build
+pnpm --filter field-service-web build
 ```
 
 ## 🚀 Deployment
@@ -249,7 +251,7 @@ pnpm install
 
 ```bash
 # Run on different port
-pnpm --filter web dev -- -p 3001
+pnpm --filter field-service-web dev -- -p 3001
 ```
 
 ### "EAS Build failed"

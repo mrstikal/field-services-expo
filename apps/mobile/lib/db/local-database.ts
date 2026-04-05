@@ -1,5 +1,5 @@
 import { openDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const DATABASE_NAME = 'field-service.db';
 const DATABASE_VERSION = 1;

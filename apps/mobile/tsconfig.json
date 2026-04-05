@@ -4,15 +4,33 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@lib/*": ["./lib/*"],
-      "@shared/*": ["../../packages/shared-types/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@lib/*": [
+        "./lib/*"
+      ],
+      "@shared/*": [
+        "../../packages/shared-types/*"
+      ]
     },
     "moduleResolution": "bundler",
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["nativewind/types"]
+    "types": [
+      "nativewind/types"
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
-  "exclude": ["node_modules", "../web/**/*"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts",
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../web/**/*"
+  ]
 }

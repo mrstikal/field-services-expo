@@ -17,6 +17,22 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+function getAuthErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'Login failed. Please try again.';
+  }
+
+  const msg = error.message.toLowerCase();
+  if (msg.includes('invalid api key')) {
+    return 'Login failed: invalid Supabase API key. Verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.';
+  }
+  if (msg.includes('invalid login credentials')) {
+    return 'Invalid email or password.';
+  }
+
+  return error.message;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { signIn } = useAuth();
@@ -42,8 +58,8 @@ export default function LoginPage() {
     try {
       await signIn(data.email, data.password);
       router.push('/dashboard');
-    } catch {
-      setError('Login failed. Please try again.');
+    } catch (err) {
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
