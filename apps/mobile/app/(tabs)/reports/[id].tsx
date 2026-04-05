@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +23,7 @@ export default function ReportDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
+      <View className="flex-1 items-center justify-center">
         <Text>Loading report...</Text>
       </View>
     );
@@ -31,15 +31,15 @@ export default function ReportDetailScreen() {
 
   if (error || !report) {
     return (
-      <View style={styles.center}>
+      <View className="flex-1 items-center justify-center">
         <Text>Failed to load report.</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Report #{report.id.slice(0, 8)}</Text>
+    <ScrollView className="flex-1 bg-slate-50 p-4">
+      <Text className="mb-3 text-xl font-semibold">Report #{report.id.slice(0, 8)}</Text>
       <Text>Status: {report.status}</Text>
       <Text>Created at: {new Date(report.created_at).toLocaleString()}</Text>
       <Text>Updated at: {new Date(report.updated_at).toLocaleString()}</Text>
@@ -50,21 +50,3 @@ export default function ReportDetailScreen() {
   );
 }
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  center: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  container: {
-    backgroundColor: '#f9fafb',
-    flex: 1,
-    padding: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-});

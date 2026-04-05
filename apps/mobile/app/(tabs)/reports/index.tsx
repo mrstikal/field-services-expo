@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { paddingStyles } from '@/lib/styles';
 
 interface Report {
   id: string;
@@ -12,16 +13,16 @@ interface Report {
   updated_at: string;
 }
 
-const getStatusColor = (status: string) => {
+const getStatusClassName = (status: string) => {
   switch (status) {
     case 'draft':
-      return '#f97316';
+      return 'bg-orange-500';
     case 'completed':
-      return '#22c55e';
+      return 'bg-green-500';
     case 'synced':
-      return '#1e40af';
+      return 'bg-blue-800';
     default:
-      return '#6b7280';
+      return 'bg-gray-500';
   }
 };
 
@@ -54,186 +55,63 @@ export default function ReportsListScreen() {
 
   const renderReportCard = ({ item }: { item: Report }) => (
     <TouchableOpacity
-      style={styles.reportCard}
+      className="mb-3 rounded-lg border-l-4 border-l-blue-800 bg-white p-3"
       onPress={() => router.push(`/reports/${item.id}`)}
     >
-      <View style={styles.reportHeader}>
-        <View style={styles.flexContainer}>
-          <Text style={styles.reportTitle}>Report #{item.id.slice(0, 8)}</Text>
-          <Text style={styles.reportDate}>
+      <View className="mb-2 flex-row items-start justify-between">
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-gray-800">Report #{item.id.slice(0, 8)}</Text>
+          <Text className="mt-1 text-xs text-gray-500">
             {new Date(item.created_at).toLocaleDateString()}
           </Text>
         </View>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: getStatusColor(item.status) },
-          ]}
-        >
-          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+        <View className={`ml-2 rounded px-2 py-1 ${getStatusClassName(item.status)}`}>
+          <Text className="text-[10px] font-semibold text-white">{getStatusLabel(item.status)}</Text>
         </View>
       </View>
-      <View style={styles.reportFooter}>
-        <Ionicons name="document-text-outline" size={14} color="#6b7280" />
-        <Text style={styles.reportMeta}>Task: {item.task_id.slice(0, 8)}</Text>
+      <View className="flex-row items-center">
+        <Ionicons color="#6b7280" name="document-text-outline" size={14} />
+        <Text className="ml-1.5 text-[11px] text-gray-500">Task: {item.task_id.slice(0, 8)}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Reports</Text>
-        <Text style={styles.headerSubtitle}>{reports.length} reports total</Text>
+    <View className="flex-1 bg-slate-50">
+      <View className="border-b border-gray-200 bg-white px-4 py-4">
+        <Text className="text-xl font-semibold text-gray-800">My Reports</Text>
+        <Text className="mt-1 text-sm text-gray-500">{reports.length} reports total</Text>
       </View>
 
-      <View style={styles.actionBar}>
+      <View className="border-b border-gray-200 bg-white px-4 py-3">
         <TouchableOpacity
-          style={styles.createButton}
+          className="flex-row items-center justify-center rounded-lg bg-blue-800 px-4 py-3"
           onPress={() => router.push('/reports/create')}
         >
-          <Ionicons name="add-circle-outline" size={20} color="#ffffff" />
-          <Text style={styles.createButtonText}>New Report</Text>
+          <Ionicons color="#ffffff" name="add-circle-outline" size={20} />
+          <Text className="ml-2 text-sm font-semibold text-white">New Report</Text>
         </TouchableOpacity>
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View className="flex-1 items-center justify-center">
           <Text>Loading reports...</Text>
         </View>
       ) : reports.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="document-outline" size={48} color="#d1d5db" />
-          <Text style={styles.emptyText}>No reports yet</Text>
-          <Text style={styles.emptySubtext}>Create your first report to get started</Text>
+        <View className="flex-1 items-center justify-center">
+          <Ionicons color="#d1d5db" name="document-outline" size={48} />
+          <Text className="mt-3 text-base font-semibold text-gray-400">No reports yet</Text>
+          <Text className="mt-1 text-sm text-gray-300">Create your first report to get started</Text>
         </View>
       ) : (
         <FlatList
+          contentContainerStyle={paddingStyles.contentContainer}
           data={reports}
-          renderItem={renderReportCard}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={true}
+          renderItem={renderReportCard}
+          scrollEnabled
         />
       )}
     </View>
   );
 }
-
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  actionBar: {
-    backgroundColor: '#ffffff',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  container: {
-    backgroundColor: '#f9fafb',
-    flex: 1,
-  },
-  createButton: {
-    alignItems: 'center',
-    backgroundColor: '#1e40af',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  createButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptySubtext: {
-    color: '#d1d5db',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  emptyText: {
-    color: '#9ca3af',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-  },
-  flexContainer: {
-    flex: 1,
-  },
-  header: {
-    backgroundColor: '#ffffff',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  headerSubtitle: {
-    color: '#6b7280',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  headerTitle: {
-    color: '#1f2937',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: 16,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  reportCard: {
-    backgroundColor: '#ffffff',
-    borderLeftColor: '#1e40af',
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    marginBottom: 12,
-    padding: 12,
-  },
-  reportDate: {
-    color: '#6b7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  reportFooter: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  reportHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  reportMeta: {
-    color: '#6b7280',
-    fontSize: 11,
-    marginLeft: 6,
-  },
-  reportTitle: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    borderRadius: 4,
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-});

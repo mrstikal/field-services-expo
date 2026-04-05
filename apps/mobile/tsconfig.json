@@ -10,8 +10,9 @@
     },
     "moduleResolution": "bundler",
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["nativewind/types"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
   "exclude": ["node_modules", "../web/**/*"]
 }

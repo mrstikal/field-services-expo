@@ -42,7 +42,10 @@ jobs:
       
       - name: Run ESLint
         run: pnpm lint
-      
+
+      - name: Run mobile stylesheet guard
+        run: pnpm guard:stylesheet
+
       - name: Check code formatting
         run: pnpm prettier --check "**/*.{ts,tsx,js,jsx,json,md}"
 

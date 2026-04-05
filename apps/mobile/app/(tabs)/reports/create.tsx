@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,23 +7,12 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView } from 'expo-camera';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
 import { generatePDF, savePDF, sharePDF } from '@/lib/utils/pdf-generator';
-
-// Color constants
-const COLORS = {
-  primary: '#1e40af',
-  primaryLight: '#1e40af',
-  white: '#ffffff',
-  gray: {
-    400: '#9ca3af',
-    500: '#6b7280',
-    600: '#1f2937',
-    700: '#e5e7eb',
-  },
-  success: '#10b981',
-  danger: '#ef4444',
-  background: '#f9fafb',
-  overlay: 'rgba(0, 0, 0, 0.8)',
-};
+import { detectObjects, suggestFormFields } from '@/lib/utils/vision-detection';
+import { Task, TaskCategory } from '@field-service/shared-types';
+import { formTemplates } from '@/lib/validators/report-schemas';
+import { DynamicForm } from '@/components/report/DynamicForm';
+import { SignaturePad } from '@/components/report/SignaturePad';
+import { TaskSelector } from '@/components/report/TaskSelector';
 
 interface Photo {
   id: string;
@@ -37,6 +26,11 @@ export default function CreateReportScreen() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [isSignatureOpen, setIsSignatureOpen] = useState<boolean>(false);
+  const [formData, setFormData] = useState<Record<string, string | number | boolean>>({});
+  const [isVisionProcessing, setIsVisionProcessing] = useState<boolean>(false);
 
   // Barcode scanner hook
   const {
@@ -185,36 +179,90 @@ export default function CreateReportScreen() {
     resetScanner();
   };
 
-  // Save report (simulated)
+  // Handle signature
+  const handleSignature = (signatureData: string) => {
+    setSignature(signatureData);
+    setIsSignatureOpen(false);
+  };
+
+  // Vision object detection
+  const handleVisionDetection = async () => {
+    if (photos.length === 0) {
+      Alert.alert('No Photos', 'Please add at least one photo for detection');
+      return;
+    }
+
+    setIsVisionProcessing(true);
+    try {
+      const result = await detectObjects(photos[0].uri);
+      if (result && result.objects.length > 0) {
+        const suggestions = suggestFormFields(result);
+        if (suggestions.length > 0) {
+          Alert.alert(
+            'Auto-Detected Fields',
+            'Would you like to auto-fill form fields based on detection?',
+            [
+              {
+                text: 'Yes',
+                onPress: () => {
+                  suggestions.forEach(s => {
+                    setFormData(prev => ({ ...prev, [s.fieldId]: s.value }));
+                  });
+                },
+              },
+              { text: 'No', style: 'cancel' },
+            ]
+          );
+        } else {
+          Alert.alert('Detection Complete', 'No significant objects detected');
+        }
+      }
+    } catch (error) {
+      console.error('Vision detection error:', error);
+      Alert.alert('Detection Failed', 'Could not process image for detection');
+    } finally {
+      setIsVisionProcessing(false);
+    }
+  };
+
+  // Save report
   const saveReport = async () => {
     if (photos.length === 0) {
       Alert.alert('Error', 'Please add at least one photo');
       return;
     }
 
+    if (!selectedTask) {
+      Alert.alert('Error', 'Please select a task');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      // Simulate saving report
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
       const nowIso = new Date().toISOString();
       const reportId = Date.now().toString();
+
+      // Prepare form data
+      const reportFormData = {
+        ...formData,
+        photosCount: photos.length.toString(),
+        source: 'mobile-app',
+        timestamp: nowIso,
+      };
+
       const pdfUri = await generatePDF({
         id: reportId,
-        taskTitle: 'Service Task',
-        taskDescription: 'Work report generated from mobile app.',
-        taskAddress: 'N/A',
-        customerName: 'N/A',
-        customerPhone: 'N/A',
+        taskTitle: selectedTask.title,
+        taskDescription: selectedTask.description,
+        taskAddress: selectedTask.address,
+        customerName: selectedTask.customer_name,
+        customerPhone: selectedTask.customer_phone,
         technicianName: 'Technician',
         technicianId: 'mobile-user',
         photos: photos.map(photo => photo.uri),
-        formData: {
-          photoCount: photos.length.toString(),
-          source: 'mobile-app',
-        },
-        signature: null,
+        formData: reportFormData,
+        signature: signature,
         createdAt: nowIso,
         completedAt: nowIso,
       });
@@ -259,13 +307,26 @@ export default function CreateReportScreen() {
     }
   };
 
+  // Get form template based on task category
+  const getFormTemplate = useCallback(() => {
+    if (!selectedTask) return null;
+    return {
+      id: 'report-template',
+      categoryId: selectedTask.category as TaskCategory,
+      name: formTemplates[selectedTask.category as TaskCategory].name,
+      fields: formTemplates[selectedTask.category as TaskCategory].fields,
+      version: 1,
+      created_at: new Date().toISOString(),
+    };
+  }, [selectedTask]);
+
   if (isScannerOpen) {
     if (hasPermission === null) {
       return (
-        <View style={styles.container}>
-          <View style={styles.scannerContainer}>
-            <ActivityIndicator size="large" color="#1e40af" />
-            <Text style={styles.scannerText}>Checking camera permission...</Text>
+        <View className="flex-1 bg-slate-50">
+          <View className="flex-1 items-center justify-center p-8">
+            <ActivityIndicator color="#1e40af" size="large" />
+            <Text className="mb-6 text-center text-base text-gray-500">Checking camera permission...</Text>
           </View>
         </View>
       );
@@ -273,22 +334,22 @@ export default function CreateReportScreen() {
 
     if (!hasPermission) {
       return (
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={closeScanner} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color="#1e40af" />
+        <View className="flex-1 bg-slate-50">
+          <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+            <TouchableOpacity className="p-2" onPress={closeScanner}>
+              <Ionicons color="#1e40af" name="chevron-back" size={24} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Barcode Scanner</Text>
-            <View style={styles.spacer} />
+            <Text className="text-lg font-semibold text-gray-800">Barcode Scanner</Text>
+            <View className="w-6" />
           </View>
-          <View style={styles.scannerContainer}>
-            <Ionicons name="camera-outline" size={64} color="#ef4444" />
-            <Text style={styles.scannerText}>Camera permission is required to scan part barcodes.</Text>
-            <TouchableOpacity style={styles.scanButton} onPress={handleScannerPermissionRetry}>
-              <Text style={styles.scanButtonText}>Try Again</Text>
+          <View className="flex-1 items-center justify-center p-8">
+            <Ionicons color="#ef4444" name="camera-outline" size={64} />
+            <Text className="mb-6 text-center text-base text-gray-500">Camera permission is required to scan part barcodes.</Text>
+            <TouchableOpacity className="flex-row items-center justify-center rounded-lg bg-blue-800 p-3" onPress={handleScannerPermissionRetry}>
+              <Text className="text-sm font-semibold text-white">Try Again</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.settingsButton} onPress={openSettings}>
-              <Text style={styles.settingsButtonText}>Open Settings</Text>
+            <TouchableOpacity className="mt-3 rounded-lg border border-blue-800 px-4 py-2.5" onPress={openSettings}>
+              <Text className="text-sm font-semibold text-blue-800">Open Settings</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -296,309 +357,167 @@ export default function CreateReportScreen() {
     }
 
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={closeScanner} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#ffffff" />
+      <View className="flex-1 bg-slate-50">
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+          <TouchableOpacity className="p-2" onPress={closeScanner}>
+            <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Barcode Scanner</Text>
-          <View style={styles.spacer} />
+          <Text className="text-lg font-semibold text-gray-800">Barcode Scanner</Text>
+          <View className="w-6" />
         </View>
-        <View style={styles.inlineScannerCameraContainer}>
+        <View className="relative flex-1 bg-black">
           <CameraView
-            ref={cameraRef}
-            style={styles.inlineScannerCamera}
-            facing="back"
             barcodeScannerSettings={{
               barcodeTypes: ['ean13', 'qr', 'code128', 'code39', 'upc_e', 'upc_a', 'datamatrix', 'pdf417', 'aztec'],
             }}
+            className="flex-1"
+            facing="back"
             onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
+            ref={cameraRef}
           />
-          <View style={styles.inlineScannerOverlay}>
-            <View style={styles.inlineScannerFrame} />
-            <Text style={styles.inlineScannerHelpText}>Align barcode inside frame</Text>
+          <View className="absolute inset-0 items-center justify-center">
+            <View className="h-[220px] w-[220px] rounded-xl border-2 border-white" />
+            <Text className="mt-4 text-sm text-white">Align barcode inside frame</Text>
           </View>
         </View>
       </View>
     );
   }
 
+  const formTemplate = getFormTemplate();
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView className="flex-1 bg-slate-50">
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#1e40af" />
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+        <TouchableOpacity className="p-2" onPress={() => router.back()}>
+          <Ionicons color="#1e40af" name="chevron-back" size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Report</Text>
-        <View style={styles.spacer} />
+        <Text className="text-lg font-semibold text-gray-800">New Report</Text>
+        <View className="w-6" />
       </View>
 
       {/* Task Selection */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Select Task</Text>
-        <TouchableOpacity style={styles.selectButton} onPress={() => {}}>
-          <Ionicons name="list-outline" size={20} color="#6b7280" />
-          <Text style={styles.selectButtonText}>Choose task...</Text>
-          <Ionicons name="chevron-down" size={20} color="#6b7280" />
-        </TouchableOpacity>
+      <View className="mb-4 bg-white p-4">
+        <Text className="mb-3 text-base font-semibold text-gray-800">Select Task</Text>
+        <TaskSelector onSelectTask={setSelectedTask} selectedTask={selectedTask} />
       </View>
 
-      {/* Description */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Description</Text>
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputPlaceholder}>Enter work description...</Text>
-        </View>
-      </View>
-
-      {/* Photo Documentation */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Photo Documentation</Text>
-        <View style={styles.photoContainer}>
-          {photos.map(photo => (
-            <View key={photo.id} style={styles.photoItem}>
-              <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removePhoto(photo.id)}
-              >
-                <Ionicons name="close" size={20} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity style={styles.addPhotoButton} onPress={takePhoto}>
-            <Ionicons name="camera" size={32} color="#1e40af" />
-            <Text style={styles.addPhotoText}>Take Photo</Text>
+      {/* Vision Detection (only if photos added) */}
+      {photos.length > 0 && (
+        <View className="mb-4 bg-white p-4">
+          <Text className="mb-3 text-base font-semibold text-gray-800">AI Detection</Text>
+          <TouchableOpacity
+            className={`flex-row items-center justify-center rounded-lg p-3 ${isVisionProcessing ? 'bg-gray-400' : 'bg-blue-800'}`}
+            disabled={isVisionProcessing}
+            onPress={handleVisionDetection}
+          >
+            {isVisionProcessing ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <>
+                <Ionicons color="#ffffff" name="scan" size={24} />
+                <Text className="ml-2 text-sm font-semibold text-white">Detect Objects</Text>
+              </>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addPhotoButton} onPress={pickPhoto}>
-            <Ionicons name="images" size={32} color="#1e40af" />
-            <Text style={styles.addPhotoText}>From Gallery</Text>
-          </TouchableOpacity>
+          <Text className="mt-2 text-center text-xs text-gray-500">
+            AI will analyze the first photo and suggest form field values
+          </Text>
         </View>
-      </View>
+      )}
 
-      {/* Scan Part Barcode */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Scan Part Barcode</Text>
-        <TouchableOpacity style={styles.scanButton} onPress={openScanner}>
-          <Ionicons name="barcode" size={24} color="#ffffff" />
-          <Text style={styles.scanButtonText}>Scan Part Barcode</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Dynamic Form */}
+      {formTemplate ? <View className="mb-4 bg-white p-4">
+          <Text className="mb-3 text-base font-semibold text-gray-800">Report Details</Text>
+          <DynamicForm
+            isLoading={isProcessing}
+            onSubmit={(data) => setFormData(data)}
+            template={formTemplate}
+          />
+        </View> : null}
 
-      {/* Save Button */}
-      <View style={styles.saveButtonContainer}>
+      {/* Signature */}
+      <View className="mb-4 bg-white p-4">
+        <Text className="mb-3 text-base font-semibold text-gray-800">Customer Signature</Text>
         <TouchableOpacity
-          style={[styles.saveButton, photos.length === 0 && styles.saveButtonDisabled]}
-          onPress={saveReport}
-          disabled={photos.length === 0 || isProcessing}
+          className={`flex-row items-center justify-center rounded-lg border border-dashed p-6 ${signature ? 'border-green-500 bg-green-50' : 'border-gray-200'}`}
+          onPress={() => setIsSignatureOpen(true)}
         >
-          {isProcessing ? (
-            <ActivityIndicator color="#ffffff" />
+          {signature ? (
+            <>
+              <Ionicons color="#10b981" name="checkmark-circle" size={24} />
+              <Text className="ml-2 text-sm font-semibold text-blue-800">Signature Added</Text>
+            </>
           ) : (
             <>
-              <Ionicons name="checkmark" size={20} color="#ffffff" />
-              <Text style={styles.saveButtonText}>Save Report</Text>
+              <Ionicons color="#1e40af" name="pencil" size={24} />
+              <Text className="ml-2 text-sm font-semibold text-blue-800">Add Customer Signature</Text>
             </>
           )}
         </TouchableOpacity>
       </View>
 
+      {/* Photo Documentation */}
+      <View className="mb-4 bg-white p-4">
+        <Text className="mb-3 text-base font-semibold text-gray-800">Photo Documentation</Text>
+        <View className="flex-row flex-wrap gap-3">
+          {photos.map(photo => (
+            <View className="relative h-[100px] w-[100px]" key={photo.id}>
+              <Image className="h-[100px] w-[100px] rounded-lg" source={{ uri: photo.uri }} />
+              <TouchableOpacity
+                className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-red-500"
+                onPress={() => removePhoto(photo.id)}
+              >
+                <Ionicons color="#ffffff" name="close" size={20} />
+              </TouchableOpacity>
+            </View>
+          ))}
+          <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={takePhoto}>
+            <Ionicons color="#1e40af" name="camera" size={32} />
+            <Text className="mt-2 text-xs text-blue-800">Take Photo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={pickPhoto}>
+            <Ionicons color="#1e40af" name="images" size={32} />
+            <Text className="mt-2 text-xs text-blue-800">From Gallery</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Scan Part Barcode */}
+      <View className="mb-4 bg-white p-4">
+        <Text className="mb-3 text-base font-semibold text-gray-800">Scan Part Barcode</Text>
+        <TouchableOpacity className="flex-row items-center justify-center rounded-lg bg-blue-800 p-3" onPress={openScanner}>
+          <Ionicons color="#ffffff" name="barcode" size={24} />
+          <Text className="ml-2 text-sm font-semibold text-white">Scan Part Barcode</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Save Button */}
+      <View className="p-4">
+        <TouchableOpacity
+          className={`flex-row items-center justify-center rounded-lg p-4 ${photos.length === 0 ? 'bg-gray-400' : 'bg-blue-800'}`}
+          disabled={photos.length === 0 || isProcessing}
+          onPress={saveReport}
+        >
+          {isProcessing ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <>
+              <Ionicons color="#ffffff" name="checkmark" size={20} />
+              <Text className="ml-2 text-base font-semibold text-white">Save Report</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Signature Modal */}
+      <SignaturePad
+        isOpen={isSignatureOpen}
+        onClose={() => setIsSignatureOpen(false)}
+        onSign={handleSignature}
+      />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  addPhotoButton: {
-    alignItems: 'center',
-    borderColor: COLORS.gray[700],
-    borderRadius: 8,
-    borderStyle: 'dashed',
-    borderWidth: 1,
-    height: 100,
-    justifyContent: 'center',
-    width: 100,
-  },
-  addPhotoText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    marginTop: 8,
-  },
-  backButton: {
-    padding: 8,
-  },
-  container: {
-    backgroundColor: COLORS.background,
-    flex: 1,
-  },
-      inlineScannerCamera: {
-        flex: 1,
-      },
-      inlineScannerCameraContainer: {
-        backgroundColor: '#000000',
-        flex: 1,
-        position: 'relative',
-      },
-      inlineScannerFrame: {
-        borderColor: '#ffffff',
-        borderRadius: 12,
-        borderWidth: 2,
-        height: 220,
-        width: 220,
-      },
-      inlineScannerHelpText: {
-        color: '#ffffff',
-        fontSize: 14,
-        marginTop: 16,
-      },
-      inlineScannerOverlay: {
-        alignItems: 'center',
-        bottom: 0,
-        justifyContent: 'center',
-        left: 0,
-        position: 'absolute',
-        right: 0,
-        top: 0,
-      },
-  header: {
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderBottomColor: COLORS.gray[700],
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    color: COLORS.gray[600],
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  inputContainer: {
-    borderColor: COLORS.gray[700],
-    borderRadius: 8,
-    borderWidth: 1,
-    minHeight: 100,
-    padding: 12,
-  },
-  inputPlaceholder: {
-    color: COLORS.gray[400],
-    fontSize: 14,
-  },
-  photoContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  photoItem: {
-    height: 100,
-    position: 'relative',
-    width: 100,
-  },
-  photoPreview: {
-    borderRadius: 8,
-    height: 100,
-    width: 100,
-  },
-  removeButton: {
-    alignItems: 'center',
-    backgroundColor: COLORS.danger,
-    borderRadius: 12,
-    height: 24,
-    justifyContent: 'center',
-    position: 'absolute',
-    right: -8,
-    top: -8,
-    width: 24,
-  },
-  saveButton: {
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  saveButtonContainer: {
-    padding: 16,
-  },
-  saveButtonDisabled: {
-    backgroundColor: COLORS.gray[400],
-  },
-  saveButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  scanButton: {
-    alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    padding: 12,
-  },
-  scanButtonText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  scannerContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 32,
-  },
-  scannerText: {
-    color: COLORS.gray[500],
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  section: {
-    backgroundColor: COLORS.white,
-    marginBottom: 16,
-    padding: 16,
-  },
-  settingsButton: {
-    borderColor: COLORS.primary,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  settingsButtonText: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  sectionTitle: {
-    color: COLORS.gray[600],
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  selectButton: {
-    alignItems: 'center',
-    borderColor: COLORS.gray[700],
-    borderRadius: 8,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 12,
-  },
-  selectButtonText: {
-    color: COLORS.gray[500],
-    flex: 1,
-    fontSize: 14,
-    marginLeft: 12,
-  },
-  spacer: {
-    width: 24,
-  },
-});

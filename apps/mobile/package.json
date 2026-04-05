@@ -9,7 +9,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "eas build --platform all",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "guard:stylesheet": "node ./scripts/guard-stylesheet.mjs",
+    "guard:stylesheet:update-baseline": "node ./scripts/guard-stylesheet.mjs --update-baseline"
   },
   "dependencies": {
     "expo": "^52.0.0",
@@ -45,14 +47,16 @@
     "zustand": "^5.0.0",
     "date-fns": "^4.1.0",
     "@supabase/supabase-js": "^2.45.0",
-    "@field-service/shared-types": "workspace:*"
+    "@field-service/shared-types": "workspace:*",
+    "nativewind": "^4.1.23"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@types/react": "~18.3.0",
     "@types/node": "^20.0.0",
     "@expo/vector-icons": "^14.0.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "tailwindcss": "^3.4.14"
   },
   "private": true
 }

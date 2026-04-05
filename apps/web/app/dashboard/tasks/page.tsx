@@ -185,16 +185,16 @@ export default function TasksPage() {
       <div className="mb-6 flex gap-2">
         {(['all', 'assigned', 'in_progress', 'completed'] as const).map((status) => (
           <button
-            key={status}
-            onClick={() => {
-              setFilter(status);
-              setPage(1); // Reset to first page when filter changes
-            }}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               filter === status
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
             }`}
+            key={status}
+            onClick={() => {
+              setFilter(status);
+              setPage(1); // Reset to first page when filter changes
+            }}
           >
             {status === 'all' ? 'All Tasks' : status.replace('_', ' ').charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
           </button>
@@ -232,7 +232,7 @@ export default function TasksPage() {
                   </thead>
                   <tbody>
                     {tasks.map((task) => (
-                      <tr key={task.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr className="border-b border-gray-100 hover:bg-gray-50" key={task.id}>
                         <td className="py-3 px-4">
                           <div>
                             <p className="font-medium text-gray-900">{task.title}</p>
@@ -284,9 +284,9 @@ export default function TasksPage() {
                 </div>
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
-                    onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page <= 1}
+                    onClick={() => setPage(Math.max(1, page - 1))}
+                    variant="outline"
                   >
                     Previous
                   </Button>
@@ -294,9 +294,9 @@ export default function TasksPage() {
                     Page {page} of {totalPages}
                   </span>
                   <Button
-                    variant="outline"
-                    onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page >= totalPages}
+                    onClick={() => setPage(Math.min(totalPages, page + 1))}
+                    variant="outline"
                   >
                     Next
                   </Button>
@@ -308,15 +308,15 @@ export default function TasksPage() {
       </Card>
       
       <TaskDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        task={editingTask}
-        onSubmit={editingTask ? handleEditTask : handleCreateTask}
+        loading={loading}
         onCancel={() => {
           setDialogOpen(false);
           setEditingTask(undefined);
         }}
-        loading={loading}
+        onOpenChange={setDialogOpen}
+        onSubmit={editingTask ? handleEditTask : handleCreateTask}
+        open={dialogOpen}
+        task={editingTask}
       />
     </div>
   );

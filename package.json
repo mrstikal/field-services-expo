@@ -11,16 +11,19 @@
     "typecheck": "turbo typecheck",
     "db:seed": "pnpm --filter @field-service/db db:seed",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "setup": "pnpm install && pnpm --filter @field-service/db db:seed"
+    "setup": "pnpm install && pnpm --filter @field-service/db db:seed",
+    "guard:stylesheet": "turbo guard:stylesheet",
+    "guard:stylesheet:update-baseline": "pnpm --filter field-service-mobile guard:stylesheet:update-baseline"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "eslint": "^8.57.0",
+    "@eslint/js": "^9.26.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^9.26.0",
     "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-react": "^7.34.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-native": "^4.1.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-native": "^5.0.0",
     "prettier": "^3.3.3",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2"

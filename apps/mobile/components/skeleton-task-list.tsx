@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, Animated } from 'react-native';
 
 const SkeletonTaskCard: React.FC = () => {
   // Animation for shimmer effect
@@ -21,14 +21,14 @@ const SkeletonTaskCard: React.FC = () => {
   ).start();
 
   return (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonHeader}>
-        <View style={styles.skeletonTitle} />
-        <View style={styles.skeletonPriority} />
+    <View className="mb-3 rounded-lg border-l-4 border-l-gray-200 bg-white p-3">
+      <View className="mb-2 flex-row items-start justify-between">
+        <View className="h-4 w-[70%] rounded bg-gray-200" />
+        <View className="h-5 w-[60px] rounded bg-gray-200" />
       </View>
-      <View style={styles.skeletonFooter}>
-        <View style={styles.skeletonStatus} />
-        <View style={styles.skeletonTime} />
+      <View className="flex-row items-center justify-between">
+        <View className="h-4 w-[60px] rounded bg-gray-200" />
+        <View className="h-4 w-[60px] rounded bg-gray-200" />
       </View>
     </View>
   );
@@ -36,7 +36,7 @@ const SkeletonTaskCard: React.FC = () => {
 
 const SkeletonTaskList: React.FC = () => {
   return (
-    <View style={styles.container}>
+    <View className="flex-1 p-4">
       {[...Array(5)].map((_, index) => (
         <SkeletonTaskCard key={index} />
       ))}
@@ -44,55 +44,5 @@ const SkeletonTaskList: React.FC = () => {
   );
 };
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  skeletonCard: {
-    backgroundColor: '#ffffff',
-    borderLeftColor: '#e5e7eb',
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    marginBottom: 12,
-    padding: 12,
-  },
-  skeletonFooter: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  skeletonHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  skeletonPriority: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    height: 20,
-    width: 60,
-  },
-  skeletonStatus: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    height: 16,
-    width: 60,
-  },
-  skeletonTime: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    height: 16,
-    width: 60,
-  },
-  skeletonTitle: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    height: 16,
-    width: '70%',
-  },
-});
 
 export default SkeletonTaskList;

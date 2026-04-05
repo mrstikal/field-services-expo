@@ -1,16 +1,14 @@
 import React, { useEffect } from 'react';
-import { StyleSheet } from 'react-native';
-import Animated, { 
+import Animated, {
   useAnimatedStyle, 
   useSharedValue, 
   withTiming
 } from 'react-native-reanimated';
-import { colors } from '@/lib/colors';
 
 interface TaskDetailTransitionProps {
-  children: React.ReactNode;
-  isActive: boolean;
-  onComplete?: () => void;
+  readonly children: React.ReactNode;
+  readonly isActive: boolean;
+  readonly onComplete?: () => void;
 }
 
 const TaskDetailTransition: React.FC<TaskDetailTransitionProps> = ({
@@ -48,25 +46,14 @@ const TaskDetailTransition: React.FC<TaskDetailTransitionProps> = ({
     };
   });
 
-  return (
-    <Animated.View 
-      style={[
-        styles.container, 
-        animatedStyle
-      ]}
-    >
+   return (
+     <Animated.View 
+       className="bg-gray-50 flex-1 m-2 overflow-hidden"
+       style={animatedStyle}
+     >
       {children}
     </Animated.View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.gray50,
-    flex: 1,
-    margin: 8,
-    overflow: 'hidden',
-  },
-});
 
 export default TaskDetailTransition;

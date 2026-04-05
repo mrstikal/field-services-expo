@@ -6,7 +6,7 @@ import { LayoutDashboard, ClipboardList, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({ children }: { readonly children: ReactNode }) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
@@ -22,19 +22,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         <nav className="flex-1 p-4 space-y-2">
           <Link href="/dashboard">
-            <Button variant="ghost" className="w-full justify-start">
+            <Button className="w-full justify-start" variant="ghost">
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Overview
             </Button>
           </Link>
           <Link href="/dashboard/tasks">
-            <Button variant="ghost" className="w-full justify-start">
+            <Button className="w-full justify-start" variant="ghost">
               <ClipboardList className="mr-2 h-4 w-4" />
               Tasks
             </Button>
           </Link>
           <Link href="/dashboard/technicians">
-            <Button variant="ghost" className="w-full justify-start">
+            <Button className="w-full justify-start" variant="ghost">
               <Users className="mr-2 h-4 w-4" />
               Technicians
             </Button>
@@ -42,7 +42,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <Button variant="outline" className="w-full justify-start" onClick={handleSignOut}>
+          <Button className="w-full justify-start" onClick={handleSignOut} variant="outline">
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
           </Button>
@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         {/* Mobile Header */}
         <div className="md:hidden p-4 bg-white border-b border-gray-200 flex items-center justify-between">
           <h1 className="text-xl font-bold">Field Service</h1>
-          <Button variant="ghost" onClick={handleSignOut}>
+          <Button onClick={handleSignOut} variant="ghost">
             <LogOut className="h-5 w-5" />
           </Button>
         </div>

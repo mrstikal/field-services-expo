@@ -61,41 +61,35 @@ export default function LoginPage() {
           </p>
         </CardHeader>
         <CardContent>
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error ? <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
               {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            </div> : null}
+          <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label className="text-sm font-medium" htmlFor="email">
                 Email
               </label>
               <Input
                 id="email"
-                type="email"
                 placeholder="dispatcher@demo.cz"
+                type="email"
                 {...register('email')}
               />
-              {errors.email && (
-                <p className="text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email ? <p className="text-sm text-red-600">{errors.email.message}</p> : null}
             </div>
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label className="text-sm font-medium" htmlFor="password">
                 Password
               </label>
               <Input
                 id="password"
-                type="password"
                 placeholder="••••••"
+                type="password"
                 {...register('password')}
               />
-              {errors.password && (
-                <p className="text-sm text-red-600">{errors.password.message}</p>
-              )}
+              {errors.password ? <p className="text-sm text-red-600">{errors.password.message}</p> : null}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button className="w-full" disabled={isLoading} type="submit">
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>

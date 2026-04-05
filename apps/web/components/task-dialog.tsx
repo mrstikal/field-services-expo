@@ -15,12 +15,12 @@ type TaskFormData = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'version' | 
 };
 
 interface TaskDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  task?: Task;
-  onSubmit: (data: TaskFormData) => Promise<void>;
-  onCancel: () => void;
-  loading?: boolean;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly task?: Task;
+  readonly onSubmit: (data: TaskFormData) => Promise<void>;
+  readonly onCancel: () => void;
+  readonly loading?: boolean;
 }
 
 export default function TaskDialog({
@@ -48,7 +48,7 @@ export default function TaskDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? 'Edit Task' : 'Create New Task'}</DialogTitle>
@@ -56,18 +56,18 @@ export default function TaskDialog({
         
         <div className="py-4">
           <TaskForm
-            task={task}
-            onSubmit={handleSubmit}
-            onCancel={handleCancel}
             loading={loading}
+            onCancel={handleCancel}
+            onSubmit={handleSubmit}
+            task={task}
           />
         </div>
         
         <DialogFooter>
           <Button 
-            variant="outline" 
+            disabled={loading} 
             onClick={handleCancel}
-            disabled={loading}
+            variant="outline"
           >
             Cancel
           </Button>

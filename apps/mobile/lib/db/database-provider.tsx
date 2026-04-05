@@ -10,7 +10,7 @@ interface DatabaseContextType {
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
-export function DatabaseProvider({ children }: { children: ReactNode }) {
+export function DatabaseProvider({ children }: { readonly children: ReactNode }) {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);

@@ -24,7 +24,7 @@ export default function TabsLayout() {
           title: 'Home',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons color={color} name="home-outline" size={size} />
           ),
         }}
       />
@@ -34,7 +34,7 @@ export default function TabsLayout() {
           title: 'Tasks',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
+            <Ionicons color={color} name="list-outline" size={size} />
           ),
         }}
       />
@@ -44,7 +44,7 @@ export default function TabsLayout() {
           title: 'Reports',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text-outline" size={size} color={color} />
+            <Ionicons color={color} name="document-text-outline" size={size} />
           ),
         }}
       />
@@ -54,7 +54,7 @@ export default function TabsLayout() {
           title: 'Profile',
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+            <Ionicons color={color} name="person-outline" size={size} />
           ),
         }}
       />

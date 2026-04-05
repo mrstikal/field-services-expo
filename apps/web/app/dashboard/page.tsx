@@ -46,7 +46,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
           <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
           <div className="mt-4">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
             <p className="text-gray-500 mt-2">Loading...</p>
           </div>
         </div>
@@ -247,7 +247,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               {technicians.slice(0, 5).map((tech: Technician) => (
-                <div key={tech.id} className="flex items-center justify-between">
+                <div className="flex items-center justify-between" key={tech.id}>
                   <span className="text-sm text-gray-700">{tech.name}</span>
                   <div className="flex items-center gap-2">
                     <div

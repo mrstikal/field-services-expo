@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ import { useRef, useState, useCallback } from 'react';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Task } from '@field-service/shared-types';
 import { useRealtimeTasks } from '@/lib/hooks/use-realtime-tasks';
+import { paddingStyles } from '@/lib/styles';
 
 export default function TasksListScreen() {
   const router = useRouter();
@@ -92,7 +93,7 @@ export default function TasksListScreen() {
     router.push(`/tasks/${taskId}`);
   }, [router]);
 
-  const renderTaskCard = useCallback(({ item }: { item: Task }) => (
+  const renderTaskCard = useCallback(({ item }: { readonly item: Task }) => (
     <SwipeableTaskCard 
       item={item} 
       onPress={() => handleTaskPress(item.id)} 
@@ -108,16 +109,16 @@ export default function TasksListScreen() {
   }), []);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>All Tasks</Text>
-        <View style={styles.headerActions}>
-          <Text style={styles.headerSubtitle}>{filteredTasks.length} tasks</Text>
-          <TouchableOpacity 
-            onPress={() => bottomSheetRef.current?.present()} 
-            style={styles.filterButton}
+    <View className="flex-1 bg-slate-50">
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-4">
+        <Text className="text-xl font-semibold text-gray-800">All Tasks</Text>
+        <View className="flex-row items-center gap-3">
+          <Text className="text-sm text-gray-500">{filteredTasks.length} tasks</Text>
+          <TouchableOpacity
+            className="p-1" 
+            onPress={() => bottomSheetRef.current?.present()}
           >
-            <Ionicons name="filter" size={20} color="#1e40af" />
+            <Ionicons color="#1e40af" name="filter" size={20} />
           </TouchableOpacity>
         </View>
       </View>
@@ -125,27 +126,27 @@ export default function TasksListScreen() {
       {isLoading ? (
         <SkeletonTaskList />
       ) : error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-          <Text style={styles.errorText}>Error loading tasks: {error.message}</Text>
+        <View className="flex-1 items-center justify-center">
+          <Ionicons color="#ef4444" name="alert-circle-outline" size={48} />
+          <Text className="mt-3 text-base text-red-500">Error loading tasks: {error.message}</Text>
         </View>
       ) : filteredTasks.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="checkmark-circle-outline" size={48} color="#d1d5db" />
-          <Text style={styles.emptyText}>No tasks match the filters</Text>
+        <View className="flex-1 items-center justify-center">
+          <Ionicons color="#d1d5db" name="checkmark-circle-outline" size={48} />
+          <Text className="mt-3 text-base text-gray-400">No tasks match the filters</Text>
         </View>
       ) : (
         <FlatList
+          contentContainerStyle={paddingStyles.contentContainer}
           data={filteredTasks}
-          renderItem={renderTaskCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          scrollEnabled={true}
-          refreshControl={
-            <RefreshControl refreshing={false} onRefresh={onRefresh} />
-          }
           getItemLayout={getItemLayout}
+          keyExtractor={(item) => item.id}
           maxToRenderPerBatch={10}
+          refreshControl={
+            <RefreshControl onRefresh={onRefresh} refreshing={false} />
+          }
+          renderItem={renderTaskCard}
+          scrollEnabled
           updateCellsBatchingPeriod={50}
           windowSize={10}
         />
@@ -154,68 +155,10 @@ export default function TasksListScreen() {
       <TaskFilters
         bottomSheetRef={bottomSheetRef}
         filters={filters}
-        onFilterChange={handleFilterChange}
         onApplyFilters={handleApplyFilters}
+        onFilterChange={handleFilterChange}
         onResetFilters={handleResetFilters}
       />
     </View>
   );
 }
-
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f9fafb',
-    flex: 1,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptyText: {
-    color: '#9ca3af',
-    fontSize: 16,
-    marginTop: 12,
-  },
-  errorContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 16,
-    marginTop: 12,
-  },
-  filterButton: {
-    padding: 4,
-  },
-  header: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  headerActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerSubtitle: {
-    color: '#6b7280',
-    fontSize: 14,
-  },
-  headerTitle: {
-    color: '#1f2937',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  listContent: {
-    padding: 16,
-  },
-});

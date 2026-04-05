@@ -105,7 +105,7 @@ export default function TechniciansPage() {
                 </thead>
                 <tbody>
                   {filteredTechnicians.map((tech) => (
-                    <tr key={tech.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr className="border-b border-gray-100 hover:bg-gray-50" key={tech.id}>
                       <td className="py-3 px-4">
                         <p className="font-medium text-gray-900">{tech.name}</p>
                       </td>

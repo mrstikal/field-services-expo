@@ -15,9 +15,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "cz.fieldservice.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Aplikace potřebuje přístup k fotoaparátu pro skenování čárových kódů a fotodokumentaci.",
-        "NSLocationWhenInUseUsageDescription": "Aplikace potřebuje přístup k vaší poloze pro sledování techniků v terénu.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Aplikace potřebuje přístup k vaší poloze i v pozadí pro sledování techniků v terénu."
+        "NSCameraUsageDescription": "The app needs access to the camera for barcode scanning and photo documentation.",
+        "NSLocationWhenInUseUsageDescription": "The app needs access to your location to track field technicians.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "The app needs access to your location in the background to track field technicians."
       }
     },
     "android": {
@@ -38,7 +38,8 @@
       "expo-location",
       "expo-file-system",
       "expo-print",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-task-manager"
     ],
     "experiments": {
       "typedRoutes": true

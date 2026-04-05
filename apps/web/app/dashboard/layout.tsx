@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth-provider';
 import { supabase } from '@/lib/supabase';
 
 interface DashboardLayoutProps {
-  children: ReactNode;
+  readonly children: ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -56,9 +56,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => (
             <Link
-              key={item.href}
-              href={item.href}
               className="flex items-center px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              href={item.href}
+              key={item.href}
             >
               <span className="mr-3">{item.icon}</span>
               {item.label}
@@ -73,8 +73,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <p className="text-xs text-gray-500 mt-1">Dispatcher</p>
           </div>
           <button
-            onClick={handleSignOut}
             className="w-full flex items-center justify-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+            onClick={handleSignOut}
           >
             <span className="mr-2">Sign Out</span>
           </button>

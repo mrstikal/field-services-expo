@@ -1,5 +1,5 @@
-/* eslint-disable react-native/no-color-literals, react-native/no-inline-styles */
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Alert, RefreshControl } from 'react-native';
+ 
+import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -26,18 +26,45 @@ interface Task {
   updated_at: string;
 }
 
-const getPriorityColor = (priority: string) => {
+
+const getPriorityBadgeClass = (priority: string) => {
   switch (priority) {
     case 'urgent':
-      return '#dc2626';
+      return 'bg-red-600';
     case 'high':
-      return '#f97316';
+      return 'bg-orange-500';
     case 'medium':
-      return '#eab308';
+      return 'bg-yellow-500';
     case 'low':
-      return '#22c55e';
+      return 'bg-green-500';
     default:
-      return '#6b7280';
+      return 'bg-gray-500';
+  }
+};
+
+const getPriorityTextClass = (priority: string) => {
+  switch (priority) {
+    case 'urgent':
+      return 'text-red-600';
+    case 'high':
+      return 'text-orange-500';
+    case 'medium':
+      return 'text-yellow-500';
+    case 'low':
+      return 'text-green-500';
+    default:
+      return 'text-gray-500';
+  }
+};
+
+const getStatusDotClass = (status: string) => {
+  switch (status) {
+    case 'completed':
+      return 'bg-green-500';
+    case 'in_progress':
+      return 'bg-orange-500';
+    default:
+      return 'bg-blue-500';
   }
 };
 
@@ -144,15 +171,15 @@ export default function TaskDetailScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View className="flex-1 bg-slate-50">
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#1e40af" />
+            <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Task Detail</Text>
-          <View style={{ width: 24 }} />
+          <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
+          <View className="w-6" />
         </View>
-        <View style={styles.loadingContainer}>
+        <View className="flex-1 items-center justify-center">
           <Text>Loading...</Text>
         </View>
       </View>
@@ -161,110 +188,95 @@ export default function TaskDetailScreen() {
 
   if (error || !task) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View className="flex-1 bg-slate-50">
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={24} color="#1e40af" />
+            <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Task Detail</Text>
-          <View style={{ width: 24 }} />
+          <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
+          <View className="w-6" />
         </View>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
-          <Text style={styles.errorText}>Failed to load task</Text>
+        <View className="flex-1 items-center justify-center">
+          <Ionicons color="#ef4444" name="alert-circle-outline" size={48} />
+          <Text className="mt-3 text-base text-red-500">Failed to load task</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-slate-50">
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color="#1e40af" />
+          <Ionicons color="#1e40af" name="chevron-back" size={24} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Task Detail</Text>
-        <View style={{ width: 24 }} />
+        <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
+        <View className="w-6" />
       </View>
 
       <ScrollView 
-        style={styles.content} 
+        className="flex-1 px-4"
+        refreshControl={<RefreshControl onRefresh={onRefresh} refreshing={refreshing} />}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Title and Status */}
-        <View style={styles.section}>
-          <View style={styles.titleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>{task.title}</Text>
-              <Text style={styles.category}>{getCategoryLabel(task.category)}</Text>
+        <View className="mb-5">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text className="mb-1 text-2xl font-bold text-gray-800">{task.title}</Text>
+              <Text className="text-sm font-medium text-gray-500">{getCategoryLabel(task.category)}</Text>
             </View>
             <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: getPriorityColor(task.priority) },
-              ]}
+              className={`ml-3 rounded-md px-3 py-1.5 ${getPriorityBadgeClass(task.priority)}`}
             >
-              <Text style={styles.statusText}>{task.priority}</Text>
+              <Text className="text-xs font-semibold capitalize text-white">{task.priority}</Text>
             </View>
           </View>
         </View>
 
         {/* Status */}
-        <View style={styles.section}>
-          <View style={styles.statusRow}>
-            <Text style={styles.label}>Status:</Text>
-            <View style={styles.statusIndicator}>
-              <View
-                style={[
-                  styles.statusDot,
-                  {
-                    backgroundColor:
-                      task.status === 'completed'
-                        ? '#22c55e'
-                        : task.status === 'in_progress'
-                        ? '#f97316'
-                        : '#3b82f6',
-                  },
-                ]}
-              />
-              <Text style={styles.statusValue}>{getStatusLabel(task.status)}</Text>
+        <View className="mb-5">
+          <View className="flex-row items-center justify-between">
+            <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">Status:</Text>
+            <View className="flex-row items-center">
+              <View className={`mr-2 h-2 w-2 rounded ${getStatusDotClass(task.status)}`} />
+              <Text className="text-sm font-semibold text-gray-800">{getStatusLabel(task.status)}</Text>
             </View>
           </View>
         </View>
 
         {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Work Description</Text>
-          <Text style={styles.description}>{task.description}</Text>
+        <View className="mb-5">
+          <Text className="mb-3 text-base font-semibold text-gray-800">Work Description</Text>
+          <Text className="text-sm leading-5 text-gray-600">{task.description}</Text>
         </View>
 
         {/* Customer Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Contact</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="person-outline" size={16} color="#6b7280" />
-              <Text style={styles.infoText}>{task.customer_name}</Text>
+        <View className="mb-5">
+          <Text className="mb-3 text-base font-semibold text-gray-800">Customer Contact</Text>
+          <View className="rounded-lg border border-gray-200 bg-white p-3">
+            <View className="mb-3 flex-row items-center">
+              <Ionicons color="#6b7280" name="person-outline" size={16} />
+              <Text className="ml-3 flex-1 text-sm text-gray-800">{task.customer_name}</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="call-outline" size={16} color="#6b7280" />
-              <Text style={styles.infoText}>{task.customer_phone}</Text>
+            <View className="flex-row items-center">
+              <Ionicons color="#6b7280" name="call-outline" size={16} />
+              <Text className="ml-3 flex-1 text-sm text-gray-800">{task.customer_phone}</Text>
             </View>
           </View>
         </View>
 
         {/* Location */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Work Location</Text>
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color="#6b7280" />
-              <Text style={styles.infoText}>{task.address}</Text>
+        <View className="mb-5">
+          <Text className="mb-3 text-base font-semibold text-gray-800">Work Location</Text>
+          <View className="rounded-lg border border-gray-200 bg-white p-3">
+            <View className="mb-3 flex-row items-center">
+              <Ionicons color="#6b7280" name="location-outline" size={16} />
+              <Text className="ml-3 flex-1 text-sm text-gray-800">{task.address}</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="navigate-outline" size={16} color="#6b7280" />
-              <Text style={styles.infoText}>
+            <View className="flex-row items-center">
+              <Ionicons color="#6b7280" name="navigate-outline" size={16} />
+              <Text className="ml-3 flex-1 text-sm text-gray-800">
                 {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
               </Text>
             </View>
@@ -272,15 +284,15 @@ export default function TaskDetailScreen() {
         </View>
 
         {/* Time and Priority */}
-        <View style={styles.section}>
-          <View style={styles.twoColumnRow}>
-            <View style={styles.column}>
-              <Text style={styles.label}>Estimated Time:</Text>
-              <Text style={styles.value}>{task.estimated_time} minutes</Text>
+        <View className="mb-5">
+          <View className="flex-row justify-between">
+            <View className="flex-1">
+              <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">Estimated Time:</Text>
+              <Text className="text-base font-semibold text-gray-800">{task.estimated_time} minutes</Text>
             </View>
-            <View style={styles.column}>
-              <Text style={styles.label}>Priority:</Text>
-              <Text style={[styles.value, { color: getPriorityColor(task.priority) }]}>
+            <View className="flex-1">
+              <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">Priority:</Text>
+              <Text className={`text-base font-semibold ${getPriorityTextClass(task.priority)}`}>
                 {task.priority.toUpperCase()}
               </Text>
             </View>
@@ -288,9 +300,9 @@ export default function TaskDetailScreen() {
         </View>
 
         {/* Due Date */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Due Date:</Text>
-          <Text style={styles.value}>
+        <View className="mb-5">
+          <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">Due Date:</Text>
+          <Text className="text-base font-semibold text-gray-800">
             {new Date(task.due_date).toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
@@ -303,24 +315,24 @@ export default function TaskDetailScreen() {
         </View>
 
         {/* Action Buttons */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleNavigate}>
-            <Ionicons name="navigate" size={20} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Navigate</Text>
+        <View className="mb-5">
+          <TouchableOpacity className="mb-3 flex-row items-center justify-center rounded-lg bg-blue-800 px-4 py-3" onPress={handleNavigate}>
+            <Ionicons color="#ffffff" name="navigate" size={20} />
+            <Text className="ml-2 text-sm font-semibold text-white">Navigate</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionButton, styles.callButton]} onPress={handleCall}>
-            <Ionicons name="call" size={20} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Call</Text>
+          <TouchableOpacity className="mb-3 flex-row items-center justify-center rounded-lg bg-emerald-600 px-4 py-3" onPress={handleCall}>
+            <Ionicons color="#ffffff" name="call" size={20} />
+            <Text className="ml-2 text-sm font-semibold text-white">Call</Text>
           </TouchableOpacity>
 
           {task.status !== 'completed' && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.startButton]}
+              className="mb-3 flex-row items-center justify-center rounded-lg bg-orange-500 px-4 py-3"
               onPress={handleStartWork}
             >
-              <Ionicons name="play" size={20} color="#ffffff" />
-              <Text style={styles.actionButtonText}>
+              <Ionicons color="#ffffff" name="play" size={20} />
+              <Text className="ml-2 text-sm font-semibold text-white">
                 {task.status === 'in_progress' ? 'In Progress' : 'Start Work'}
               </Text>
             </TouchableOpacity>
@@ -331,164 +343,3 @@ export default function TaskDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: 'center',
-    backgroundColor: '#1e40af',
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  callButton: {
-    backgroundColor: '#059669',
-  },
-  category: {
-    color: '#6b7280',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  column: {
-    flex: 1,
-  },
-  container: {
-    backgroundColor: '#f9fafb',
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  description: {
-    color: '#4b5563',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  errorContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 16,
-    marginTop: 12,
-  },
-  header: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    color: '#1f2937',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  infoCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 12,
-  },
-  infoRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  infoText: {
-    color: '#1f2937',
-    flex: 1,
-    fontSize: 14,
-    marginLeft: 12,
-  },
-  label: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    color: '#1f2937',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  startButton: {
-    backgroundColor: '#f97316',
-  },
-  statusBadge: {
-    borderRadius: 6,
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  statusDot: {
-    borderRadius: 4,
-    height: 8,
-    marginRight: 8,
-    width: 8,
-  },
-  statusIndicator: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  statusRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  statusValue: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  title: {
-    color: '#1f2937',
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  titleRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  twoColumnRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  value: {
-    color: '#1f2937',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-});

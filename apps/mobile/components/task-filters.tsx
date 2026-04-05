@@ -1,18 +1,19 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
+import { modalStyles } from '@/lib/styles';
 
 interface TaskFiltersProps {
-  bottomSheetRef: React.RefObject<BottomSheetModal>;
-  filters: {
+  readonly bottomSheetRef: React.RefObject<BottomSheetModal>;
+  readonly filters: {
     status: string | null;
     priority: string | null;
     dateRange: string | null;
   };
-  onFilterChange: (filterType: string, value: string | null) => void;
-  onApplyFilters: () => void;
-  onResetFilters: () => void;
+  readonly onFilterChange: (filterType: string, value: string | null) => void;
+  readonly onApplyFilters: () => void;
+  readonly onResetFilters: () => void;
 }
 
 const TaskFilters: React.FC<TaskFiltersProps> = ({
@@ -48,40 +49,34 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
 
   return (
     <BottomSheetModal
-      ref={bottomSheetRef}
+      backgroundStyle={modalStyles.bottomSheetBackground}
+      enablePanDownToClose
       index={1}
+      ref={bottomSheetRef}
       snapPoints={snapPoints}
-      enablePanDownToClose={true}
-      backgroundStyle={styles.sheetBackground}
     >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Filter Tasks</Text>
+      <View className="flex-1 p-4">
+        <View className="mb-5 flex-row items-center justify-between">
+          <Text className="text-lg font-semibold text-gray-800">Filter Tasks</Text>
           <TouchableOpacity onPress={onResetFilters}>
-            <Ionicons name="refresh" size={24} color="#1e40af" />
+            <Ionicons color="#1e40af" name="refresh" size={24} />
           </TouchableOpacity>
         </View>
 
         {/* Status Filter */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Status</Text>
+        <View className="mb-5">
+          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Status</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterRow}>
+            <View className="flex-row gap-2">
               {statusOptions.map((option) => (
                 <TouchableOpacity
+                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                    filters.status === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                  }`}
                   key={option.value || 'all'}
-                  style={[
-                    styles.filterButton,
-                    filters.status === option.value && styles.activeFilterButton
-                  ]}
                   onPress={() => onFilterChange('status', option.value)}
                 >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      filters.status === option.value && styles.activeFilterText
-                    ]}
-                  >
+                  <Text className={`text-xs ${filters.status === option.value ? 'text-white' : 'text-gray-500'}`}>
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -91,25 +86,19 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
         </View>
 
         {/* Priority Filter */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Priority</Text>
+        <View className="mb-5">
+          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Priority</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterRow}>
+            <View className="flex-row gap-2">
               {priorityOptions.map((option) => (
                 <TouchableOpacity
+                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                    filters.priority === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                  }`}
                   key={option.value || 'all'}
-                  style={[
-                    styles.filterButton,
-                    filters.priority === option.value && styles.activeFilterButton
-                  ]}
                   onPress={() => onFilterChange('priority', option.value)}
                 >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      filters.priority === option.value && styles.activeFilterText
-                    ]}
-                  >
+                  <Text className={`text-xs ${filters.priority === option.value ? 'text-white' : 'text-gray-500'}`}>
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -119,25 +108,19 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
         </View>
 
         {/* Date Range Filter */}
-        <View style={styles.filterSection}>
-          <Text style={styles.filterTitle}>Date</Text>
+        <View className="mb-5">
+          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Date</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filterRow}>
+            <View className="flex-row gap-2">
               {dateRangeOptions.map((option) => (
                 <TouchableOpacity
+                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                    filters.dateRange === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                  }`}
                   key={option.value || 'all'}
-                  style={[
-                    styles.filterButton,
-                    filters.dateRange === option.value && styles.activeFilterButton
-                  ]}
                   onPress={() => onFilterChange('dateRange', option.value)}
                 >
-                  <Text
-                    style={[
-                      styles.filterButtonText,
-                      filters.dateRange === option.value && styles.activeFilterText
-                    ]}
-                  >
+                  <Text className={`text-xs ${filters.dateRange === option.value ? 'text-white' : 'text-gray-500'}`}>
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -147,76 +130,13 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
         </View>
 
          {/* Apply Button */}
-        <TouchableOpacity style={styles.applyButton} onPress={onApplyFilters}>
-          <Text style={styles.applyButtonText}>Close</Text>
+        <TouchableOpacity className="items-center rounded-lg bg-blue-800 p-4" onPress={onApplyFilters}>
+          <Text className="text-base font-semibold text-white">Close</Text>
         </TouchableOpacity>
       </View>
     </BottomSheetModal>
   );
 };
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  activeFilterButton: {
-    backgroundColor: '#1e40af',
-  },
-  activeFilterText: {
-    color: '#ffffff',
-  },
-  applyButton: {
-    alignItems: 'center',
-    backgroundColor: '#1e40af',
-    borderRadius: 8,
-    padding: 16,
-  },
-  applyButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  container: {
-    flex: 1,
-    padding: 16,
-  },
-  filterButton: {
-    alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 20,
-    minWidth: 80,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  filterButtonText: {
-    color: '#6b7280',
-    fontSize: 12,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterSection: {
-    marginBottom: 20,
-  },
-  filterTitle: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  headerTitle: {
-    color: '#1f2937',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  sheetBackground: {
-    backgroundColor: '#ffffff',
-  },
-});
 
 export default TaskFilters;

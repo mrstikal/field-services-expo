@@ -119,10 +119,10 @@ import { Task } from '@field-service/shared-types';
 
         return (
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => console.log('Edit', task.id)}>
+            <Button onClick={() => console.log('Edit', task.id)} size="sm" variant="outline">
               Edit
             </Button>
-            <Button variant="outline" size="sm" onClick={() => console.log('Delete', task.id)} className="text-red-600 hover:text-red-800">
+            <Button className="text-red-600 hover:text-red-800" onClick={() => console.log('Delete', task.id)} size="sm" variant="outline">
               Delete
             </Button>
           </div>
@@ -132,7 +132,7 @@ import { Task } from '@field-service/shared-types';
   ];
 
 interface TasksTableProps {
-  data: Task[];
+  readonly data: Task[];
 }
 
 export function TasksTable({ data }: TasksTableProps) {
@@ -166,16 +166,16 @@ export function TasksTable({ data }: TasksTableProps) {
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter tasks..."
-          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
+          className="max-w-sm"
           onChange={(event) =>
             table.getColumn("title")?.setFilterValue(event.target.value)
           }
-          className="max-w-sm"
+          placeholder="Filter tasks..."
+          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
+            <Button className="ml-auto" variant="outline">
               Columns
             </Button>
           </DropdownMenuTrigger>
@@ -186,9 +186,9 @@ export function TasksTable({ data }: TasksTableProps) {
               .map((column) => {
                 return (
                   <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
                     checked={column.getIsVisible()}
+                    className="capitalize"
+                    key={column.id}
                     onCheckedChange={(value) =>
                       column.toggleVisibility(!!value)
                     }
@@ -224,8 +224,8 @@ export function TasksTable({ data }: TasksTableProps) {
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
-                  key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  key={row.id}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -240,8 +240,8 @@ export function TasksTable({ data }: TasksTableProps) {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
                   className="h-24 text-center"
+                  colSpan={columns.length}
                 >
                   No tasks
                 </TableCell>
@@ -257,18 +257,18 @@ export function TasksTable({ data }: TasksTableProps) {
         </div>
         <div className="space-x-2">
            <Button
-             variant="outline"
-             size="sm"
-             onClick={() => table.previousPage()}
              disabled={!table.getCanPreviousPage()}
+             onClick={() => table.previousPage()}
+             size="sm"
+             variant="outline"
            >
              Previous
            </Button>
            <Button
-             variant="outline"
-             size="sm"
-             onClick={() => table.nextPage()}
              disabled={!table.getCanNextPage()}
+             onClick={() => table.nextPage()}
+             size="sm"
+             variant="outline"
            >
              Next
            </Button>
