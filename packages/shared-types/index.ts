@@ -99,3 +99,45 @@ export interface Part {
   category: string;
   created_at: string;
 }
+
+// Report Builder types
+export type FormFieldType = 'text' | 'number' | 'checkbox' | 'select' | 'photo' | 'signature';
+
+export interface FormFieldOption {
+  label: string;
+  value: string | number;
+}
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  placeholder?: string;
+  options?: FormFieldOption[];
+  required?: boolean;
+  validation?: {
+    min?: number;
+    max?: number;
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+  };
+  conditional?: {
+    fieldId: string;
+    value: string | number | boolean;
+  };
+  defaultValue?: string | number | boolean;
+}
+
+export interface FormTemplate {
+  id: string;
+  categoryId: TaskCategory;
+  name: string;
+  fields: FormField[];
+  version: number;
+  created_at: string;
+}
+
+export interface ReportFormData {
+  [key: string]: string | number | boolean | string[];
+}

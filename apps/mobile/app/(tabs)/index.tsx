@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { taskRepository } from '@/lib/db/task-repository';
@@ -128,56 +128,56 @@ export default function HomeScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#1e40af" />
-        <Text style={styles.loadingText}>Loading tasks...</Text>
+      <View className="flex-1 items-center justify-center bg-slate-100">
+        <ActivityIndicator color="#1e40af" size="large" />
+        <Text className="mt-4 text-gray-500">Loading tasks...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Hello, Technician!</Text>
-        <Text style={styles.subtitle}>You have {todayTasks.length} new tasks</Text>
-        <Text style={styles.trackingStatus}>
+    <ScrollView className="flex-1 bg-slate-100">
+      <View className="border-b border-gray-200 bg-white p-5">
+        <Text className="text-2xl font-bold text-blue-800">Hello, Technician!</Text>
+        <Text className="mt-1 text-base text-gray-500">You have {todayTasks.length} new tasks</Text>
+        <Text className="mt-2 text-xs text-gray-500">
           Tracking: {isTracking ? 'active' : 'inactive'}
         </Text>
         {isNearTask && currentTask ? (
-          <View style={styles.geofenceBanner}>
-            <Text style={styles.geofenceBannerText}>You are near: {currentTask.title}</Text>
+          <View className="mt-2 rounded-lg border border-sky-300 bg-sky-100 px-2.5 py-2">
+            <Text className="text-xs font-semibold text-sky-900">You are near: {currentTask.title}</Text>
           </View>
         ) : null}
       </View>
 
-      <View style={styles.stats}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{todayTasks.length}</Text>
-          <Text style={styles.statLabel}>New Tasks</Text>
+      <View className="flex-row justify-between gap-2 p-4">
+        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+          <Text className="text-xl font-bold text-blue-800">{todayTasks.length}</Text>
+          <Text className="mt-1 text-xs text-gray-500">New Tasks</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
+        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+          <Text className="text-xl font-bold text-blue-800">
             {localTasks.filter((t) => t.status === 'completed').length}
           </Text>
-          <Text style={styles.statLabel}>Completed</Text>
+          <Text className="mt-1 text-xs text-gray-500">Completed</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>
+        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+          <Text className="text-xl font-bold text-blue-800">
             {localTasks.filter((t) => new Date(t.due_date) < new Date() && t.status !== 'completed').length}
           </Text>
-          <Text style={styles.statLabel}>Overdue</Text>
+          <Text className="mt-1 text-xs text-gray-500">Overdue</Text>
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today&#39;s Tasks</Text>
+      <View className="p-4">
+        <Text className="mb-3 text-lg font-bold text-blue-800">Today&#39;s Tasks</Text>
         {todayTasks.length === 0 ? (
-          <Text style={styles.emptyText}>No new tasks for today</Text>
+          <Text className="p-5 text-center text-gray-500">No new tasks for today</Text>
         ) : (
           todayTasks.map((task) => (
-            <View key={task.id} style={styles.taskCard}>
-              <Text style={styles.taskTitle}>{task.title}</Text>
-              <Text style={styles.taskStatus}>{task.status}</Text>
+            <View className="mb-2 rounded-lg border border-gray-200 bg-white p-3" key={task.id}>
+              <Text className="text-sm font-medium text-gray-800">{task.title}</Text>
+              <Text className="mt-1 text-xs text-gray-500">{task.status}</Text>
             </View>
           ))
         )}
@@ -186,107 +186,3 @@ export default function HomeScreen() {
   );
 }
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f5f5f5',
-    flex: 1,
-  },
-  emptyText: {
-    color: '#6b7280',
-    padding: 20,
-    textAlign: 'center',
-  },
-  header: {
-    backgroundColor: '#ffffff',
-    borderBottomColor: '#e5e7eb',
-    borderBottomWidth: 1,
-    padding: 20,
-  },
-  loadingText: {
-    color: '#6b7280',
-    marginTop: 16,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    color: '#1e40af',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  statCard: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    flex: 1,
-    padding: 12,
-  },
-  statLabel: {
-    color: '#6b7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  statNumber: {
-    color: '#1e40af',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  stats: {
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    padding: 16,
-  },
-  subtitle: {
-    color: '#6b7280',
-    fontSize: 16,
-    marginTop: 4,
-  },
-  taskCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-    padding: 12,
-  },
-  taskStatus: {
-    color: '#6b7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  taskTitle: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  title: {
-    color: '#1e40af',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  trackingStatus: {
-    color: '#6b7280',
-    fontSize: 12,
-    marginTop: 8,
-  },
-  geofenceBanner: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#7dd3fc',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  geofenceBannerText: {
-    color: '#0c4a6e',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-});
-/* eslint-enable react-native/no-color-literals */

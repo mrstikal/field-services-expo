@@ -54,11 +54,11 @@ const taskSchema = z.object({
 type TaskFormValues = z.infer<typeof taskSchema>;
 
 interface TaskFormProps {
-  task?: Task;
-  onSubmit: (data: TaskFormValues) => Promise<void>;
-  onCancel: () => void;
-  technicians?: Array<{ id: string; name: string; email: string }>;
-  loading?: boolean;
+  readonly task?: Task;
+  readonly onSubmit: (data: TaskFormValues) => Promise<void>;
+  readonly onCancel: () => void;
+  readonly technicians?: Array<{ id: string; name: string; email: string }>;
+  readonly loading?: boolean;
 }
 
 export default function TaskForm({
@@ -171,7 +171,7 @@ export default function TaskForm({
         <CardTitle>{task ? 'Edit Task' : 'Create New Task'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4">
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmitForm)}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="title">Task Title *</Label>
@@ -180,16 +180,14 @@ export default function TaskForm({
                 {...register('title')}
                 placeholder="Enter task title"
               />
-              {errors.title && (
-                <p className="text-sm text-red-600">{errors.title.message}</p>
-              )}
+              {errors.title ? <p className="text-sm text-red-600">{errors.title.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="priority">Priority *</Label>
               <Select
-                value={watchedPriority}
                 onValueChange={(value) => setValue('priority', value as TaskPriority)}
+                value={watchedPriority}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -201,16 +199,14 @@ export default function TaskForm({
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.priority && (
-                <p className="text-sm text-red-600">{errors.priority.message}</p>
-              )}
+              {errors.priority ? <p className="text-sm text-red-600">{errors.priority.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
               <Select
-                value={watchedStatus}
                 onValueChange={(value) => setValue('status', value as TaskStatus)}
+                value={watchedStatus}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -221,16 +217,14 @@ export default function TaskForm({
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.status && (
-                <p className="text-sm text-red-600">{errors.status.message}</p>
-              )}
+              {errors.status ? <p className="text-sm text-red-600">{errors.status.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <Select
-                value={watchedCategory}
                 onValueChange={(value) => setValue('category', value as TaskCategory)}
+                value={watchedCategory}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -242,9 +236,7 @@ export default function TaskForm({
                   <SelectItem value="inspection">Inspection</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.category && (
-                <p className="text-sm text-red-600">{errors.category.message}</p>
-              )}
+              {errors.category ? <p className="text-sm text-red-600">{errors.category.message}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -254,9 +246,7 @@ export default function TaskForm({
                 {...register('customer_name')}
                 placeholder="Customer name"
               />
-              {errors.customer_name && (
-                <p className="text-sm text-red-600">{errors.customer_name.message}</p>
-              )}
+              {errors.customer_name ? <p className="text-sm text-red-600">{errors.customer_name.message}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -266,9 +256,7 @@ export default function TaskForm({
                 {...register('customer_phone')}
                 placeholder="+420 XXX XXX XXX"
               />
-              {errors.customer_phone && (
-                <p className="text-sm text-red-600">{errors.customer_phone.message}</p>
-              )}
+              {errors.customer_phone ? <p className="text-sm text-red-600">{errors.customer_phone.message}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -279,9 +267,7 @@ export default function TaskForm({
                 {...register('estimated_time', { valueAsNumber: true })}
                 placeholder="Time in minutes"
               />
-              {errors.estimated_time && (
-                <p className="text-sm text-red-600">{errors.estimated_time.message}</p>
-              )}
+              {errors.estimated_time ? <p className="text-sm text-red-600">{errors.estimated_time.message}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -291,9 +277,7 @@ export default function TaskForm({
                 type="datetime-local"
                 {...register('due_date')}
               />
-              {errors.due_date && (
-                <p className="text-sm text-red-600">{errors.due_date.message}</p>
-              )}
+              {errors.due_date ? <p className="text-sm text-red-600">{errors.due_date.message}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -303,9 +287,7 @@ export default function TaskForm({
                 {...register('address')}
                 placeholder="Address where the work will take place"
               />
-              {errors.address && (
-                <p className="text-sm text-red-600">{errors.address.message}</p>
-              )}
+              {errors.address ? <p className="text-sm text-red-600">{errors.address.message}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
@@ -316,16 +298,14 @@ export default function TaskForm({
                 placeholder="Detailed description of the work to be performed..."
                 rows={4}
               />
-              {errors.description && (
-                <p className="text-sm text-red-600">{errors.description.message}</p>
-              )}
+              {errors.description ? <p className="text-sm text-red-600">{errors.description.message}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="technician_id">Assign to Technician</Label>
               <Select
-                value={watchedTechnicianId || ''}
                 onValueChange={(value) => setValue('technician_id', value)}
+                value={watchedTechnicianId || ''}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select technician" />
@@ -342,10 +322,10 @@ export default function TaskForm({
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button onClick={onCancel} type="button" variant="outline">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button disabled={loading} type="submit">
               {loading ? 'Saving...' : task ? 'Update' : 'Create'}
             </Button>
           </div>

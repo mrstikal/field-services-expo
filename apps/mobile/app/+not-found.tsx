@@ -1,37 +1,15 @@
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, Button } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function NotFoundScreen() {
   const router = useRouter();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>404 - Page Not Found</Text>
-      <Text style={styles.message}>Sorry, the page you requested does not exist.</Text>
-      <Button title="Back to Home" onPress={() => router.replace('/')} />
+    <View className="flex-1 items-center justify-center bg-slate-100 p-5">
+      <Text className="mb-4 text-2xl font-bold text-red-500">404 - Page Not Found</Text>
+      <Text className="mb-6 text-center text-base text-gray-500">Sorry, the page you requested does not exist.</Text>
+      <Button onPress={() => router.replace('/')} title="Back to Home" />
     </View>
   );
 }
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  message: {
-    color: '#6b7280',
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  title: {
-    color: '#ef4444',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-});

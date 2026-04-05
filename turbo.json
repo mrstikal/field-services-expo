@@ -16,6 +16,9 @@
     },
     "typecheck": {
       "outputs": ["node_modules/.cache/tsbuildinfo.json"]
+    },
+    "guard:stylesheet": {
+      "outputs": []
     }
   }
 }

@@ -2,7 +2,6 @@ import React from 'react';
 import { 
   View, 
   Text, 
-  StyleSheet, 
   TouchableOpacity,
   Platform,
   UIManager
@@ -11,7 +10,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { 
   useAnimatedStyle, 
   useSharedValue, 
-  withSpring, 
+  withSpring,
+   
   runOnJS 
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,24 +28,10 @@ if (Platform.OS === 'android') {
 }
 
 interface SwipeableTaskCardProps {
-  item: Task;
-  onPress?: () => void;
+  readonly item: Task;
+  readonly onPress?: () => void;
 }
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case 'urgent':
-      return '#dc2626';
-    case 'high':
-      return '#f97316';
-    case 'medium':
-      return '#eab308';
-    case 'low':
-      return '#22c55e';
-    default:
-      return '#6b7280';
-  }
-};
 
 const getStatusLabel = (status: string) => {
   switch (status) {
@@ -57,6 +43,21 @@ const getStatusLabel = (status: string) => {
       return 'Completed';
     default:
       return status;
+  }
+};
+
+const getPriorityClassName = (priority: string) => {
+  switch (priority) {
+    case 'urgent':
+      return 'bg-red-600';
+    case 'high':
+      return 'bg-orange-500';
+    case 'medium':
+      return 'bg-yellow-500';
+    case 'low':
+      return 'bg-green-500';
+    default:
+      return 'bg-gray-500';
   }
 };
 
@@ -102,12 +103,10 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
         return;
       }
       
-      // Invalidate cache
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
-      
-      // Haptic feedback
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
+  
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error dismissing task:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -115,32 +114,38 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
   };
 
   const panGesture = Gesture.Pan()
-    .onChange((event) => {
-      translateX.value = event.translationX;
+    .onBegin(() => {
+      translateX.value = withSpring(0);
+    })
+    .onUpdate((event) => {
+      if (event.translationX > 0) {
+        // Dismiss to left
+        translateX.value = withSpring(Math.min(event.translationX / 2, 0));
+      } else {
+        // Complete to right
+        translateX.value = withSpring(Math.max(event.translationX / 2, 0));
+      }
     })
     .onEnd((event) => {
-      const shouldComplete = event.translationX > 100;
-      const shouldDismiss = event.translationX < -100;
-
-      if (shouldComplete) {
-        // Complete task
-        translateX.value = withSpring(300, {}, (finished) => {
-          if (finished) {
-            runOnJS(completeTask)();
-          }
-        });
-      } else if (shouldDismiss) {
-        // Dismiss task
-        translateX.value = withSpring(-300, {}, (finished) => {
+      if (event.translationX > 50) {
+        // Dismiss to left
+        translateX.value = withSpring(-100, {}, (finished) => {
           if (finished) {
             runOnJS(dismissTask)();
+          }
+        });
+      } else if (event.translationX < -50) {
+        // Complete to right
+        translateX.value = withSpring(100, {}, (finished) => {
+          if (finished) {
+            runOnJS(completeTask)();
           }
         });
       } else {
         // Return to original position
         translateX.value = withSpring(0);
       }
-    })
+    });
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -148,154 +153,57 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
     };
   });
 
-  return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.taskCard, animatedStyle]}>
+   return (
+     <GestureDetector gesture={panGesture}>
+       <Animated.View
+         className="bg-white border-l-4 border-l-blue-600 rounded-lg flex-row mb-3 overflow-hidden"
+         style={animatedStyle}
+       >
         {/* Main task card */}
         <TouchableOpacity
-          style={styles.taskCardContent}
+          className="flex-1 p-3"
           onPress={onPress}
         >
-          <View style={styles.taskHeader}>
-            {/* eslint-disable-next-line react-native/no-inline-styles */}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.taskTitle}>{item.title}</Text>
-              <View style={styles.taskMeta}>
-                <Ionicons name="location-outline" size={12} color="#6b7280" />
-                <Text style={styles.taskAddress}>{item.address}</Text>
+          <View className="mb-2 flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-gray-800">{item.title}</Text>
+              <View className="mt-1.5 flex-row items-center">
+                <Ionicons color="#6b7280" name="location-outline" size={12} />
+                <Text className="ml-1 flex-1 text-xs text-gray-500">{item.address}</Text>
               </View>
             </View>
             <View
-              style={[
-                styles.priorityBadge,
-                { backgroundColor: getPriorityColor(item.priority) },
-              ]}
+              className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
             >
-              <Text style={styles.priorityText}>{item.priority}</Text>
+              <Text className="text-[10px] font-semibold capitalize text-white">{item.priority}</Text>
             </View>
           </View>
-          <View style={styles.taskFooter}>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+          <View className="flex-row items-center justify-between">
+            <View className="rounded bg-gray-100 px-2 py-1">
+              <Text className="text-[11px] font-medium text-gray-500">{getStatusLabel(item.status)}</Text>
             </View>
-            <View style={styles.timeEstimate}>
-              <Ionicons name="time-outline" size={12} color="#6b7280" />
-              <Text style={styles.timeText}>{item.estimated_time} min</Text>
+            <View className="flex-row items-center">
+              <Ionicons color="#6b7280" name="time-outline" size={12} />
+              <Text className="ml-1 text-[11px] text-gray-500">{item.estimated_time} min</Text>
             </View>
           </View>
         </TouchableOpacity>
 
         {/* Right action (Complete) */}
-        <View style={[styles.actionButton, styles.completeAction]}>
-          <Ionicons name="checkmark" size={24} color="#ffffff" />
-          <Text style={styles.actionText}>Complete</Text>
+        <View className="ml-auto w-20 items-center justify-center bg-green-500 p-3">
+          <Ionicons color="#ffffff" name="checkmark" size={24} />
+          <Text className="mt-1 text-xs font-bold text-white">Complete</Text>
         </View>
 
         {/* Left action (Dismiss) */}
-        <View style={[styles.actionButton, styles.dismissAction]}>
-          <Ionicons name="close" size={24} color="#ffffff" />
-          <Text style={styles.actionText}>Dismiss</Text>
+        <View className="w-20 items-center justify-center bg-red-500 p-3">
+          <Ionicons color="#ffffff" name="close" size={24} />
+          <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
         </View>
       </Animated.View>
     </GestureDetector>
   );
 };
 
-/* eslint-disable react-native/no-color-literals */
-const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    width: 80,
-    zIndex: 1,
-  },
-  actionText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  completeAction: {
-    backgroundColor: '#22c55e',
-    marginLeft: 'auto',
-  },
-  dismissAction: {
-    backgroundColor: '#ef4444',
-  },
-  priorityBadge: {
-    borderRadius: 4,
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  priorityText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  statusBadge: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  statusText: {
-    color: '#6b7280',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  taskAddress: {
-    color: '#6b7280',
-    flex: 1,
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  taskCard: {
-    backgroundColor: '#ffffff',
-    borderLeftColor: '#1e40af',
-    borderLeftWidth: 4,
-    borderRadius: 8,
-    flexDirection: 'row',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  taskCardContent: {
-    flex: 1,
-    padding: 12,
-    zIndex: 2,
-  },
-  taskFooter: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  taskHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  taskMeta: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    marginTop: 6,
-  },
-  taskTitle: {
-    color: '#1f2937',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  timeEstimate: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  timeText: {
-    color: '#6b7280',
-    fontSize: 11,
-    marginLeft: 4,
-  },
-});
 
 export default SwipeableTaskCard;

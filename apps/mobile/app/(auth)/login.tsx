@@ -1,6 +1,6 @@
-/* eslint-disable react-native/no-color-literals */
+ 
 import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -48,109 +48,61 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Field Service</Text>
-      <Text style={styles.subtitle}>Technician Login</Text>
+    <View className="flex-1 justify-center bg-slate-100 p-5">
+      <Text className="mb-2 text-center text-4xl font-bold text-blue-800">Field Service</Text>
+      <Text className="mb-8 text-center text-base text-gray-500">Technician Login</Text>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error ? <Text className="mb-3 text-center text-red-500">{error}</Text> : null}
 
       <Controller
         control={control}
         name="email"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={styles.input}
-            placeholder="Email"
+            autoCapitalize="none"
+            className="mb-3 rounded-lg border border-gray-200 bg-white p-3"
+            keyboardType="email-address"
             onBlur={onBlur}
             onChangeText={onChange}
-            value={value}
-            autoCapitalize="none"
-            keyboardType="email-address"
+            placeholder="Email"
             textContentType="emailAddress"
+            value={value}
           />
         )}
       />
-      {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+      {errors.email ? <Text className="mb-2 text-xs text-red-500">{errors.email.message}</Text> : null}
 
       <Controller
         control={control}
         name="password"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            style={styles.input}
-            placeholder="Password"
+            className="mb-3 rounded-lg border border-gray-200 bg-white p-3"
             onBlur={onBlur}
             onChangeText={onChange}
-            value={value}
+            placeholder="Password"
             secureTextEntry
             textContentType="password"
+            value={value}
           />
         )}
       />
-      {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+      {errors.password ? <Text className="mb-2 text-xs text-red-500">{errors.password.message}</Text> : null}
 
-      <Button
-        title={isSubmitting ? 'Signing in...' : 'Sign in'}
-        onPress={handleSubmit(onSubmit)}
+      <TouchableOpacity
+        className={`items-center rounded-lg p-3 ${isSubmitting ? 'bg-gray-400' : 'bg-blue-800'}`}
         disabled={isSubmitting}
-      />
+        onPress={handleSubmit(onSubmit)}
+      >
+        <Text className="text-base font-semibold text-white">{isSubmitting ? 'Signing in...' : 'Sign in'}</Text>
+      </TouchableOpacity>
 
-      <View style={styles.demoSection}>
-        <Text style={styles.demoText}>Demo accounts:</Text>
-        <Text style={styles.demoText}>technik1@demo.cz / demo123</Text>
-        <Text style={styles.demoText}>technik2@demo.cz / demo123</Text>
+      <View className="mt-5 rounded-lg bg-gray-100 p-4">
+        <Text className="text-center text-xs text-gray-500">Demo accounts:</Text>
+        <Text className="text-center text-xs text-gray-500">technik1@demo.cz / demo123</Text>
+        <Text className="text-center text-xs text-gray-500">technik2@demo.cz / demo123</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#f5f5f5',
-    flex: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  demoSection: {
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    marginTop: 20,
-    padding: 16,
-  },
-  demoText: {
-    color: '#6b7280',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  error: {
-    color: '#ef4444',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: 'white',
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 12,
-    padding: 12,
-  },
-  subtitle: {
-    color: '#6b7280',
-    fontSize: 16,
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-  title: {
-    color: '#1e40af',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-});

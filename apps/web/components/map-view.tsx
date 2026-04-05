@@ -17,7 +17,7 @@ interface Technician {
 }
 
 interface MapViewProps {
-  height?: string;
+  readonly height?: string;
 }
 
 interface TaskGeofence {
@@ -35,7 +35,7 @@ interface ClusterPoint {
   technicians: Technician[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 export default function MapView({ height }: MapViewProps) {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null);
@@ -206,6 +206,9 @@ export default function MapView({ height }: MapViewProps) {
       <MapGL
         ref={mapRef}
         {...viewport}
+        accessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+        interactiveLayerIds={['technicians-layer']}
+        mapStyle="mapbox://styles/mapbox/streets-v12"
         onViewportChange={(newViewport) => setViewport({
           latitude: newViewport.latitude,
           longitude: newViewport.longitude,
@@ -213,9 +216,6 @@ export default function MapView({ height }: MapViewProps) {
           bearing: newViewport.bearing ?? 0,
           pitch: newViewport.pitch ?? 0,
         } as ViewportState)}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
-        accessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        interactiveLayerIds={['technicians-layer']}
          style={styles.mapContainer}
       >
         {/* Navigation controls */}
@@ -231,10 +231,10 @@ export default function MapView({ height }: MapViewProps) {
         {/* Geofence zones for active tasks */}
         {taskGeofences.map(task => (
           <Marker
+            anchor="center"
             key={`geofence-${task.id}`}
             latitude={task.latitude}
             longitude={task.longitude}
-            anchor="center"
           >
             <div style={styles.geofenceCircle} title={`Geofence: ${task.title}`} />
           </Marker>
@@ -247,10 +247,10 @@ export default function MapView({ height }: MapViewProps) {
 
           return (
             <Marker
+              anchor="bottom"
               key={cluster.id}
               latitude={cluster.latitude}
               longitude={cluster.longitude}
-              anchor="bottom"
               onClick={() => handleClusterClick(cluster)}
             >
               <div
@@ -272,15 +272,14 @@ export default function MapView({ height }: MapViewProps) {
         })}
 
         {/* Popup for selected technician */}
-        {selectedTechnician && (
-          <Popup
+        {selectedTechnician ? <Popup
+            anchor="top"
+            className="map-popup"
+            closeButton
+            closeOnClick={false}
             latitude={selectedTechnician.last_location?.latitude || 0}
             longitude={selectedTechnician.last_location?.longitude || 0}
             onClose={closePopup}
-            closeOnClick={false}
-            closeButton={true}
-            anchor="top"
-            className="map-popup"
           >
             <div className="p-2">
               <h3 className="font-bold text-gray-900">{selectedTechnician.name}</h3>
@@ -299,8 +298,7 @@ export default function MapView({ height }: MapViewProps) {
                 Active tasks: {technicianTaskCounts[selectedTechnician.id] || 0}
               </p>
             </div>
-          </Popup>
-        )}
+          </Popup> : null}
       </MapGL>
     </div>
   );
