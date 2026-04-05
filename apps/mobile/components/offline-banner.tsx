@@ -75,55 +75,56 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderBottomColor: '#e2e8f0',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   content: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexDirection: 'row',
     flex: 1,
-  },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-  subtext: {
-    fontSize: 12,
-    color: '#64748b',
-    marginLeft: 4,
+    gap: 8,
   },
   pendingBadge: {
+    alignItems: 'center',
     backgroundColor: '#ef4444',
     borderRadius: 10,
-    minWidth: 20,
     height: 20,
-    alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    minWidth: 20,
   },
   pendingText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
   },
+  statusText: {
+    color: '#1e293b',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  subtext: {
+    color: '#64748b',
+    fontSize: 12,
+    marginLeft: 4,
+  },
   syncButton: {
+    alignItems: 'center',
     backgroundColor: '#1e40af',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 6,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   syncButtonText: {
     color: '#fff',

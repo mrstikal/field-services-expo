@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const storedSession = await SecureStore.getItemAsync('auth_session');
       
       if (storedSession) {
-        const session = JSON.parse(storedSession);
+        JSON.parse(storedSession);
         // Verify session is still valid with Supabase
         const { data, error } = await supabase.auth.getUser();
         

@@ -2,7 +2,6 @@ import { initDatabase } from './local-database';
 import { taskRepository } from './task-repository';
 import { reportRepository } from './report-repository';
 import { supabase } from '@/lib/supabase';
-import { Task, Report } from '@shared/index';
 
 /**
  * Initialize database with seed data from server

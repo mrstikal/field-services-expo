@@ -42,7 +42,7 @@ export default function LoginPage() {
     try {
       await signIn(data.email, data.password);
       router.push('/dashboard');
-    } catch (err) {
+    } catch {
       setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);

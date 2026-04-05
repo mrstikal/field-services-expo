@@ -22,8 +22,14 @@
     }
   },
   "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-uses-react": "off",
+    "react-native/no-color-literals": "warn",
+    "react-native/no-inline-styles": "warn",
+    "react-native/no-raw-text": "off",
     "@typescript-eslint/no-explicit-any": "warn",
-    "@typescript-eslint/no-unused-vars": "warn"
+    "@typescript-eslint/no-unused-vars": "warn",
+    "react/prop-types": "off"
   },
-  "ignorePatterns": ["node_modules/", "dist/", ".next/"]
+  "ignorePatterns": ["node_modules/", "dist/", ".next/", "metro.config.js"]
 }

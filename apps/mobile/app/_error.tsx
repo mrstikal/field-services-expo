@@ -17,27 +17,28 @@ export default function ErrorBoundary() {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    flex: 1,
+    justifyContent: 'center',
     padding: 24,
   },
   iconContainer: {
     marginBottom: 24,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: 8,
-  },
   subtitle: {
-    fontSize: 16,
     color: '#6b7280',
+    fontSize: 16,
     marginBottom: 32,
     textAlign: 'center',
+  },
+  title: {
+    color: '#1f2937',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 8,
   },
 });

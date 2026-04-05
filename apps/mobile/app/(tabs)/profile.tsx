@@ -76,92 +76,93 @@ export default function ProfileScreen() {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  header: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
   avatarContainer: {
     marginBottom: 16,
   },
-  name: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 4,
+  container: {
+    backgroundColor: '#f9fafb',
+    flex: 1,
   },
   email: {
-    fontSize: 14,
     color: '#6b7280',
+    fontSize: 14,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  header: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
+  infoCard: {
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    padding: 12,
+  },
+  infoContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  infoLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  infoRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  infoValue: {
+    color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  name: {
+    color: '#1f2937',
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   section: {
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
   sectionTitle: {
+    color: '#1f2937',
     fontSize: 14,
     fontWeight: '600',
-    color: '#1f2937',
+    letterSpacing: 0.5,
     marginBottom: 12,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  infoCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
   },
   signOutButton: {
-    backgroundColor: '#fef2f2',
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+    backgroundColor: '#fef2f2',
     borderColor: '#fee2e2',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    padding: 12,
   },
   signOutText: {
+    color: '#ef4444',
     fontSize: 14,
     fontWeight: '600',
-    color: '#ef4444',
     marginLeft: 8,
   },
-  footer: {
-    paddingVertical: 24,
-    alignItems: 'center',
-  },
   versionText: {
-    fontSize: 12,
     color: '#9ca3af',
+    fontSize: 12,
   },
 });

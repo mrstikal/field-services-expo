@@ -46,7 +46,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
           <div className="mt-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-gray-500 mt-2">Načítání...</p>
+            <p className="text-gray-500 mt-2">Loading...</p>
           </div>
         </div>
       </div>
@@ -60,7 +60,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
           <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
           <div className="mt-4">
-            <p className="text-red-600">Chyba: {tasksError?.message || techError?.message}</p>
+            <p className="text-red-600">Error: {tasksError?.message || techError?.message}</p>
           </div>
         </div>
       </div>

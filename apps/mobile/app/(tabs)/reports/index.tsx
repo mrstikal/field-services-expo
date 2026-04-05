@@ -44,7 +44,7 @@ export default function ReportsListScreen() {
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('reports')
         .select('*')
         .order('created_at', { ascending: false });
@@ -58,7 +58,7 @@ export default function ReportsListScreen() {
       onPress={() => router.push(`/reports/${item.id}`)}
     >
       <View style={styles.reportHeader}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.flexContainer}>
           <Text style={styles.reportTitle}>Report #{item.id.slice(0, 8)}</Text>
           <Text style={styles.reportDate}>
             {new Date(item.created_at).toLocaleDateString()}
@@ -120,116 +120,120 @@ export default function ReportsListScreen() {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
+  actionBar: {
+    backgroundColor: '#ffffff',
+    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   container: {
-    flex: 1,
     backgroundColor: '#f9fafb',
+    flex: 1,
+  },
+  createButton: {
+    alignItems: 'center',
+    backgroundColor: '#1e40af',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  createButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  emptySubtext: {
+    color: '#d1d5db',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  emptyText: {
+    color: '#9ca3af',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  flexContainer: {
+    flex: 1,
   },
   header: {
     backgroundColor: '#ffffff',
+    borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1f2937',
   },
   headerSubtitle: {
-    fontSize: 14,
     color: '#6b7280',
+    fontSize: 14,
     marginTop: 4,
   },
-  actionBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  createButton: {
-    backgroundColor: '#1e40af',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  createButtonText: {
-    fontSize: 14,
+  headerTitle: {
+    color: '#1f2937',
+    fontSize: 20,
     fontWeight: '600',
-    color: '#ffffff',
-    marginLeft: 8,
   },
   listContent: {
     padding: 16,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
   reportCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 4,
     borderLeftColor: '#1e40af',
-  },
-  reportHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  reportTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    marginBottom: 12,
+    padding: 12,
   },
   reportDate: {
-    fontSize: 12,
     color: '#6b7280',
+    fontSize: 12,
     marginTop: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginLeft: 8,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#ffffff',
   },
   reportFooter: {
-    flexDirection: 'row',
     alignItems: 'center',
+    flexDirection: 'row',
+  },
+  reportHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   reportMeta: {
-    fontSize: 11,
     color: '#6b7280',
+    fontSize: 11,
     marginLeft: 6,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9ca3af',
-    marginTop: 12,
-  },
-  emptySubtext: {
+  reportTitle: {
+    color: '#1f2937',
     fontSize: 14,
-    color: '#d1d5db',
-    marginTop: 4,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    borderRadius: 4,
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statusText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
   },
 });

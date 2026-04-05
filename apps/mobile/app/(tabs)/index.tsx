@@ -1,7 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { taskRepository } from '@/lib/db/task-repository';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
@@ -16,7 +14,6 @@ interface Task {
 }
 
 export default function HomeScreen() {
-  const router = useRouter();
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,7 +55,7 @@ export default function HomeScreen() {
     if (isOnline && localTasks.length === 0 && !isLoading) {
       const fetchServerTasks = async () => {
         try {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('tasks')
             .select('*')
             .eq('status', 'assigned')
@@ -122,7 +119,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Tasks</Text>
+        <Text style={styles.sectionTitle}>Today&#39;s Tasks</Text>
         {todayTasks.length === 0 ? (
           <Text style={styles.emptyText}>No new tasks for today</Text>
         ) : (
@@ -138,86 +135,88 @@ export default function HomeScreen() {
   );
 }
 
+/* eslint-disable react-native/no-color-literals */
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     backgroundColor: '#f5f5f5',
+    flex: 1,
+  },
+  emptyText: {
+    color: '#6b7280',
+    padding: 20,
+    textAlign: 'center',
   },
   header: {
-    padding: 20,
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    borderBottomWidth: 1,
+    padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  subtitle: {
-    fontSize: 16,
+  loadingText: {
     color: '#6b7280',
-    marginTop: 4,
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 16,
-    gap: 8,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1e40af',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
+    marginTop: 16,
   },
   section: {
     padding: 16,
   },
   sectionTitle: {
+    color: '#1e40af',
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  statCard: {
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    padding: 12,
+  },
+  statLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  statNumber: {
     color: '#1e40af',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  stats: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  subtitle: {
+    color: '#6b7280',
+    fontSize: 16,
+    marginTop: 4,
   },
   taskCard: {
     backgroundColor: '#ffffff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
     borderColor: '#e5e7eb',
-  },
-  taskTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1f2937',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    padding: 12,
   },
   taskStatus: {
-    fontSize: 12,
     color: '#6b7280',
+    fontSize: 12,
     marginTop: 4,
   },
-  emptyText: {
-    textAlign: 'center',
-    color: '#6b7280',
-    padding: 20,
+  taskTitle: {
+    color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  loadingText: {
-    marginTop: 16,
-    color: '#6b7280',
+  title: {
+    color: '#1e40af',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });
+/* eslint-enable react-native/no-color-literals */

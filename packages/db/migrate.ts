@@ -16,9 +16,9 @@ async function main() {
       name TEXT,
       phone TEXT,
       avatar_url TEXT,
-      is_online BOOLEAN DEFAULT false,
-      last_location_lat NUMERIC,
-      last_location_lng NUMERIC,
+       is_online BOOLEAN DEFAULT false,
+       last_location_lat DOUBLE PRECISION,
+       last_location_lng DOUBLE PRECISION,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -32,8 +32,8 @@ async function main() {
       title TEXT NOT NULL,
       description TEXT NOT NULL,
       address TEXT NOT NULL,
-      latitude NUMERIC NOT NULL,
-      longitude NUMERIC NOT NULL,
+      latitude DOUBLE PRECISION,
+      longitude DOUBLE PRECISION,
       status TEXT NOT NULL DEFAULT 'assigned' CHECK (status IN ('assigned', 'in_progress', 'completed')),
       priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
       category TEXT NOT NULL CHECK (category IN ('repair', 'installation', 'maintenance', 'inspection')),
@@ -68,9 +68,9 @@ async function main() {
     CREATE TABLE IF NOT EXISTS locations (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       technician_id UUID NOT NULL REFERENCES users(id),
-      latitude NUMERIC NOT NULL,
-      longitude NUMERIC NOT NULL,
-      accuracy NUMERIC NOT NULL,
+      latitude DOUBLE PRECISION NOT NULL,
+      longitude DOUBLE PRECISION NOT NULL,
+      accuracy DOUBLE PRECISION NOT NULL,
       timestamp TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
