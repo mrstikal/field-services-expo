@@ -13,7 +13,7 @@
     "db:seed": "pnpm --filter @field-service/db db:seed",
     "approve-builds": "pnpm approve-builds --global sharp sqlite3 better-sqlite3 esbuild supabase unrs-resolver",
     "demo:reset": "tsx scripts/reset-supabase.ts",
-    "mobile:metro:usb": "node ./scripts/start-mobile-metro-usb.mjs",
+    "mobile:metro:usb": "node -e \"require('child_process').spawnSync(process.platform === 'win32' ? 'powershell' : 'bash', [process.platform === 'win32' ? './scripts/start-mobile-metro-usb.ps1' : './scripts/start-mobile-metro-usb.sh'], {stdio: 'inherit', cwd: process.cwd()})\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "setup": "pnpm approve-builds && pnpm install && pnpm demo:reset",
     "guard:stylesheet": "turbo guard:stylesheet",
@@ -31,8 +31,8 @@
     "eslint-plugin-react-native": "^5.0.0",
     "prettier": "^3.3.3",
     "react-native-web": "^0.21.2",
-    "turbo": "^2.3.3",
-    "typescript": "^5.7.2"
+    "turbo": "^2.9.4",
+    "typescript": "^6.0.2"
   },
   "packageManager": "pnpm@10.28.1",
   "dependencies": {
@@ -41,7 +41,6 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",
     "@react-native-picker/picker": "^2.11.4",
-    "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.10.0",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.7.0",

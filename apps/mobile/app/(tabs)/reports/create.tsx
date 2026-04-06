@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,7 +183,10 @@ export default function CreateReportScreen() {
   const closeScanner = () => {
     setIsScannerOpen(false);
     stopScanner();
-    resetScanner();
+    // Reset is called after scanner is closed to avoid re-triggering
+    setTimeout(() => {
+      resetScanner();
+    }, 100);
   };
 
   // Handle signature - upload to storage immediately
@@ -339,8 +342,9 @@ export default function CreateReportScreen() {
         return;
       }
 
-      // Invalidate cache to refresh the reports list
-      await queryClient.invalidateQueries({ queryKey: ['reports'] });
+       // Invalidate cache to refresh the reports list and tasks list
+       await queryClient.invalidateQueries({ queryKey: ['reports'] });
+       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
 
       Alert.alert(
         'Success',
@@ -397,7 +401,7 @@ export default function CreateReportScreen() {
     };
   }, [selectedTask]);
 
-  if (isScannerOpen) {
+  const scannerContent = useMemo(() => {
     if (hasPermission === null) {
       return (
         <View className="flex-1 bg-slate-50">
@@ -435,30 +439,35 @@ export default function CreateReportScreen() {
 
     return (
       <View className="flex-1 bg-slate-50">
-        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top }}>
           <TouchableOpacity className="p-2" onPress={closeScanner}>
             <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
           <Text className="text-lg font-semibold text-gray-800">Barcode Scanner</Text>
           <View className="w-6" />
         </View>
-        <View className="relative flex-1 bg-black">
+        <View className="flex-1 relative bg-black" style={{ paddingTop: 0, paddingBottom: insets.bottom }}>
           <CameraView
             barcodeScannerSettings={{
               barcodeTypes: ['ean13', 'qr', 'code128', 'code39', 'upc_e', 'upc_a', 'datamatrix', 'pdf417', 'aztec'],
             }}
+            style={{ flex: 1 }}
             className="flex-1"
             facing="back"
             onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
             ref={cameraRef}
           />
-          <View className="absolute inset-0 items-center justify-center">
-            <View className="h-[220px] w-[220px] rounded-xl border-2 border-white" />
-            <Text className="mt-4 text-sm text-white">Align barcode inside frame</Text>
+          <View className="absolute inset-0 items-center justify-center pointer-events-none">
+            <View className="h-[220px] w-[220px] rounded-xl border-2 border-white/80 bg-white/10 backdrop-blur-sm" />
+            <Text className="mt-4 text-sm text-white/80">Align barcode inside frame</Text>
           </View>
         </View>
       </View>
     );
+  }, [hasPermission, closeScanner, handleScannerPermissionRetry, openSettings, insets.top, insets.bottom, isScanning, handleBarCodeScanned, cameraRef]);
+
+  if (isScannerOpen) {
+    return scannerContent;
   }
 
   const formTemplate = getFormTemplate();
