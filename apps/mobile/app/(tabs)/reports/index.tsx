@@ -1,13 +1,19 @@
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+ import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { paddingStyles } from '@/lib/styles';
 
+interface Task {
+  title: string;
+}
+
 interface Report {
   id: string;
   task_id: string;
+  tasks: Task[];
   status: 'draft' | 'completed' | 'synced';
   created_at: string;
   updated_at: string;
@@ -40,6 +46,7 @@ const getStatusLabel = (status: string) => {
 };
 
 export default function ReportsListScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const { data: reports = [], isLoading } = useQuery({
@@ -47,7 +54,14 @@ export default function ReportsListScreen() {
     queryFn: async () => {
       const { data } = await supabase
         .from('reports')
-        .select('*')
+        .select(`
+          id,
+          task_id,
+          tasks!inner(title),
+          status,
+          created_at,
+          updated_at
+        `)
         .order('created_at', { ascending: false });
       return data || [];
     },
@@ -71,14 +85,14 @@ export default function ReportsListScreen() {
       </View>
       <View className="flex-row items-center">
         <Ionicons color="#6b7280" name="document-text-outline" size={14} />
-        <Text className="ml-1.5 text-[11px] text-gray-500">Task: {item.task_id.slice(0, 8)}</Text>
+        <Text className="ml-1.5 text-[11px] text-gray-500">Task: {item.tasks[0]?.title || 'Unknown'}</Text>
       </View>
     </TouchableOpacity>
   );
 
   return (
     <View className="flex-1 bg-slate-50">
-      <View className="border-b border-gray-200 bg-white px-4 py-4">
+      <View className="border-b border-gray-200 bg-white px-4 py-4" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-xl font-semibold text-gray-800">My Reports</Text>
         <Text className="mt-1 text-sm text-gray-500">{reports.length} reports total</Text>
       </View>

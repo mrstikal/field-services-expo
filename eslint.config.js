@@ -67,25 +67,32 @@ export default [
       "@typescript-eslint/no-unused-vars": "warn"
     }
   },
-  {
-    ignores: ["node_modules/", "dist/", ".next/"]
-  },
-  {
-    files: ["**/*.mjs", "**/*.cjs", "**/scripts/*.mjs"],
-    languageOptions: {
-      ecmaVersion: 2020,
-      sourceType: "commonjs",
-      globals: {
-        console: "readonly",
-        process: "readonly",
-        module: "readonly",
-        require: "readonly"
-      }
-    },
-    rules: {
-      "@typescript-eslint/no-require-imports": "off"
-    }
-  },
+   {
+     ignores: [
+       "**/node_modules/**",
+       "**/dist/**",
+       "**/.next/**",
+       "**/build/**",
+       "**/out/**",
+       "**/.turbo/**",
+       "**/.expo/**",
+       "**/tailwind.config.js",
+       "**/tailwind.config.ts"
+     ]
+   },
+   {
+     files: ["**/*.mjs", "**/*.cjs", "**/scripts/*.mjs"],
+     languageOptions: {
+       ecmaVersion: 2020,
+       sourceType: "commonjs",
+       globals: {
+         console: "readonly",
+       }
+     },
+     rules: {
+       "@typescript-eslint/no-require-imports": "off"
+     }
+   },
   {
     files: ["**/metro.config.js"],
     languageOptions: {

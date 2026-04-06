@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-
+import process from 'node:process';
 async function main() {
   const client = new Client({
     host: process.env.DB_HOST || 'localhost',

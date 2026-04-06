@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
 
 export default function ScannerScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
     hasPermission,
@@ -99,7 +101,7 @@ export default function ScannerScreen() {
   return (
     <View className="flex-1 bg-black">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3">
+      <View className="flex-row items-center justify-between px-4 py-3" style={{ paddingTop: insets.top + 12 }}>
         <TouchableOpacity className="p-2" onPress={handleCancel}>
           <Ionicons color="#ffffff" name="chevron-back" size={24} />
         </TouchableOpacity>
@@ -152,7 +154,7 @@ export default function ScannerScreen() {
       </View>
 
       {/* Footer */}
-      <View className="items-center justify-center p-6">
+      <View className="items-center justify-center p-6" style={{ paddingBottom: insets.bottom + 24 }}>
         <TouchableOpacity className="flex-row items-center justify-center" onPress={handleCancel}>
           <Ionicons color="#ef4444" name="close" size={20} />
           <Text className="ml-2 text-base font-semibold text-red-500">Cancel</Text>

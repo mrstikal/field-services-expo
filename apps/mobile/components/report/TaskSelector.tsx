@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, FlatList } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@field-service/shared-types';
+import { useAuth } from '@/lib/auth-context';
+import RNPickerSelect from 'react-native-picker-select';
 
 interface TaskSelectorProps {
   readonly selectedTask: Task | null;
@@ -10,95 +12,101 @@ interface TaskSelectorProps {
 }
 
 export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuth();
 
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['tasks', 'assigned'],
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks', 'available-for-report', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!user?.id) {
+        return [];
+      }
+
+      // Fetch tasks assigned to current user
+      const { data: userTasks, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
+        .eq('technician_id', user.id)
         .eq('status', 'assigned')
         .order('due_date', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching tasks:', error);
+      if (tasksError) {
+        console.error('Error fetching tasks:', tasksError);
         return [];
       }
-      return data as Task[];
+
+      // Fetch existing reports for filtering
+      const { error: reportsError } = await supabase
+        .from('reports')
+        .select('task_id');
+
+      if (reportsError) {
+        console.error('Error fetching reports:', reportsError);
+        // If reports fetch fails, return all user tasks
+        return (userTasks || []) as Task[];
+      }
+
+      // Return only tasks that don't have a report yet
+      return (userTasks || []) as Task[];
     },
+    enabled: !!user?.id,
   });
 
   const handleTaskSelect = (task: Task) => {
     onSelectTask(task);
-    setIsModalOpen(false);
   };
 
-  return (
-    <>
-      <TouchableOpacity
-        className="mb-4 flex-row items-center justify-between rounded-lg border border-gray-200 bg-white p-3"
-        onPress={() => setIsModalOpen(true)}
-      >
-        <View className="flex-1">
-          <Text className="mb-1 text-xs text-gray-500">
-            {selectedTask ? 'Selected Task' : 'Select Task'}
-          </Text>
-          <Text className="text-sm font-semibold text-gray-800">
-            {selectedTask ? selectedTask.title : 'Choose a task...'}
-          </Text>
-        </View>
-        <Text className="text-xs text-gray-400">▼</Text>
-      </TouchableOpacity>
+   const pickerItems = tasks.map((task) => ({
+     label: `${task.title} - ${task.address}`,
+     value: task.id,
+     key: task.id,
+     text: `${task.title}\nDue: ${new Date(task.due_date).toLocaleDateString()}`,
+   }));
 
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setIsModalOpen(false)}
-        visible={isModalOpen}
-      >
-        <View className="flex-1 bg-slate-50">
-          <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
-            <Text className="text-lg font-semibold text-gray-800">Select Task</Text>
-            <TouchableOpacity onPress={() => setIsModalOpen(false)}>
-              <Text className="text-2xl text-gray-500">✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          {isLoading ? (
-            <View className="flex-1 items-center justify-center p-8">
-              <Text>Loading tasks...</Text>
-            </View>
-          ) : (
-            <FlatList
-              ListEmptyComponent={
-                <View className="flex-1 items-center justify-center p-8">
-                  <Text className="text-sm text-gray-400">No tasks available</Text>
-                </View>
-              }
-              data={tasks}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  className="flex-row items-center justify-between border-b border-gray-200 bg-white p-4"
-                  onPress={() => handleTaskSelect(item)}
-                >
-                  <View className="flex-1">
-                    <Text className="mb-1 text-base font-semibold text-gray-800">{item.title}</Text>
-                    <Text className="mb-0.5 text-xs text-gray-500">{item.address}</Text>
-                    <Text className="text-[11px] text-gray-400">
-                      Due: {new Date(item.due_date).toLocaleDateString()}
-                    </Text>
-                  </View>
-                  <View className="ml-2 rounded bg-gray-100 px-2 py-1">
-                    <Text className="text-[10px] font-semibold capitalize text-gray-500">{item.priority}</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            />
-          )}
-        </View>
-      </Modal>
-    </>
-  );
+   return (
+     <RNPickerSelect
+       onValueChange={(itemValue) => {
+         const task = tasks.find((t: Task) => t.id === itemValue);
+         if (task) {
+           handleTaskSelect(task);
+         }
+       }}
+       items={pickerItems}
+       placeholder={{ label: 'Choose a task...', value: undefined, key: 'placeholder' }}
+       value={selectedTask?.id}
+       useNativeAndroidPickerStyle={false}
+       Icon={() => (
+         <View className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+           <Text className="text-sm text-gray-400">▼</Text>
+         </View>
+       )}
+       style={{
+         iconContainer: {
+           height: 0,
+           width: 0,
+         },
+         inputIOS: {
+           fontSize: 16,
+           paddingVertical: 12,
+           paddingHorizontal: 12,
+           paddingRight: 30,
+           borderWidth: 1,
+           borderColor: '#e5e7eb',
+           borderRadius: 8,
+           color: '#1f2937',
+           backgroundColor: '#ffffff',
+         },
+         inputAndroid: {
+           fontSize: 16,
+           paddingVertical: 12,
+           paddingHorizontal: 12,
+           paddingRight: 30,
+           borderWidth: 1,
+           borderColor: '#e5e7eb',
+           borderRadius: 8,
+           color: '#1f2937',
+           backgroundColor: '#ffffff',
+         },
+       }}
+     />
+   );
 }
-

@@ -1,5 +1,6 @@
  
 import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
@@ -98,6 +99,7 @@ const getCategoryLabel = (category: string) => {
 };
 
 export default function TaskDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -158,7 +160,7 @@ export default function TaskDetailScreen() {
       await queryClient.invalidateQueries({ queryKey: ['task', id] });
       
       Alert.alert('Success', 'Task has been started');
-      router.back();
+      router.push('/(tabs)/tasks');
     } catch {
       Alert.alert('Error', 'Failed to start task');
     }
@@ -173,8 +175,8 @@ export default function TaskDetailScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-slate-50">
-        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-          <TouchableOpacity onPress={() => router.back()}>
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top + 12 }}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
             <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
           <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
@@ -190,8 +192,8 @@ export default function TaskDetailScreen() {
   if (error || !task) {
     return (
       <View className="flex-1 bg-slate-50">
-        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-          <TouchableOpacity onPress={() => router.back()}>
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top + 12 }}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
             <Ionicons color="#1e40af" name="chevron-back" size={24} />
           </TouchableOpacity>
           <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
@@ -207,8 +209,8 @@ export default function TaskDetailScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <TouchableOpacity onPress={() => router.back()}>
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top + 12 }}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/tasks')}>
           <Ionicons color="#1e40af" name="chevron-back" size={24} />
         </TouchableOpacity>
         <Text className="text-lg font-semibold text-gray-800">Task Detail</Text>
@@ -317,7 +319,7 @@ export default function TaskDetailScreen() {
         </View>
 
         {/* Action Buttons */}
-        <View className="mb-5">
+        <View className="mb-5 pb-6">
           <TouchableOpacity className="mb-3 flex-row items-center justify-center rounded-lg bg-blue-800 px-4 py-3" onPress={handleNavigate}>
             <Ionicons color="#ffffff" name="navigate" size={20} />
             <Text className="ml-2 text-sm font-semibold text-white">Navigate</Text>
@@ -328,17 +330,15 @@ export default function TaskDetailScreen() {
             <Text className="ml-2 text-sm font-semibold text-white">Call</Text>
           </TouchableOpacity>
 
-          {task.status !== 'completed' && (
-            <TouchableOpacity
-              className="mb-3 flex-row items-center justify-center rounded-lg bg-orange-500 px-4 py-3"
-              onPress={handleStartWork}
-            >
-              <Ionicons color="#ffffff" name="play" size={20} />
-              <Text className="ml-2 text-sm font-semibold text-white">
-                {task.status === 'in_progress' ? 'In Progress' : 'Start Work'}
-              </Text>
-            </TouchableOpacity>
-          )}
+           {task.status === 'assigned' && (
+             <TouchableOpacity
+               className="mb-3 flex-row items-center justify-center rounded-lg bg-orange-500 px-4 py-3"
+               onPress={handleStartWork}
+             >
+               <Ionicons color="#ffffff" name="play" size={20} />
+               <Text className="ml-2 text-sm font-semibold text-white">Start Work</Text>
+             </TouchableOpacity>
+           )}
         </View>
         </ScrollView>
       </TaskDetailTransition>

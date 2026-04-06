@@ -1,7 +1,21 @@
 {
-  "generatedAt": "2026-04-05T03:08:25.085Z",
+  "generatedAt": "2026-04-06T16:31:56.380Z",
   "entries": [
-    "jsx-style-prop|components/report/SignaturePad.tsx|51",
-    "jsx-style-prop|components/swipeable-task-card.tsx|160"
+    "jsx-style-prop|app/(tabs)/index.tsx|143",
+    "jsx-style-prop|app/(tabs)/profile.tsx|23",
+    "jsx-style-prop|app/(tabs)/reports/[id].tsx|116",
+    "jsx-style-prop|app/(tabs)/reports/[id].tsx|136",
+    "jsx-style-prop|app/(tabs)/reports/[id].tsx|158",
+    "jsx-style-prop|app/(tabs)/reports/create.tsx|454",
+    "jsx-style-prop|app/(tabs)/reports/index.tsx|95",
+    "jsx-style-prop|app/(tabs)/scanner.tsx|104",
+    "jsx-style-prop|app/(tabs)/scanner.tsx|157",
+    "jsx-style-prop|app/(tabs)/tasks/index.tsx|128",
+    "jsx-style-prop|app/tasks/[id].tsx|178",
+    "jsx-style-prop|app/tasks/[id].tsx|195",
+    "jsx-style-prop|app/tasks/[id].tsx|212",
+    "jsx-style-prop|components/report/SelectPicker.tsx|44",
+    "jsx-style-prop|components/swipeable-task-card.tsx|169",
+    "jsx-style-prop|components/task-detail-transition.tsx|32"
   ]
 }

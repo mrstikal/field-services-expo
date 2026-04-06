@@ -103,9 +103,8 @@ export function useOfflineSync() {
        performFullSync();
      }, delay);
 
-     return () => clearTimeout(timeoutId);
-   // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [isOnline, user, performFullSync]);
+      return () => clearTimeout(timeoutId);
+    }, [isOnline, user, performFullSync]);
 
   // Fetch sync status periodically
   useEffect(() => {

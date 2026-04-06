@@ -9,9 +9,11 @@
     "lint": "eslint apps/web apps/mobile packages/db packages/shared-types",
     "lint:turbo": "turbo lint",
     "typecheck": "turbo typecheck",
+    "db:migrate": "pnpm --filter @field-service/db migrate",
     "db:seed": "pnpm --filter @field-service/db db:seed",
     "approve-builds": "pnpm approve-builds --global sharp sqlite3 better-sqlite3 esbuild supabase unrs-resolver",
     "demo:reset": "tsx scripts/reset-supabase.ts",
+    "mobile:metro:usb": "node ./scripts/start-mobile-metro-usb.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "setup": "pnpm approve-builds && pnpm install && pnpm demo:reset",
     "guard:stylesheet": "turbo guard:stylesheet",
@@ -38,10 +40,12 @@
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",
+    "@react-native-picker/picker": "^2.11.4",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.10.0",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.7.0",
-    "next": "^16.2.2"
+    "next": "^16.2.2",
+    "react-native-picker-select": "^9.3.1"
   }
 }

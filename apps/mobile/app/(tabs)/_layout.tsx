@@ -2,9 +2,11 @@ import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
   const { user, isLoading } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (isLoading) {
     return (
@@ -27,8 +29,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: '#ffffff',
           borderTopColor: '#e5e7eb',
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -73,6 +76,28 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons color={color} name="person-outline" size={size} />
           ),
+        }}
+      />
+      {/* Hide scanner and nested report screens from tab bar */}
+      <Tabs.Screen
+        name="scanner"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="reports/create"
+        options={{
+          href: null,
+          headerShown: false,
+        }}
+      />
+      <Tabs.Screen
+        name="reports/[id]"
+        options={{
+          href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

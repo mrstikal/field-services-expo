@@ -27,25 +27,41 @@ USING (auth.uid() = id);
 -- TASKS TABLE POLICIES
 -- ============================================================================
 
--- Allow all authenticated users to view all tasks
-CREATE POLICY "Authenticated users can view all tasks"
+-- Technicians can view only their assigned tasks
+CREATE POLICY "Technicians can view own tasks"
 ON tasks FOR SELECT
-USING (auth.role() = 'authenticated');
+USING (
+  auth.jwt() ->> 'role' = 'technician'
+  AND technician_id = auth.uid()
+);
 
--- Allow authenticated users to create tasks
-CREATE POLICY "Authenticated users can create tasks"
+-- Dispatchers can view all tasks
+CREATE POLICY "Dispatchers can view all tasks"
+ON tasks FOR SELECT
+USING (auth.jwt() ->> 'role' = 'dispatcher');
+
+-- Dispatchers can create tasks
+CREATE POLICY "Dispatchers can create tasks"
 ON tasks FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
+WITH CHECK (auth.jwt() ->> 'role' = 'dispatcher');
 
--- Allow authenticated users to update tasks
-CREATE POLICY "Authenticated users can update tasks"
+-- Dispatchers can update tasks
+CREATE POLICY "Dispatchers can update tasks"
 ON tasks FOR UPDATE
-USING (auth.role() = 'authenticated');
+USING (auth.jwt() ->> 'role' = 'dispatcher');
 
--- Allow authenticated users to delete tasks
-CREATE POLICY "Authenticated users can delete tasks"
+-- Technicians can update their own tasks (status, updated_at)
+CREATE POLICY "Technicians can update own tasks"
+ON tasks FOR UPDATE
+USING (
+  auth.jwt() ->> 'role' = 'technician'
+  AND technician_id = auth.uid()
+);
+
+-- Dispatchers can delete tasks
+CREATE POLICY "Dispatchers can delete tasks"
 ON tasks FOR DELETE
-USING (auth.role() = 'authenticated');
+USING (auth.jwt() ->> 'role' = 'dispatcher');
 
 -- ============================================================================
 -- REPORTS TABLE POLICIES

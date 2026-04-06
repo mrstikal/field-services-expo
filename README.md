@@ -22,7 +22,7 @@ A modern, full-stack field service management application built with Expo (React
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-org/field-service.git
+git clone https://github.com/mrstikal/field-services-expo.git
 cd field-service
 
 # 2. Configure environment
@@ -44,8 +44,18 @@ pnpm dev
 ```
 
 **Demo Credentials:**
-- Technician: `technik1@demo.cz` / `demo123`
-- Dispatcher: `dispatcher1@demo.cz` / `demo123`
+
+| Role       | Email                  | Password |
+|------------|------------------------|----------|
+| Dispatcher | dispatcher1@demo.cz    | demo123  |
+| Dispatcher | dispatcher2@demo.cz    | demo123  |
+| Technician | technik1@demo.cz       | demo123  |
+| Technician | technik2@demo.cz       | demo123  |
+| Technician | technik3@demo.cz       | demo123  |
+| Technician | technik4@demo.cz       | demo123  |
+| Technician | technik5@demo.cz       | demo123  |
+
+> **Note:** Auth users must also be created in Supabase Auth. See [Database Setup](./docs/DATABASE_SETUP.md).
 
 ### Available Commands
 
@@ -55,17 +65,26 @@ pnpm build            # Build all apps
 pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript type checking
 pnpm format           # Format code with Prettier
+pnpm db:seed          # Seed database with demo data
 pnpm demo:reset       # Reset Supabase database with demo data
 pnpm approve-builds   # Approve build scripts for dependencies
 ```
 
-For detailed setup instructions, see [SETUP.md](./docs/SETUP.md).
+For detailed setup instructions, see [SETUP.md](./docs/SETUP.md).  
+For daily development on Windows + Android USB, see [DAILY_RUN.md](./docs/DAILY_RUN.md).
 
 ## 📚 Documentation
 
-- **[Setup Guide](./docs/SETUP.md)** – Installation, configuration, and running the apps
-- **[Architecture Guide](./docs/ARCHITECTURE.md)** – System design, data flow, and technical decisions
-- **[Implementation Plan](./PLAN.md)** – Detailed roadmap for all 8 development stages (in Czech)
+| Document | Description |
+|----------|-------------|
+| **[Setup Guide](./docs/SETUP.md)** | Installation, configuration, and running the apps |
+| **[Architecture Guide](./docs/ARCHITECTURE.md)** | System design, data flow, and technical decisions |
+| **[Features](./docs/FEATURES.md)** | Detailed description of all app features |
+| **[Database Setup](./docs/DATABASE_SETUP.md)** | RLS policies, seeding, and database management |
+| **[Environment Variables](./docs/ENVIRONMENT.md)** | Complete reference for all env variables |
+| **[Deployment Guide](./docs/DEPLOYMENT.md)** | EAS Build, Vercel, OTA updates, CI/CD |
+| **[Daily Run](./docs/DAILY_RUN.md)** | Daily startup flow for Windows + Android USB |
+| **[Implementation Plan](./PLAN.md)** | Detailed roadmap for all 8 development stages (in Czech) |
 
 ## 🏗️ Project Structure
 
@@ -76,10 +95,14 @@ field-service/
 │   └── web/                 # Next.js dashboard
 ├── packages/
 │   ├── shared-types/        # TypeScript interfaces
-│   └── db/                  # Database & ORM
+│   └── db/                  # Database & ORM (Drizzle, schema, seed, RLS)
 ├── docs/                    # Documentation
-├── .github/workflows/       # CI/CD pipelines
-└── PLAN.md                  # Implementation plan
+├── scripts/                 # Utility scripts (reset-supabase.ts)
+├── android/                 # Android native build files
+├── .github/workflows/       # CI/CD pipelines (ci.yml, dev-build.yml)
+├── docker-compose.yml       # PostgreSQL for local development
+├── env.local.example        # Environment variables template
+└── PLAN.md                  # Implementation plan (Czech)
 ```
 
 ## 🛠️ Tech Stack
@@ -90,14 +113,16 @@ field-service/
 - **State:** TanStack Query, Zustand
 - **Forms:** React Hook Form + Zod
 - **Offline:** expo-sqlite, sync queue
-- **Native:** Camera, Location, FileSystem, Secure Store
+- **Animations:** React Native Reanimated, Gesture Handler
+- **Native:** Camera, Location, FileSystem, Secure Store, Print, Sharing
+- **Styling:** NativeWind + Tailwind CSS
 
 ### Web (Next.js)
 - **Framework:** Next.js 16 with App Router
 - **Styling:** Tailwind CSS
 - **State:** TanStack Query
 - **Forms:** React Hook Form + Zod
-- **Maps:** Mapbox GL JS
+- **Maps:** Mapbox GL JS / react-map-gl
 - **Auth:** Supabase Auth
 
 ### Backend
@@ -110,7 +135,7 @@ field-service/
 ### DevOps
 - **Monorepo:** Turborepo + pnpm
 - **CI/CD:** GitHub Actions
-- **Mobile Deploy:** EAS Build
+- **Mobile Deploy:** EAS Build + EAS Update (OTA)
 - **Web Deploy:** Vercel
 - **Linting:** ESLint + Prettier
 - **Type Check:** TypeScript strict mode
@@ -125,6 +150,8 @@ field-service/
 - **PDF Reports:** Generate and share task reports
 - **Barcode Scanning:** Scan parts and inventory items
 
+See [FEATURES.md](./docs/FEATURES.md) for full details.
+
 ## 💻 Web Dashboard Features
 
 - **Real-Time Dashboard:** Live statistics and technician status
@@ -134,6 +161,8 @@ field-service/
 - **Analytics:** Task completion rates, performance metrics
 - **Role-Based Access:** Separate views for dispatchers and admins
 
+See [FEATURES.md](./docs/FEATURES.md) for full details.
+
 ## 🔐 Security
 
 - **Row Level Security (RLS):** Database-level access control
@@ -142,16 +171,34 @@ field-service/
 - **Protected Routes:** Middleware-based route protection
 - **Encrypted Storage:** Secure token storage on mobile
 
+## 🔧 Environment Variables
+
+Key variables required in `env.local`:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-key        # server-side only!
+
+MAPBOX_TOKEN=your-mapbox-token               # optional, for dispatcher map
+SENTRY_DSN=your-sentry-dsn                   # optional, for error tracking
+
+EXPO_PUBLIC_API_URL=http://localhost:3000     # mobile → web API URL
+DATABASE_URL=postgresql://...                # local Docker PostgreSQL
+```
+
+See [ENVIRONMENT.md](./docs/ENVIRONMENT.md) for the complete reference.
+
 ## 🚀 Deployment
 
-### Mobile
+### Mobile (EAS Build)
 ```bash
 cd apps/mobile
 eas build --platform all --profile production
-eas update --branch production
+eas update --branch production               # OTA update (no App Store review)
 ```
 
-### Web
+### Web (Vercel)
 ```bash
 cd apps/web
 vercel deploy --prod
@@ -159,20 +206,24 @@ vercel deploy --prod
 
 Or use GitHub Actions for automated deployment (see `.github/workflows/ci.yml`).
 
+See [DEPLOYMENT.md](./docs/DEPLOYMENT.md) for the complete deployment guide.
+
 ## 📊 Development Stages
 
 The project is organized into 8 development stages:
 
-1. **Monorepo & Infrastructure** – Turborepo, Expo, Next.js setup
-2. **Authentication & Navigation** – Auth flows, protected routes
-3. **Offline-First Engine** – SQLite, sync queue, conflict resolution
-4. **Task Management** – CRUD operations, UI components
-5. **Native Capabilities** – Camera, location, PDF generation
-6. **Smart Report Builder** – Dynamic forms, digital signatures
-7. **Polish & Performance** – Error handling, optimization
-8. **Build & Deployment** – EAS Build, OTA updates, documentation
+| Stage | Description | Status |
+|-------|-------------|--------|
+| 1 | **Monorepo & Infrastructure** – Turborepo, Expo, Next.js setup | ✅ Done |
+| 2 | **Authentication & Navigation** – Auth flows, protected routes | ✅ Done |
+| 3 | **Offline-First Engine** – SQLite, sync queue, conflict resolution | 🔄 Planned |
+| 4 | **Task Management** – CRUD operations, UI components | 🔄 Planned |
+| 5 | **Native Capabilities** – Camera, location, PDF generation | 🔄 Planned |
+| 6 | **Smart Report Builder** – Dynamic forms, digital signatures | 🔄 Planned |
+| 7 | **Polish & Performance** – Error handling, optimization | 🔄 Planned |
+| 8 | **Build & Deployment** – EAS Build, OTA updates, documentation | 🔄 Planned |
 
-See [PLAN.md](./PLAN.md) for detailed implementation plan (in Czech).
+See [PLAN.md](./PLAN.md) for the detailed implementation plan (in Czech).
 
 ## 🤝 Contributing
 
@@ -190,6 +241,7 @@ MIT
 For questions or issues:
 - Check the [Setup Guide](./docs/SETUP.md) for common problems
 - Review the [Architecture Guide](./docs/ARCHITECTURE.md) for system design
+- See [DAILY_RUN.md](./docs/DAILY_RUN.md) for Windows + Android USB workflow
 - See [PLAN.md](./PLAN.md) for implementation details
 
 ## 🎓 Key Technologies
@@ -199,9 +251,11 @@ For questions or issues:
 - **Turborepo** – Monorepo orchestration
 - **Drizzle ORM** – Type-safe database access
 - **TanStack Query** – Server state management
-- **Supabase** – Backend-as-a-Service
+- **Supabase** – Backend-as-a-Service (DB, Auth, Realtime, Storage)
 - **TypeScript** – Type safety
 - **Tailwind CSS** – Utility-first styling
+- **EAS Build** – Cloud mobile builds
+- **EAS Update** – Over-the-Air updates
 
 ---
 

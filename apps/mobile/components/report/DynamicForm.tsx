@@ -1,49 +1,70 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import React, { useMemo, forwardRef, useImperativeHandle } from 'react';
+import { View, Alert } from 'react-native';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormTemplate } from '@field-service/shared-types';
 import { createReportSchema, ReportFormValues } from '@/lib/validators/report-schemas';
 import { FormField as FormFieldComponent } from './FormField';
 
-interface DynamicFormProps {
-  readonly template: FormTemplate;
-  readonly onSubmit: (data: ReportFormValues) => void;
-  readonly isLoading?: boolean;
+export interface DynamicFormHandle {
+  submitForm: () => Promise<void>;
+  getFormData: () => Record<string, unknown>;
+  resetForm: (values?: Record<string, unknown>) => void;
 }
 
-export function DynamicForm({ template, onSubmit, isLoading = false }: DynamicFormProps) {
-  const schema = useMemo(() => createReportSchema(template.categoryId), [template.categoryId]);
-  
-  const methods = useForm<ReportFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {},
-  });
+interface DynamicFormProps {
+  readonly template: FormTemplate;
+  readonly onSubmit?: (data: ReportFormValues) => void;
+  readonly defaultValues?: Record<string, unknown>;
+}
 
-  const { control, handleSubmit } = methods;
-
-  // Filter fields based on conditional logic
-  const visibleFields = useMemo(() => {
-    const formData = methods.getValues();
-    return template.fields.filter(field => {
-      if (!field.conditional) return true;
-      const fieldValue = formData[field.conditional.fieldId];
-      return fieldValue === field.conditional?.value;
+export const DynamicForm = forwardRef<DynamicFormHandle, DynamicFormProps>(
+  ({ template, onSubmit, defaultValues }, ref) => {
+    const schema = useMemo(() => createReportSchema(template.categoryId), [template.categoryId]);
+    
+    const methods = useForm<ReportFormValues>({
+      resolver: zodResolver(schema),
+      defaultValues: defaultValues || {},
     });
-  }, [template.fields, methods]);
 
-  const onSubmitHandler = (data: ReportFormValues) => {
-    try {
-      onSubmit(data);
-    } catch (error) {
-      console.error('Form submission error:', error);
-      Alert.alert('Error', 'Failed to submit form');
-    }
-  };
+    const onSubmitHandler = (data: ReportFormValues) => {
+      try {
+        if (onSubmit) {
+          onSubmit(data);
+        }
+      } catch (error) {
+        console.error('Form submission error:', error);
+        Alert.alert('Error', 'Failed to submit form');
+      }
+    };
 
-  return (
-    <FormProvider {...methods}>
-      <ScrollView className="flex-1 bg-slate-50">
+    useImperativeHandle(ref, () => ({
+      submitForm: async () => {
+        await methods.trigger();
+        if (methods.formState.isValid) {
+          methods.handleSubmit(onSubmitHandler)();
+        }
+      },
+      getFormData: () => methods.getValues(),
+      resetForm: (values?: Record<string, unknown>) => {
+        methods.reset(values ?? {});
+      },
+    }), [methods, onSubmitHandler, methods.reset]);
+
+    const { control } = methods;
+
+    // Filter fields based on conditional logic
+    const visibleFields = useMemo(() => {
+      const formData = methods.getValues();
+      return template.fields.filter(field => {
+        if (!field.conditional) return true;
+        const fieldValue = formData[field.conditional.fieldId];
+        return fieldValue === field.conditional?.value;
+      });
+    }, [template.fields, methods]);
+
+    return (
+      <FormProvider {...methods}>
         <View className="p-4">
           {visibleFields.map((field) => (
             <FormFieldComponent
@@ -53,14 +74,9 @@ export function DynamicForm({ template, onSubmit, isLoading = false }: DynamicFo
             />
           ))}
         </View>
-        <View className="p-4">
-          <TouchableOpacity className="items-center rounded-lg bg-blue-800 p-4" onPress={handleSubmit(onSubmitHandler)}>
-            <Text className="text-base font-semibold text-white">
-              {isLoading ? 'Saving...' : 'Save Report'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </FormProvider>
-  );
-}
+      </FormProvider>
+    );
+  }
+);
+
+DynamicForm.displayName = 'DynamicForm';
