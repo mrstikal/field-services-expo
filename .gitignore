@@ -35,3 +35,5 @@ next-env.d.ts
 /.turbo/cache
 
 /.turbo/preferences/tui.json
+
+/packages/shared-types/node_modules/
