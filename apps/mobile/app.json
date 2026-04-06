@@ -4,6 +4,7 @@
     "slug": "field-service",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "fieldservice",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -43,9 +44,16 @@
     "experiments": {
       "typedRoutes": true
     },
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
       }
     }
   }

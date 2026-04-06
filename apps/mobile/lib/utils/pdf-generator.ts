@@ -11,9 +11,9 @@ interface ReportData {
   customerPhone: string;
   technicianName: string;
   technicianId: string;
-  photos: string[];
+  photos: string[]; // Array of public URLs from storage
   formData: Record<string, string>;
-  signature: string | null;
+  signature: string | null; // Public URL from storage or base64 data URI
   createdAt: string;
   completedAt: string;
 }

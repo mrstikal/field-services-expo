@@ -1,17 +1,23 @@
 import { View, Text, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableTaskCard from '@/components/swipeable-task-card';
 import SkeletonTaskList from '@/components/skeleton-task-list';
+import TaskFilters from '@/components/task-filters';
 import { useState, useCallback } from 'react';
 import { Task } from '@field-service/shared-types';
 import { useRealtimeTasks } from '@/lib/hooks/use-realtime-tasks';
 import { paddingStyles } from '@/lib/styles';
+import { useAuth } from '@/lib/auth-context';
 
 export default function TasksListScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
+  const [isFiltersVisible, setIsFiltersVisible] = useState(false);
   const [filters, setFilters] = useState({
     status: null as string | null,
     priority: null as string | null,
@@ -22,16 +28,25 @@ export default function TasksListScreen() {
   useRealtimeTasks();
 
   const { data: allTasks = [], isLoading, error } = useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['tasks', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
+
+      // Filter tasks based on user role
+      if (user?.role === 'technician') {
+        // Technicians see only their assigned tasks
+        query = query.eq('technician_id', user.id);
+      }
+      // Dispatchers see all tasks (no filter needed due to RLS)
+
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
       return data || [];
     },
+    enabled: !!user?.id,
   });
 
   // Filter tasks based on selected filters
@@ -66,7 +81,6 @@ export default function TasksListScreen() {
     await queryClient.invalidateQueries({ queryKey: ['tasks'] });
   };
 
-
   const handleResetFilters = () => {
     setFilters({
       status: null,
@@ -74,6 +88,21 @@ export default function TasksListScreen() {
       dateRange: null,
     });
   };
+
+  const handleOpenFilters = useCallback(() => {
+    setIsFiltersVisible(true);
+  }, []);
+
+  const handleFilterChange = useCallback((filterType: string, value: string | null) => {
+    setFilters((prev) => ({
+      ...prev,
+      [filterType]: value,
+    }));
+  }, []);
+
+  const handleApplyFilters = useCallback(() => {
+    setIsFiltersVisible(false);
+  }, []);
 
   const handleTaskPress = useCallback((taskId: string) => {
     router.push(`/tasks/${taskId}`);
@@ -96,13 +125,13 @@ export default function TasksListScreen() {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-4">
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-4" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-xl font-semibold text-gray-800">All Tasks</Text>
         <View className="flex-row items-center gap-3">
           <Text className="text-sm text-gray-500">{filteredTasks.length} tasks</Text>
           <TouchableOpacity
             className="p-1" 
-            onPress={handleResetFilters}
+            onPress={handleOpenFilters}
           >
             <Ionicons color="#1e40af" name="filter" size={20} />
           </TouchableOpacity>
@@ -137,6 +166,14 @@ export default function TasksListScreen() {
           windowSize={10}
         />
       )}
+
+      <TaskFilters
+        isVisible={isFiltersVisible}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onApplyFilters={handleApplyFilters}
+        onResetFilters={handleResetFilters}
+      />
     </View>
   );
 }

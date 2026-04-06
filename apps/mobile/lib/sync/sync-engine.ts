@@ -113,62 +113,57 @@ export class SyncEngine {
       locations: 0,
     };
 
-    try {
-      // Get last sync timestamp
-      const lastSync = this.lastSyncTimestamp || new Date(0).toISOString();
+    // Get last sync timestamp
+    const lastSync = this.lastSyncTimestamp || new Date(0).toISOString();
 
-      // Call pull API endpoint
-      const response = await this.makeApiRequest('/api/sync/pull', {
-        method: 'POST',
-        body: JSON.stringify({ lastSyncTimestamp: lastSync }),
-      });
+    // Call pull API endpoint
+    const response = await this.makeApiRequest('/api/sync/pull', {
+      method: 'POST',
+      body: JSON.stringify({ lastSyncTimestamp: lastSync }),
+    });
 
-      if (!response.success) {
-        throw new Error('Pull sync API call failed');
-      }
-
-      const { data } = response;
-
-      // Process tasks
-      if (data.tasks && data.tasks.length > 0) {
-        for (const task of data.tasks) {
-          await this.upsertTask(task);
-        }
-        result.tasks = data.tasks.length;
-      }
-
-      // Process reports
-      if (data.reports && data.reports.length > 0) {
-        for (const report of data.reports) {
-          await this.upsertReport(report);
-        }
-        result.reports = data.reports.length;
-      }
-
-      // Process locations
-      if (data.locations && data.locations.length > 0) {
-        for (const location of data.locations) {
-          await this.upsertLocation(location);
-        }
-        result.locations = data.locations.length;
-      }
-
-      // Update last sync timestamp with server timestamp
-      const serverTimestamp = data.serverTimestamp || new Date().toISOString();
-      await taskRepository.setLastSyncTimestamp(serverTimestamp);
-      this.lastSyncTimestamp = serverTimestamp;
-
-      return result;
-    } catch (error) {
-      // Re-throw so the caller (hook) can handle/log the error once
-      throw error;
+    if (!response.success) {
+      throw new Error('Pull sync API call failed');
     }
+
+    const { data } = response;
+
+    // Process tasks
+    if (data.tasks && data.tasks.length > 0) {
+      for (const task of data.tasks) {
+        await this.upsertTask(task);
+      }
+      result.tasks = data.tasks.length;
+    }
+
+    // Process reports
+    if (data.reports && data.reports.length > 0) {
+      for (const report of data.reports) {
+        await this.upsertReport(report);
+      }
+      result.reports = data.reports.length;
+    }
+
+    // Process locations
+    if (data.locations && data.locations.length > 0) {
+      for (const location of data.locations) {
+        await this.upsertLocation(location);
+      }
+      result.locations = data.locations.length;
+    }
+
+    // Update last sync timestamp with server timestamp
+    const serverTimestamp = data.serverTimestamp || new Date().toISOString();
+    await taskRepository.setLastSyncTimestamp(serverTimestamp);
+    this.lastSyncTimestamp = serverTimestamp;
+
+    return result;
   }
 
     /**
-     * Upsert task with conflict resolution
-     */
-    private async upsertTask(serverTask: Record<string, unknown>): Promise<void> {
+      * Upsert task with conflict resolution
+      */
+     private async upsertTask(serverTask: Record<string, unknown>): Promise<void> {
       // Use upsertFromServer to avoid adding to sync queue
       await taskRepository.upsertFromServer(serverTask as Task);
     }
@@ -207,90 +202,74 @@ export class SyncEngine {
       errors: [] as string[],
     };
 
-    try {
-      // Get all pending sync queue items from local database
-      const db = getDatabase();
-      const queueItems = await db.getAllAsync<SyncQueueItem>(
-        `SELECT * FROM sync_queue WHERE status = ? ORDER BY created_at ASC`,
-        ['pending']
-      );
+    // Get all pending sync queue items from local database
+    const db = getDatabase();
+    const queueItems = await db.getAllAsync<SyncQueueItem>(
+      `SELECT * FROM sync_queue WHERE status = ? ORDER BY created_at ASC`,
+      ['pending']
+    );
 
-      if (!queueItems || queueItems.length === 0) {
-        return result;
-      }
-
-      // Prepare changes for API
-      const changes = queueItems.map(item => ({
-        id: item.id,
-        type: item.type,
-        action: item.action,
-        data: typeof item.data === 'string' ? JSON.parse(item.data) : item.data,
-        version: item.version
-      }));
-
-      const queueItemsById = new Map(queueItems.map((item) => [item.id, item]));
-
-      try {
-        // Send changes to push API endpoint
-        const response = await this.makeApiRequest('/api/sync/push', {
-          method: 'POST',
-          body: JSON.stringify({ changes }),
-        });
-
-        if (!response.success) {
-          throw new Error('Push sync API call failed');
-        }
-
-         // Deterministic per-item reconciliation by queue item id.
-         const itemResults = response.results?.itemResults;
-         if (Array.isArray(itemResults) && itemResults.length > 0) {
-           const handledIds = new Set<string>();
-
-           for (const itemResult of itemResults) {
-             if (!itemResult?.id || handledIds.has(itemResult.id)) continue;
-             handledIds.add(itemResult.id);
-
-             if (!queueItemsById.has(itemResult.id)) continue;
-
-             if (itemResult.status === 'success') {
-               await this.updateSyncQueueStatus(itemResult.id, 'synced');
-               result.success++;
-               continue;
-             }
-
-             const message = itemResult.error || `Sync failed for queue item ${itemResult.id}`;
-             await this.updateSyncQueueStatus(itemResult.id, 'failed', message);
-             result.failed++;
-             result.errors.push(message);
-           }
-
-           // If server omitted a queue item result, keep item for retry and report it.
-           for (const item of queueItems) {
-             if (handledIds.has(item.id)) continue;
-             const missingResultError = `Missing result for queue item ${item.id}`;
-             await this.updateSyncQueueStatus(item.id, 'failed', missingResultError);
-             result.failed++;
-             result.errors.push(missingResultError);
-           }
-         } else {
-           throw new Error('Push sync API returned no itemResults');
-         }
-      } catch (pushError: unknown) {
-        // If push API fails, mark all items as failed
-        const errorMessage = pushError instanceof Error ? pushError.message : 'Unknown error';
-        for (const item of queueItems) {
-          await this.updateSyncQueueStatus(item.id, 'failed', errorMessage);
-          result.failed++;
-          result.errors.push(`Item ${item.id}: ${errorMessage}`);
-        }
-        throw pushError;
-      }
-
+    if (!queueItems || queueItems.length === 0) {
       return result;
-    } catch (error) {
-      // Re-throw so the caller (hook) can handle/log the error once
-      throw error;
     }
+
+    // Prepare changes for API
+    const changes = queueItems.map(item => ({
+      id: item.id,
+      type: item.type,
+      action: item.action,
+      data: typeof item.data === 'string' ? JSON.parse(item.data) : item.data,
+      version: item.version
+    }));
+
+    const queueItemsById = new Map(queueItems.map((item) => [item.id, item]));
+
+    // Send changes to push API endpoint
+    const response = await this.makeApiRequest('/api/sync/push', {
+      method: 'POST',
+      body: JSON.stringify({ changes }),
+    });
+
+    if (!response.success) {
+      throw new Error('Push sync API call failed');
+    }
+
+     // Deterministic per-item reconciliation by queue item id.
+     const itemResults = response.results?.itemResults;
+     if (Array.isArray(itemResults) && itemResults.length > 0) {
+       const handledIds = new Set<string>();
+
+       for (const itemResult of itemResults) {
+         if (!itemResult?.id || handledIds.has(itemResult.id)) continue;
+         handledIds.add(itemResult.id);
+
+         if (!queueItemsById.has(itemResult.id)) continue;
+
+         if (itemResult.status === 'success') {
+           await this.updateSyncQueueStatus(itemResult.id, 'synced');
+           result.success++;
+           continue;
+         }
+
+         const message = itemResult.error || `Sync failed for queue item ${itemResult.id}`;
+         await this.updateSyncQueueStatus(itemResult.id, 'failed', message);
+         result.failed++;
+         result.errors.push(message);
+       }
+
+       // If server omitted a queue item result, keep item for retry and report it.
+       for (const item of queueItems) {
+         if (handledIds.has(item.id)) continue;
+         const missingResultError = `Missing result for queue item ${item.id}`;
+         await this.updateSyncQueueStatus(item.id, 'failed', missingResultError);
+         result.failed++;
+         result.errors.push(missingResultError);
+       }
+     } else {
+       throw new Error('Push sync API returned no itemResults');
+     }
+
+    return result;
   }
 
   /**

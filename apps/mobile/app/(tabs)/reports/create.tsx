@@ -1,16 +1,20 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView } from 'expo-camera';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
-import { generatePDF, savePDF, sharePDF } from '@/lib/utils/pdf-generator';
+import { supabase } from '@/lib/supabase';
+import { generatePDF, sharePDF } from '@/lib/utils/pdf-generator';
+import { uploadPhoto, uploadPDF, uploadSignature } from '@/lib/utils/storage';
 import { detectObjects, suggestFormFields } from '@/lib/utils/vision-detection';
 import { Task, TaskCategory } from '@field-service/shared-types';
 import { formTemplates } from '@/lib/validators/report-schemas';
-import { DynamicForm } from '@/components/report/DynamicForm';
+import { DynamicForm, DynamicFormHandle } from '@/components/report/DynamicForm';
 import { SignaturePad } from '@/components/report/SignaturePad';
 import { TaskSelector } from '@/components/report/TaskSelector';
 
@@ -22,15 +26,18 @@ interface Photo {
 }
 
 export default function CreateReportScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const dynamicFormRef = useRef<DynamicFormHandle | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [isSignatureOpen, setIsSignatureOpen] = useState<boolean>(false);
-  const [formData, setFormData] = useState<Record<string, string | number | boolean>>({});
   const [isVisionProcessing, setIsVisionProcessing] = useState<boolean>(false);
+  const [detectionValues, setDetectionValues] = useState<Record<string, unknown>>({});
 
   // Barcode scanner hook
   const {
@@ -152,7 +159,7 @@ export default function CreateReportScreen() {
     }
   };
 
-  // Add photo to report
+  // Add photo to report - store locally, upload to storage only when saving report
   const addPhoto = (photo: Photo) => {
     if (photos.length >= 10) {
       Alert.alert('Limit Reached', 'Maximum 10 photos allowed');
@@ -179,10 +186,25 @@ export default function CreateReportScreen() {
     resetScanner();
   };
 
-  // Handle signature
-  const handleSignature = (signatureData: string) => {
-    setSignature(signatureData);
-    setIsSignatureOpen(false);
+  // Handle signature - upload to storage immediately
+  const handleSignature = async (signatureData: string) => {
+    if (!selectedTask) {
+      Alert.alert('Error', 'Please select a task first');
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+      const reportId = Date.now().toString();
+      const signatureUrl = await uploadSignature(signatureData, reportId);
+      setSignature(signatureUrl);
+      setIsSignatureOpen(false);
+    } catch (error) {
+      console.error('Error uploading signature:', error);
+      Alert.alert('Error', 'Failed to upload signature');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Vision object detection
@@ -205,9 +227,11 @@ export default function CreateReportScreen() {
               {
                 text: 'Yes',
                 onPress: () => {
-                  suggestions.forEach(s => {
-                    setFormData(prev => ({ ...prev, [s.fieldId]: s.value }));
-                  });
+                    const newValues: Record<string, unknown> = {};
+                   suggestions.forEach(s => {
+                     newValues[s.fieldId] = s.value;
+                   });
+                   setDetectionValues(newValues);
                 },
               },
               { text: 'No', style: 'cancel' },
@@ -225,8 +249,19 @@ export default function CreateReportScreen() {
     }
   };
 
-  // Save report
-  const saveReport = async () => {
+   // Reset all form state
+   const resetCreateReportState = () => {
+     setPhotos([]);
+     setSelectedTask(null);
+     setSignature(null);
+     setDetectionValues({});
+     if (dynamicFormRef.current) {
+       dynamicFormRef.current.resetForm({});
+     }
+   };
+
+   // Save report
+   const handleSaveReport = async () => {
     if (photos.length === 0) {
       Alert.alert('Error', 'Please add at least one photo');
       return;
@@ -240,12 +275,20 @@ export default function CreateReportScreen() {
     setIsProcessing(true);
 
     try {
+      // Submit form data first
+      if (dynamicFormRef.current) {
+        await dynamicFormRef.current.submitForm();
+      }
+
       const nowIso = new Date().toISOString();
       const reportId = Date.now().toString();
 
+      // Get form data from DynamicForm to ensure we have the latest values
+      const formValues = dynamicFormRef.current?.getFormData() || {};
+      
       // Prepare form data
       const reportFormData = {
-        ...formData,
+        ...formValues,
         photosCount: photos.length.toString(),
         source: 'mobile-app',
         timestamp: nowIso,
@@ -267,28 +310,62 @@ export default function CreateReportScreen() {
         completedAt: nowIso,
       });
 
-      const savedPdfUri = await savePDF(pdfUri, `report-${reportId}.pdf`);
+      // Upload photos to storage
+      const photoUrls = await Promise.all(
+        photos.map(photo => uploadPhoto(photo.uri, reportId))
+      );
+
+      // Upload PDF to storage
+      const pdfUrl = await uploadPDF(pdfUri, reportId);
+
+      // Save report to database with public URLs
+      // NOTE: pdf URL is stored in form_data to avoid hard dependency on DB schema migration
+      const { error: dbError } = await supabase
+        .from('reports')
+        .insert({
+          task_id: selectedTask.id,
+          status: 'completed',
+          photos: photoUrls,
+          form_data: {
+            ...reportFormData,
+            pdf_url: pdfUrl,
+          },
+          signature: signature || null,
+        });
+
+      if (dbError) {
+        console.error('Error saving report to database:', dbError);
+        Alert.alert('Error', 'Failed to save report to database');
+        return;
+      }
+
+      // Invalidate cache to refresh the reports list
+      await queryClient.invalidateQueries({ queryKey: ['reports'] });
 
       Alert.alert(
         'Success',
-        'Report saved successfully. PDF protocol was generated.',
+        'Report saved successfully. PDF protocol was generated and uploaded.',
         [
           {
-            text: 'Share PDF',
+            text: 'View PDF',
             onPress: async () => {
               try {
-                await sharePDF(savedPdfUri);
+                await sharePDF(pdfUrl);
               } catch (error) {
-                console.error('Error sharing generated PDF:', error);
-                Alert.alert('Sharing unavailable', 'PDF was generated and saved locally.');
+                console.error('Error sharing PDF:', error);
+                Alert.alert('Error', 'Could not share PDF');
               } finally {
+                resetCreateReportState();
                 router.push('/reports');
               }
             },
           },
           {
             text: 'Done',
-            onPress: () => router.push('/reports'),
+            onPress: () => {
+              resetCreateReportState();
+              router.push('/reports');
+            },
           },
         ]
       );
@@ -389,10 +466,10 @@ export default function CreateReportScreen() {
   return (
     <ScrollView className="flex-1 bg-slate-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <TouchableOpacity className="p-2" onPress={() => router.back()}>
-          <Ionicons color="#1e40af" name="chevron-back" size={24} />
-        </TouchableOpacity>
+      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top + 12 }}>
+         <TouchableOpacity className="p-2" onPress={() => router.push('/(tabs)/reports')}>
+           <Ionicons color="#1e40af" name="chevron-back" size={24} />
+         </TouchableOpacity>
         <Text className="text-lg font-semibold text-gray-800">New Report</Text>
         <View className="w-6" />
       </View>
@@ -430,11 +507,11 @@ export default function CreateReportScreen() {
       {/* Dynamic Form */}
       {formTemplate ? <View className="mb-4 bg-white p-4">
           <Text className="mb-3 text-base font-semibold text-gray-800">Report Details</Text>
-          <DynamicForm
-            isLoading={isProcessing}
-            onSubmit={(data) => setFormData(data)}
-            template={formTemplate}
-          />
+            <DynamicForm
+              ref={dynamicFormRef}
+              defaultValues={detectionValues}
+              template={formTemplate}
+            />
         </View> : null}
 
       {/* Signature */}
@@ -498,7 +575,7 @@ export default function CreateReportScreen() {
         <TouchableOpacity
           className={`flex-row items-center justify-center rounded-lg p-4 ${photos.length === 0 ? 'bg-gray-400' : 'bg-blue-800'}`}
           disabled={photos.length === 0 || isProcessing}
-          onPress={saveReport}
+          onPress={handleSaveReport}
         >
           {isProcessing ? (
             <ActivityIndicator color="#ffffff" />

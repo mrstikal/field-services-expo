@@ -1,9 +1,11 @@
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   const router = useRouter();
 
@@ -18,7 +20,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView className="flex-1 bg-slate-50">
-      <View className="items-center border-b border-gray-200 bg-white px-4 py-6">
+      <View className="items-center border-b border-gray-200 bg-white px-4 py-6" style={{ paddingTop: insets.top + 24 }}>
         <View className="mb-4">
           <Ionicons color="#1e40af" name="person-circle" size={80} />
         </View>

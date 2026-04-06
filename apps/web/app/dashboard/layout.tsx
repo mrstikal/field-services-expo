@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
+import { Home, ClipboardList, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-provider';
@@ -37,9 +38,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const navItems = [
-    { href: '/dashboard', label: 'Overview', icon: 'home-outline' },
-    { href: '/dashboard/tasks', label: 'Tasks', icon: 'list-outline' },
-    { href: '/dashboard/technicians', label: 'Technicians', icon: 'people-outline' },
+    { href: '/dashboard', label: 'Overview', icon: Home },
+    { href: '/dashboard/tasks', label: 'Tasks', icon: ClipboardList },
+    { href: '/dashboard/technicians', label: 'Technicians', icon: Users },
   ];
 
   return (
@@ -60,7 +61,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               href={item.href}
               key={item.href}
             >
-              <span className="mr-3">{item.icon}</span>
+              <item.icon className="mr-3 h-5 w-5" />
               {item.label}
             </Link>
           ))}

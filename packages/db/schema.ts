@@ -58,6 +58,7 @@ export const reports = pgTable('reports', {
   photos: text('photos').array().notNull().default([]),
   form_data: jsonb('form_data').notNull().default({}),
   signature: text('signature'),
+  pdf_url: text('pdf_url'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
   version: integer('version').notNull().default(1),

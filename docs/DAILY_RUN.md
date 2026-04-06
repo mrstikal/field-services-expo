@@ -1,6 +1,6 @@
 # Daily Run (Web + Mobile USB)
 
-Quick daily startup flow for Windows (PowerShell) with an Android phone connected over USB.
+Quick daily startup flow for Windows, Linux, and macOS with an Android phone connected over USB.
 
 ## 1) Prerequisites
 
@@ -11,8 +11,17 @@ Quick daily startup flow for Windows (PowerShell) with an Android phone connecte
 
 ## 2) Web (terminal 1)
 
+### Windows (PowerShell)
+
 ```powershell
 Set-Location "F:\expo\field-service\apps\web"
+pnpm dev
+```
+
+### Linux / macOS (bash/zsh)
+
+```bash
+cd /path/to/field-service/apps/web
 pnpm dev
 ```
 
@@ -20,15 +29,18 @@ pnpm dev
 
 ## 3) Mobile Metro (terminal 2)
 
-```powershell
-Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-Set-Location "F:\expo\field-service\apps\mobile"
-Remove-Item ".expo" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:TEMP\metro-*" -Recurse -Force -ErrorAction SilentlyContinue
-pnpm exec expo start --localhost --port 8081 --clear
+### Windows / Linux / macOS
+
+```bash
+cd /path/to/field-service
+pnpm mobile:metro:usb
 ```
 
+- Optional custom port: `pnpm mobile:metro:usb -- 8081`
+
 ## 4) USB bridge + open app (terminal 3)
+
+### Windows (PowerShell)
 
 ```powershell
 $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.PlatformTools_*\platform-tools\adb.exe").FullName
@@ -37,6 +49,16 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
 & $adb reverse tcp:3000 tcp:3000
 & $adb reverse --list
 & $adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
+```
+
+### Linux / macOS (bash/zsh)
+
+```bash
+adb devices
+adb reverse tcp:8081 tcp:8081
+adb reverse tcp:3000 tcp:3000
+adb reverse --list
+adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
 ```
 
 ## 5) Quick validation
@@ -66,6 +88,17 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
 & $adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
 ```
 
+### Expo prompt `Log in / Proceed anonymously`
+
+- If terminal 2 shows:
+  - `It is recommended to log in with your Expo account before proceeding`
+  - `Log in` / `Proceed anonymously`
+- this project uses `EXPO_OFFLINE=1` in:
+  - `scripts/start-mobile-metro-usb.mjs`
+  so the prompt should not appear.
+- `EXPO_OFFLINE=1` is an environment variable, not the `--offline` CLI flag. Keep `--localhost` for USB + `adb reverse`.
+- Until this prompt is resolved, Metro is not fully started and Expo Go can stay on loader and end with `Something went wrong`.
+
 ### Port 3000 is already in use
 
 ```powershell
@@ -74,4 +107,3 @@ pnpm dev -- -p 3001
 ```
 
 - If web runs on 3001, also update `EXPO_PUBLIC_API_URL` in `apps/mobile/.env.local` to `http://localhost:3001` and restart Metro.
-

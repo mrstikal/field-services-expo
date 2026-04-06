@@ -1,5 +1,7 @@
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { taskRepository } from '@/lib/db/task-repository';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
@@ -19,6 +21,8 @@ interface Task {
 }
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [todayTasks, setTodayTasks] = useState<Task[]>([]);
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -136,7 +140,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView className="flex-1 bg-slate-100">
-      <View className="border-b border-gray-200 bg-white p-5">
+      <View className="border-b border-gray-200 bg-white p-5" style={{ paddingTop: insets.top + 20 }}>
         <Text className="text-2xl font-bold text-blue-800">Hello, Technician!</Text>
         <Text className="mt-1 text-base text-gray-500">You have {todayTasks.length} new tasks</Text>
         <Text className="mt-2 text-xs text-gray-500">
@@ -174,10 +178,14 @@ export default function HomeScreen() {
           <Text className="p-5 text-center text-gray-500">No new tasks for today</Text>
         ) : (
           todayTasks.map((task) => (
-            <View className="mb-2 rounded-lg border border-gray-200 bg-white p-3" key={task.id}>
+            <TouchableOpacity 
+              key={task.id}
+              className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
+              onPress={() => router.push(`/tasks/${task.id}`)}
+            >
               <Text className="text-sm font-medium text-gray-800">{task.title}</Text>
               <Text className="mt-1 text-xs text-gray-500">{task.status}</Text>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </View>

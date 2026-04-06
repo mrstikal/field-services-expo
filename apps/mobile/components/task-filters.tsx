@@ -1,11 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { modalStyles } from '@/lib/styles';
 
 interface TaskFiltersProps {
-  readonly bottomSheetRef: React.RefObject<BottomSheetModal>;
+  readonly isVisible: boolean;
   readonly filters: {
     status: string | null;
     priority: string | null;
@@ -17,14 +15,12 @@ interface TaskFiltersProps {
 }
 
 const TaskFilters: React.FC<TaskFiltersProps> = ({
-  bottomSheetRef,
+  isVisible,
   filters,
   onFilterChange,
   onApplyFilters,
   onResetFilters
 }) => {
-  const snapPoints = useMemo(() => ['25%', '50%', '90%'], []);
-
   const statusOptions = [
     { label: 'All', value: null },
     { label: 'Assigned', value: 'assigned' },
@@ -48,95 +44,101 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
   ];
 
   return (
-    <BottomSheetModal
-      backgroundStyle={modalStyles.bottomSheetBackground}
-      enablePanDownToClose
-      index={1}
-      ref={bottomSheetRef}
-      snapPoints={snapPoints}
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onApplyFilters}
     >
-      <View className="flex-1 p-4">
-        <View className="mb-5 flex-row items-center justify-between">
-          <Text className="text-lg font-semibold text-gray-800">Filter Tasks</Text>
-          <TouchableOpacity onPress={onResetFilters}>
-            <Ionicons color="#1e40af" name="refresh" size={24} />
-          </TouchableOpacity>
-        </View>
+      <View className="flex-1 bg-black/50">
+        <View className="mt-auto flex-1 rounded-t-2xl bg-white">
+          <View className="border-b border-gray-200 px-4 py-4">
+            <View className="flex-row items-center justify-between">
+              <Text className="text-lg font-semibold text-gray-800">Filter Tasks</Text>
+              <TouchableOpacity onPress={onResetFilters}>
+                <Ionicons color="#1e40af" name="refresh" size={24} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        {/* Status Filter */}
-        <View className="mb-5">
-          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Status</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {statusOptions.map((option) => (
-                <TouchableOpacity
-                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                    filters.status === option.value ? 'bg-blue-800' : 'bg-gray-100'
-                  }`}
-                  key={option.value || 'all'}
-                  onPress={() => onFilterChange('status', option.value)}
-                >
-                  <Text className={`text-xs ${filters.status === option.value ? 'text-white' : 'text-gray-500'}`}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <ScrollView className="flex-1 p-4">
+            {/* Status Filter */}
+            <View className="mb-5">
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Status</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {statusOptions.map((option) => (
+                    <TouchableOpacity
+                      className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                        filters.status === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                      }`}
+                      key={option.value || 'all'}
+                      onPress={() => onFilterChange('status', option.value)}
+                    >
+                      <Text className={`text-xs ${filters.status === option.value ? 'text-white' : 'text-gray-500'}`}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Priority Filter */}
+            <View className="mb-5">
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Priority</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {priorityOptions.map((option) => (
+                    <TouchableOpacity
+                      className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                        filters.priority === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                      }`}
+                      key={option.value || 'all'}
+                      onPress={() => onFilterChange('priority', option.value)}
+                    >
+                      <Text className={`text-xs ${filters.priority === option.value ? 'text-white' : 'text-gray-500'}`}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Date Range Filter */}
+            <View className="mb-5">
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Date</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2">
+                  {dateRangeOptions.map((option) => (
+                    <TouchableOpacity
+                      className={`min-w-20 items-center rounded-full px-3 py-2 ${
+                        filters.dateRange === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                      }`}
+                      key={option.value || 'all'}
+                      onPress={() => onFilterChange('dateRange', option.value)}
+                    >
+                      <Text className={`text-xs ${filters.dateRange === option.value ? 'text-white' : 'text-gray-500'}`}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
           </ScrollView>
-        </View>
 
-        {/* Priority Filter */}
-        <View className="mb-5">
-          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Priority</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {priorityOptions.map((option) => (
-                <TouchableOpacity
-                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                    filters.priority === option.value ? 'bg-blue-800' : 'bg-gray-100'
-                  }`}
-                  key={option.value || 'all'}
-                  onPress={() => onFilterChange('priority', option.value)}
-                >
-                  <Text className={`text-xs ${filters.priority === option.value ? 'text-white' : 'text-gray-500'}`}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+          {/* Close Button */}
+          <View className="border-t border-gray-200 p-4">
+            <TouchableOpacity className="items-center rounded-lg bg-blue-800 p-4" onPress={onApplyFilters}>
+              <Text className="text-base font-semibold text-white">Close</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        {/* Date Range Filter */}
-        <View className="mb-5">
-          <Text className="mb-2.5 text-sm font-semibold text-gray-800">Date</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {dateRangeOptions.map((option) => (
-                <TouchableOpacity
-                  className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                    filters.dateRange === option.value ? 'bg-blue-800' : 'bg-gray-100'
-                  }`}
-                  key={option.value || 'all'}
-                  onPress={() => onFilterChange('dateRange', option.value)}
-                >
-                  <Text className={`text-xs ${filters.dateRange === option.value ? 'text-white' : 'text-gray-500'}`}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-         {/* Apply Button */}
-        <TouchableOpacity className="items-center rounded-lg bg-blue-800 p-4" onPress={onApplyFilters}>
-          <Text className="text-base font-semibold text-white">Close</Text>
-        </TouchableOpacity>
       </View>
-    </BottomSheetModal>
+    </Modal>
   );
 };
-
 
 export default TaskFilters;
