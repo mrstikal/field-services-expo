@@ -1,8 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 
-interface ReportData {
+export interface ReportData {
   id: string;
   taskTitle: string;
   taskDescription: string;
@@ -21,7 +21,7 @@ interface ReportData {
 /**
  * Generate HTML content for PDF report
  */
-function generateReportHTML(data: ReportData): string {
+export function generateReportHTML(data: ReportData): string {
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -211,11 +211,11 @@ export async function generatePDF(data: ReportData): Promise<string> {
  * @param uri URI of the PDF file to share
  */
 export async function sharePDF(uri: string): Promise<void> {
-  try {
-    if (!(await Sharing.isAvailableAsync())) {
-      throw new Error('Sharing is not available on this device');
-    }
+  if (!(await Sharing.isAvailableAsync())) {
+    throw new Error('Sharing is not available on this device');
+  }
 
+  try {
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
       dialogTitle: 'Share Report',

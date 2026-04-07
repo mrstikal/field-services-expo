@@ -109,5 +109,15 @@ export default [
     rules: {
       "@typescript-eslint/no-require-imports": "off"
     }
+  },
+  {
+    files: ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: "module"
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off"
+    }
   }
 ];

@@ -1,0 +1,19 @@
+appId: com.fieldservice.app
+---
+- launchApp
+- runFlow: mobile-auth.yaml
+- tapOn: "Reports"
+- tapOn: "Create Report"
+- tapOn: "Repair Report"
+- tapOn: "Description"
+- inputText: "Replaced faulty capacitor"
+- tapOn: "Next"
+- tapOn: "Take Photo"
+- tapOn: "Capture"
+- tapOn: "Sign"
+- swipe:
+    start: 20%, 50%
+    end: 80%, 50%
+- tapOn: "Finish"
+- tapOn: "Complete Report"
+- assertVisible: "Report submitted"

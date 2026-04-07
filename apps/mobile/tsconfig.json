@@ -19,7 +19,8 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": [
-      "nativewind/types"
+      "nativewind/types",
+      "vitest"
     ]
   },
   "include": [

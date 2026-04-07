@@ -1,0 +1,13 @@
+appId: com.fieldservice.app
+---
+- launchApp
+- tapOn: "Email"
+- inputText: "technik1@demo.cz"
+- tapOn: "Password"
+- inputText: "demo123"
+- tapOn: "Login"
+- assertVisible: "Dashboard"
+- assertVisible: "Today's Tasks"
+- tapOn: "Settings"
+- tapOn: "Logout"
+- assertVisible: "Login"

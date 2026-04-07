@@ -1,6 +1,7 @@
 {
   "name": "field-service-mobile",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -11,13 +12,15 @@
     "build": "eas build --platform all",
     "typecheck": "tsc --noEmit",
     "guard:stylesheet": "node ./scripts/guard-stylesheet.mjs",
-    "guard:stylesheet:update-baseline": "node ./scripts/guard-stylesheet.mjs --update-baseline"
+    "guard:stylesheet:update-baseline": "node ./scripts/guard-stylesheet.mjs --update-baseline",
+    "test": "vitest run",
+    "vitest": "vitest"
   },
   "dependencies": {
     "@field-service/shared-types": "workspace:*",
     "@hookform/resolvers": "^3.9.0",
-    "@react-native-picker/picker": "^2.7.5",
     "@react-native-community/netinfo": "11.4.1",
+    "@react-native-picker/picker": "^2.7.5",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.0.0",
     "date-fns": "^4.1.0",
@@ -52,12 +55,17 @@
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@expo/vector-icons": "^15.1.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/react-native": "^13.3.3",
     "@types/node": "^25.5.2",
     "@types/react": "~19.1.10",
-    "tailwindcss": "^3.4.1",
-    "postcss": "^8.4.47",
     "autoprefixer": "^10.4.20",
-    "typescript": "^6.0.2"
+    "cross-env": "^7.0.3",
+    "jsdom": "^29.0.2",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^6.0.2",
+    "vitest": "^2.1.8"
   },
   "private": true
 }

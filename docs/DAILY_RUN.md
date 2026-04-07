@@ -36,7 +36,7 @@ cd /path/to/field-service
 pnpm mobile:metro:usb
 ```
 
-- Optional custom port: `pnpm mobile:metro:usb -- 8081`
+- The script always starts Metro on `8081` and, if needed, stops the process currently using that port first.
 
 ## 4) USB bridge + open app (terminal 3)
 
@@ -87,6 +87,7 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
 & $adb reverse tcp:8081 tcp:8081
 & $adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
 ```
+
 
 ### Expo prompt `Log in / Proceed anonymously`
 

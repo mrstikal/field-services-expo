@@ -26,7 +26,10 @@
       "@shared/*": [
         "./packages/shared-types/*"
       ]
-    }
+    },
+    "types": [
+      "vitest/globals"
+    ]
   },
   "exclude": [
     "node_modules"
