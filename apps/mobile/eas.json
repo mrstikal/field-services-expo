@@ -5,7 +5,8 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "development"
     },
     "preview": {
       "android": {
@@ -14,9 +15,14 @@
       "ios": {
         "buildConfiguration": "Release"
       },
-      "distribution": "internal"
+      "distribution": "internal",
+      "channel": "preview",
+      "autoIncrement": false
     },
-    "production": {}
+    "production": {
+      "channel": "production",
+      "autoIncrement": true
+    }
   },
   "submit": {
     "production": {}

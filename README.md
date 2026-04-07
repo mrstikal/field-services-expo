@@ -221,7 +221,7 @@ The project is organized into 8 development stages:
 | 5 | **Native Capabilities** – Camera, location, PDF generation | 🔄 Planned |
 | 6 | **Smart Report Builder** – Dynamic forms, digital signatures | 🔄 Planned |
 | 7 | **Polish & Performance** – Error handling, optimization | 🔄 Planned |
-| 8 | **Build & Deployment** – EAS Build, OTA updates, documentation | 🔄 Planned |
+| 8 | **Build & Deployment** – EAS Build, OTA updates, documentation | ✅ Done |
 
 See [PLAN.md](./PLAN.md) for the detailed implementation plan (in Czech).
 
