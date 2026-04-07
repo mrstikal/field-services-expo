@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Switch, Platform } from 'react-native';
 import { Controller, Control } from 'react-hook-form';
 import { FormField as FormFieldType } from '@field-service/shared-types';

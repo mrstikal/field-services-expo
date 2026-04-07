@@ -108,14 +108,27 @@ export default function ReportsListScreen() {
       </View>
 
       {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <Text>Loading reports...</Text>
+        <View className="flex-1 items-center justify-center p-8">
+          <View className="mb-4 animate-spin rounded-full border-4 border-blue-100 border-t-blue-800 p-6">
+            <Ionicons color="#1e40af" name="document-text-outline" size={48} />
+          </View>
+          <Text className="text-base font-medium text-gray-600">Loading reports...</Text>
         </View>
       ) : reports.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <Ionicons color="#d1d5db" name="document-outline" size={48} />
-          <Text className="mt-3 text-base font-semibold text-gray-400">No reports yet</Text>
-          <Text className="mt-1 text-sm text-gray-300">Create your first report to get started</Text>
+        <View className="flex-1 items-center justify-center p-8">
+          <View className="mb-4 rounded-full bg-green-50 p-6">
+            <Ionicons color="#10b981" name="document-text-outline" size={64} />
+          </View>
+          <Text className="text-xl font-semibold text-gray-800">No reports yet</Text>
+          <Text className="mt-2 text-center text-base text-gray-500">
+            Create your first report to document your work
+          </Text>
+          <TouchableOpacity
+            className="mt-6 rounded-lg bg-blue-800 px-6 py-3"
+            onPress={() => router.push('/reports/create')}
+          >
+            <Text className="text-sm font-semibold text-white">Create Report</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList

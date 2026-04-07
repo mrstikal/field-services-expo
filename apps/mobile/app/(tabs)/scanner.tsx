@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
@@ -136,7 +136,6 @@ export default function ScannerScreen() {
                 'aztec',
               ],
             }}
-            style={{ flex: 1 }}
             className="flex-1"
             facing="back"
             flash={flashEnabled ? 'on' : 'off'}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 
 export type NetworkStatus = 'online' | 'offline' | 'unknown';
@@ -9,10 +9,6 @@ interface NetworkInfo {
   isInternetReachable: boolean | null;
   details: NetInfoState['details'] | null;
 }
-
-// Maintain a single subscription across hook instances
-let netInfoSubscription: (() => void) | null = null;
-let netInfoListeners: ((state: NetInfoState) => void)[] = [];
 
 /**
  * Hook to monitor network status with internet connectivity check
@@ -46,33 +42,36 @@ export function useNetworkStatus(): NetworkInfo {
     });
   }, []);
 
+  const netInfoListenersRef = useRef<((state: NetInfoState) => void)[]>([]);
+  const netInfoSubscriptionRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     // Add this hook's update function to the listeners
-    netInfoListeners.push(updateNetworkInfo);
+    netInfoListenersRef.current.push(updateNetworkInfo);
 
     // If this is the first listener, establish the subscription
-    if (netInfoListeners.length === 1) {
+    if (netInfoListenersRef.current.length === 1) {
       // Get initial state
       NetInfo.fetch().then(initialState => {
         // Update all listeners with the initial state
-        netInfoListeners.forEach(listener => listener(initialState));
+        netInfoListenersRef.current.forEach(listener => listener(initialState));
       });
       
       // Subscribe to changes
-      netInfoSubscription = NetInfo.addEventListener(state => {
+      netInfoSubscriptionRef.current = NetInfo.addEventListener(state => {
         // Update all listeners when state changes
-        netInfoListeners.forEach(listener => listener(state));
+        netInfoListenersRef.current.forEach(listener => listener(state));
       });
     }
 
     return () => {
       // Remove this hook's update function from the listeners
-      netInfoListeners = netInfoListeners.filter(listener => listener !== updateNetworkInfo);
+      netInfoListenersRef.current = netInfoListenersRef.current.filter(listener => listener !== updateNetworkInfo);
       
       // If no more listeners, clean up subscription
-      if (netInfoListeners.length === 0 && netInfoSubscription) {
-        netInfoSubscription();
-        netInfoSubscription = null;
+      if (netInfoListenersRef.current.length === 0 && netInfoSubscriptionRef.current) {
+        netInfoSubscriptionRef.current();
+        netInfoSubscriptionRef.current = null;
       }
     };
   }, [updateNetworkInfo]);

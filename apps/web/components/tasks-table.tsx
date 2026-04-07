@@ -226,9 +226,13 @@ export function TasksTable({ data }: TasksTableProps) {
                 <TableRow
                   data-state={row.getIsSelected() && "selected"}
                   key={row.id}
+                  className="focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                   {row.getVisibleCells().map((cell) => (
+                     <TableCell 
+                       key={cell.id}
+                       className="focus:outline-none"
+                     >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -242,6 +246,8 @@ export function TasksTable({ data }: TasksTableProps) {
                 <TableCell
                   className="h-24 text-center"
                   colSpan={columns.length}
+                  role="alert"
+                  aria-label="No tasks found"
                 >
                   No tasks
                 </TableCell>

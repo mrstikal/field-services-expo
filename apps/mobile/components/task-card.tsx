@@ -13,7 +13,9 @@ interface TaskCardProps {
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ item, onPress }) => {
-
+  // Accessibility label for screen readers
+  const accessibilityLabel = `Task: ${item.title}, Priority: ${item.priority}, Status: ${item.status}`;
+  const accessibilityRole = 'button';
 
   const getPriorityClassName = (priority: string) => {
     switch (priority) {
@@ -47,6 +49,8 @@ const TaskCard: React.FC<TaskCardProps> = ({ item, onPress }) => {
     <TouchableOpacity
       className="mb-3 rounded-lg border-l-4 border-l-blue-800 bg-white p-3"
       onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
     >
       <View className="mb-2 flex-row items-start justify-between">
         <View className="flex-1">
