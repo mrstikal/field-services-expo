@@ -1,0 +1,12 @@
+appId: com.fieldservice.app
+---
+- launchApp
+- runFlow: mobile-auth.yaml
+- tapOn: "Tasks"
+- assertVisible: "Task List"
+- tapOn: "Task Card" # Requires testID or specific text in real app
+- assertVisible: "Task Detail"
+- tapOn: "Start Work"
+- assertVisible: "IN PROGRESS"
+- tapOn: "Complete Task"
+- assertVisible: "Create Report"

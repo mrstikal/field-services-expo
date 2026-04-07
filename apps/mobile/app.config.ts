@@ -11,6 +11,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
+    name: config.name || 'field-service-mobile',
+    slug: config.slug || 'field-service-mobile',
     extra: {
       ...config.extra,
       router: {

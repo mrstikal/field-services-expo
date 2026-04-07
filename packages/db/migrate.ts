@@ -1,4 +1,4 @@
-import { client, db, connect } from './index';
+import { getClient, db, connect } from './index';
 import { sql } from 'drizzle-orm';
 
 async function main() {
@@ -110,8 +110,8 @@ async function main() {
   `);
   console.log('✓ sync_queue table created');
 
-  console.log('All tables created successfully!');
-  await client.end();
+   console.log('All tables created successfully!');
+   await getClient().end();
 }
 
 main().catch((err) => {

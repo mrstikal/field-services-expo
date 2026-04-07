@@ -19,6 +19,10 @@
     },
     "guard:stylesheet": {
       "outputs": []
+    },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^test"]
     }
   }
 }
