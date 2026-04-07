@@ -154,34 +154,48 @@ export default function HomeScreen() {
       </View>
 
       <View className="flex-row justify-between gap-2 p-4">
-        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+        <TouchableOpacity
+          className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3"
+          accessibilityLabel={`New Tasks: ${todayTasks.length}`}
+          accessibilityRole="button"
+        >
           <Text className="text-xl font-bold text-blue-800">{todayTasks.length}</Text>
           <Text className="mt-1 text-xs text-gray-500">New Tasks</Text>
-        </View>
-        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3"
+          accessibilityLabel={`Completed Tasks: ${localTasks.filter((t) => t.status === 'completed').length}`}
+          accessibilityRole="button"
+        >
           <Text className="text-xl font-bold text-blue-800">
             {localTasks.filter((t) => t.status === 'completed').length}
           </Text>
           <Text className="mt-1 text-xs text-gray-500">Completed</Text>
-        </View>
-        <View className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3">
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-1 items-center rounded-lg border border-gray-200 bg-white p-3"
+          accessibilityLabel={`Overdue Tasks: ${localTasks.filter((t) => new Date(t.due_date) < new Date() && t.status !== 'completed').length}`}
+          accessibilityRole="button"
+        >
           <Text className="text-xl font-bold text-blue-800">
             {localTasks.filter((t) => new Date(t.due_date) < new Date() && t.status !== 'completed').length}
           </Text>
           <Text className="mt-1 text-xs text-gray-500">Overdue</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View className="p-4">
-        <Text className="mb-3 text-lg font-bold text-blue-800">Today&#39;s Tasks</Text>
+        <Text className="mb-3 text-lg font-bold text-blue-800" accessibilityLabel="Today's Tasks">Today&#39;s Tasks</Text>
         {todayTasks.length === 0 ? (
-          <Text className="p-5 text-center text-gray-500">No new tasks for today</Text>
+          <Text className="p-5 text-center text-gray-500" accessibilityLabel="No new tasks for today">No new tasks for today</Text>
         ) : (
           todayTasks.map((task) => (
             <TouchableOpacity 
               key={task.id}
               className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
               onPress={() => router.push(`/tasks/${task.id}`)}
+              accessibilityLabel={`Task: ${task.title}, Status: ${task.status}`}
+              accessibilityRole="button"
             >
               <Text className="text-sm font-medium text-gray-800">{task.title}</Text>
               <Text className="mt-1 text-xs text-gray-500">{task.status}</Text>

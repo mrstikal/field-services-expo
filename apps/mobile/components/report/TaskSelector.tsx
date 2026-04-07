@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@field-service/shared-types';
@@ -35,7 +35,7 @@ export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) 
       }
 
       // Fetch existing reports for filtering
-      const { error: reportsError } = await supabase
+      const { data: existingReports, error: reportsError } = await supabase
         .from('reports')
         .select('task_id');
 
@@ -45,8 +45,11 @@ export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) 
         return (userTasks || []) as Task[];
       }
 
+       // Get task IDs that already have reports
+       const taskIdsWithReports = new Set(existingReports?.map((r: { task_id: string }) => r.task_id) || []);
+
       // Return only tasks that don't have a report yet
-      return (userTasks || []) as Task[];
+      return (userTasks || []).filter((task) => !taskIdsWithReports.has(task.id)) as Task[];
     },
     enabled: !!user?.id,
   });

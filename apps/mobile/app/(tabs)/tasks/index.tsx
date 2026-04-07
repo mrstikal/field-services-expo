@@ -18,6 +18,7 @@ export default function TasksListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [isFiltersVisible, setIsFiltersVisible] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
     status: null as string | null,
     priority: null as string | null,
@@ -78,7 +79,12 @@ export default function TasksListScreen() {
   const queryClient = useQueryClient();
   
   const onRefresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    setIsRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleResetFilters = () => {
@@ -111,7 +117,8 @@ export default function TasksListScreen() {
   const renderTaskCard = useCallback(({ item }: { readonly item: Task }) => (
     <SwipeableTaskCard
       item={item}
-      onPress={() => handleTaskPress(item.id)} 
+      taskId={item.id}
+      onPress={handleTaskPress}
     />
   ), [handleTaskPress]);
 
@@ -146,9 +153,24 @@ export default function TasksListScreen() {
           <Text className="mt-3 text-base text-red-500">Error loading tasks: {error.message}</Text>
         </View>
       ) : filteredTasks.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <Ionicons color="#d1d5db" name="checkmark-circle-outline" size={48} />
-          <Text className="mt-3 text-base text-gray-400">No tasks match the filters</Text>
+        <View className="flex-1 items-center justify-center p-8">
+          <View className="mb-4 rounded-full bg-blue-50 p-6">
+            <Ionicons color="#3b82f6" name="document-text-outline" size={64} />
+          </View>
+          <Text className="text-xl font-semibold text-gray-800">No tasks found</Text>
+          <Text className="mt-2 text-center text-base text-gray-500">
+            {filters.status || filters.priority || filters.dateRange
+              ? 'Try adjusting your filters to see more tasks'
+              : 'You have no tasks assigned to you'}
+          </Text>
+          {(filters.status || filters.priority || filters.dateRange) && (
+            <TouchableOpacity
+              className="mt-6 rounded-lg bg-blue-800 px-6 py-3"
+              onPress={handleResetFilters}
+            >
+              <Text className="text-sm font-semibold text-white">Reset Filters</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
@@ -158,7 +180,7 @@ export default function TasksListScreen() {
           keyExtractor={(item) => item.id}
           maxToRenderPerBatch={10}
           refreshControl={
-            <RefreshControl onRefresh={onRefresh} refreshing={false} />
+            <RefreshControl onRefresh={onRefresh} refreshing={isRefreshing} />
           }
           renderItem={renderTaskCard}
           scrollEnabled

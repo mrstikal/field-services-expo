@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { useNetworkStatus, useIsOffline } from '@/lib/hooks/use-network-status';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,12 +10,35 @@ interface OfflineBannerProps {
 
 /**
  * Offline Banner Component
- * Shows network status and sync status
+ * Shows network status and sync status with improved animations
  */
 export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   const { status } = useNetworkStatus();
   const { isSyncing, sync, pendingItems, lastSync } = useOfflineSync();
   const isOffline = useIsOffline();
+
+  const pulseAnim = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    if (isOffline) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0.5,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isOffline, pulseAnim]);
 
   // Don't show banner if online and no pending items
   if (status === 'online' && pendingItems === 0) {
@@ -33,7 +56,9 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
       <View className="flex-1 flex-row items-center gap-2">
         {isOffline ? (
           <>
-            <Ionicons color="#ef4444" name="cloud-offline-outline" size={20} />
+            <Animated.View style={{ opacity: pulseAnim }}>
+              <Ionicons color="#ef4444" name="cloud-offline-outline" size={20} />
+            </Animated.View>
             <Text className="text-sm font-semibold text-slate-800">Offline</Text>
             <Text className="ml-1 text-xs text-slate-500">Changes will sync when online</Text>
           </>
@@ -54,22 +79,25 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
         )}
       </View>
 
-      {showSyncButton ? <TouchableOpacity
+      {showSyncButton ? (
+        <TouchableOpacity
           activeOpacity={0.7}
           className="flex-row items-center gap-1 rounded bg-blue-800 px-3 py-1.5"
           disabled={isSyncing}
           onPress={sync}
         >
           {isSyncing ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <Animated.View className="animate-spin">
+              <ActivityIndicator color="#fff" size="small" />
+            </Animated.View>
           ) : (
             <>
               <Ionicons color="#fff" name="sync" size={16} />
               <Text className="text-xs font-semibold text-white">Sync</Text>
             </>
           )}
-        </TouchableOpacity> : null}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
-

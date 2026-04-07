@@ -14,7 +14,8 @@ import * as Haptics from 'expo-haptics';
 
 interface SwipeableTaskCardProps {
   readonly item: Task;
-  readonly onPress?: () => void;
+  readonly taskId: string;
+  readonly onPress: (taskId: string) => void;
 }
 
 const SWIPE_LIMIT = 110;
@@ -48,7 +49,10 @@ const getPriorityClassName = (priority: string) => {
   }
 };
 
-const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) => {
+const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, taskId, onPress }) => {
+  // Accessibility label for screen readers
+  const accessibilityLabel = `Task: ${item.title}, Priority: ${item.priority}, Status: ${item.status}`;
+  const accessibilityRole = 'button';
   const translateX = React.useRef(new Animated.Value(0)).current;
   const queryClient = useQueryClient();
 
@@ -66,7 +70,7 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', item.id);
+        .eq('id', taskId);
 
       if (error) {
         console.error('Error completing task:', error.message);
@@ -75,20 +79,20 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
       }
 
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
+      await queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error completing task:', err);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [item.id, queryClient]);
+  }, [taskId, queryClient]);
 
   const dismissTask = React.useCallback(async () => {
     try {
       const { error } = await supabase
         .from('tasks')
         .update({ status: 'assigned', updated_at: new Date().toISOString() })
-        .eq('id', item.id);
+        .eq('id', taskId);
 
       if (error) {
         console.error('Error dismissing task:', error.message);
@@ -97,13 +101,13 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
       }
 
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task', item.id] });
+      await queryClient.invalidateQueries({ queryKey: ['task', taskId] });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Error dismissing task:', err);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     }
-  }, [item.id, queryClient]);
+  }, [taskId, queryClient]);
 
   const runSwipeAction = React.useCallback(
     (toValue: number, action: () => Promise<void>) => {
@@ -150,26 +154,31 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, onPress }) 
   return (
     <View className="mb-3 overflow-hidden rounded-lg">
       <View className="absolute bottom-0 left-0 right-0 top-0 flex-row">
-        <View className="flex-1 items-start justify-center bg-red-500 px-4">
-          <View className="items-center">
-            <Ionicons color="#ffffff" name="close" size={22} />
-            <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
-          </View>
-        </View>
-        <View className="flex-1 items-end justify-center bg-green-500 px-4">
+        <View className="flex-1 items-start justify-center bg-green-500 px-4">
           <View className="items-center">
             <Ionicons color="#ffffff" name="checkmark" size={22} />
             <Text className="mt-1 text-xs font-bold text-white">Complete</Text>
           </View>
         </View>
+        <View className="flex-1 items-end justify-center bg-red-500 px-4">
+          <View className="items-center">
+            <Ionicons color="#ffffff" name="close" size={22} />
+            <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
+          </View>
+        </View>
       </View>
 
-      <Animated.View
-        className="rounded-lg border-l-4 border-l-blue-600 bg-white"
-        style={{ transform: [{ translateX }] }}
-        {...panResponder.panHandlers}
-      >
-        <TouchableOpacity className="p-3" onPress={onPress}>
+        <Animated.View
+          className="rounded-lg border-l-4 border-l-blue-600 bg-white"
+          style={{ transform: [{ translateX }] }}
+          {...panResponder.panHandlers}
+        >
+          <TouchableOpacity
+            className="p-3"
+            onPress={() => onPress(taskId)}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole={accessibilityRole}
+          >
           <View className="mb-2 flex-row items-start justify-between">
             <View className="flex-1">
               <Text className="text-sm font-semibold text-gray-800">{item.title}</Text>

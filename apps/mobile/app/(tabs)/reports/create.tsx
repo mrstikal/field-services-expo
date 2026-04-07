@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import { formTemplates } from '@/lib/validators/report-schemas';
 import { DynamicForm, DynamicFormHandle } from '@/components/report/DynamicForm';
 import { SignaturePad } from '@/components/report/SignaturePad';
 import { TaskSelector } from '@/components/report/TaskSelector';
+import { CameraErrorBoundary, FileSystemErrorBoundary } from '@/components/error-boundary';
 
 interface Photo {
   id: string;
@@ -314,12 +316,34 @@ export default function CreateReportScreen() {
       });
 
       // Upload photos to storage
-      const photoUrls = await Promise.all(
-        photos.map(photo => uploadPhoto(photo.uri, reportId))
-      );
+      let photoUrls: string[] = [];
+      try {
+        photoUrls = await Promise.all(
+          photos.map(photo => uploadPhoto(photo.uri, reportId))
+        );
+      } catch (uploadError) {
+        console.error('Photo upload failed:', uploadError);
+        Alert.alert(
+          'Upload Failed',
+          'Could not upload photos. Report will be saved locally and synced later.',
+          [{ text: 'OK' }]
+        );
+        photoUrls = photos.map(p => p.uri);
+      }
 
       // Upload PDF to storage
-      const pdfUrl = await uploadPDF(pdfUri, reportId);
+      let pdfUrl: string;
+      try {
+        pdfUrl = await uploadPDF(pdfUri, reportId);
+      } catch (uploadError) {
+        console.error('PDF upload failed:', uploadError);
+        Alert.alert(
+          'Upload Failed',
+          'Could not upload PDF. Report will be saved locally and synced later.',
+          [{ text: 'OK' }]
+        );
+        pdfUrl = pdfUri;
+      }
 
       // Save report to database with public URLs
       // NOTE: pdf URL is stored in form_data to avoid hard dependency on DB schema migration
@@ -438,31 +462,32 @@ export default function CreateReportScreen() {
     }
 
     return (
-      <View className="flex-1 bg-slate-50">
-        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top }}>
-          <TouchableOpacity className="p-2" onPress={closeScanner}>
-            <Ionicons color="#1e40af" name="chevron-back" size={24} />
-          </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-800">Barcode Scanner</Text>
-          <View className="w-6" />
-        </View>
-        <View className="flex-1 relative bg-black" style={{ paddingTop: 0, paddingBottom: insets.bottom }}>
-          <CameraView
-            barcodeScannerSettings={{
-              barcodeTypes: ['ean13', 'qr', 'code128', 'code39', 'upc_e', 'upc_a', 'datamatrix', 'pdf417', 'aztec'],
-            }}
-            style={{ flex: 1 }}
-            className="flex-1"
-            facing="back"
-            onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
-            ref={cameraRef}
-          />
-          <View className="absolute inset-0 items-center justify-center pointer-events-none">
-            <View className="h-[220px] w-[220px] rounded-xl border-2 border-white/80 bg-white/10 backdrop-blur-sm" />
-            <Text className="mt-4 text-sm text-white/80">Align barcode inside frame</Text>
+      <CameraErrorBoundary>
+        <View className="flex-1 bg-slate-50">
+          <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3" style={{ paddingTop: insets.top }}>
+            <TouchableOpacity className="p-2" onPress={closeScanner}>
+              <Ionicons color="#1e40af" name="chevron-back" size={24} />
+            </TouchableOpacity>
+            <Text className="text-lg font-semibold text-gray-800">Barcode Scanner</Text>
+            <View className="w-6" />
+          </View>
+          <View className="flex-1 relative bg-black" style={{ paddingBottom: insets.bottom }}>
+            <CameraView
+              barcodeScannerSettings={{
+                barcodeTypes: ['ean13', 'qr', 'code128', 'code39', 'upc_e', 'upc_a', 'datamatrix', 'pdf417', 'aztec'],
+              }}
+              className="flex-1"
+              facing="back"
+              onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
+              ref={cameraRef}
+            />
+            <View className="absolute inset-0 items-center justify-center pointer-events-none">
+              <View className="h-[220px] w-[220px] rounded-xl border-2 border-white/80 bg-white/10 backdrop-blur-sm" />
+              <Text className="mt-4 text-sm text-white/80">Align barcode inside frame</Text>
+            </View>
           </View>
         </View>
-      </View>
+      </CameraErrorBoundary>
     );
   }, [hasPermission, closeScanner, handleScannerPermissionRetry, openSettings, insets.top, insets.bottom, isScanning, handleBarCodeScanned, cameraRef]);
 
@@ -547,27 +572,29 @@ export default function CreateReportScreen() {
       {/* Photo Documentation */}
       <View className="mb-4 bg-white p-4">
         <Text className="mb-3 text-base font-semibold text-gray-800">Photo Documentation</Text>
-        <View className="flex-row flex-wrap gap-3">
-          {photos.map(photo => (
-            <View className="relative h-[100px] w-[100px]" key={photo.id}>
-              <Image className="h-[100px] w-[100px] rounded-lg" source={{ uri: photo.uri }} />
-              <TouchableOpacity
-                className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-red-500"
-                onPress={() => removePhoto(photo.id)}
-              >
-                <Ionicons color="#ffffff" name="close" size={20} />
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={takePhoto}>
-            <Ionicons color="#1e40af" name="camera" size={32} />
-            <Text className="mt-2 text-xs text-blue-800">Take Photo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={pickPhoto}>
-            <Ionicons color="#1e40af" name="images" size={32} />
-            <Text className="mt-2 text-xs text-blue-800">From Gallery</Text>
-          </TouchableOpacity>
-        </View>
+        <FileSystemErrorBoundary>
+          <View className="flex-row flex-wrap gap-3">
+            {photos.map(photo => (
+              <View className="relative h-[100px] w-[100px]" key={photo.id}>
+                 <Image className="h-[100px] w-[100px] rounded-lg" source={{ uri: photo.uri }} contentFit="cover" transition={100} />
+                <TouchableOpacity
+                  className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-red-500"
+                  onPress={() => removePhoto(photo.id)}
+                >
+                  <Ionicons color="#ffffff" name="close" size={20} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={takePhoto}>
+              <Ionicons color="#1e40af" name="camera" size={32} />
+              <Text className="mt-2 text-xs text-blue-800">Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="h-[100px] w-[100px] items-center justify-center rounded-lg border border-dashed border-gray-200" onPress={pickPhoto}>
+              <Ionicons color="#1e40af" name="images" size={32} />
+              <Text className="mt-2 text-xs text-blue-800">From Gallery</Text>
+            </TouchableOpacity>
+          </View>
+        </FileSystemErrorBoundary>
       </View>
 
       {/* Scan Part Barcode */}
