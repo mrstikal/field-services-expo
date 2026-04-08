@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '../route';
 import { NextRequest } from 'next/server';
-import { db } from '@db';
-import { mockSupabaseAuth } from '@/vitest.setup';
+import { mockSupabaseAuth, mockSupabaseClient } from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -29,18 +28,22 @@ describe('Sync Status API', () => {
   it('should return pending items count', async () => {
     const userId = 'user-1';
     mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
-    
-    // First select for user check, second for count
-    vi.mocked(db.select)
-      .mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ id: userId }]),
-      } as never)
-      .mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockResolvedValue([{ value: 5 }]),
-      } as never);
+
+    const userQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [{ id: userId }], error: null }),
+    };
+    const syncQueueQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ data: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }], error: null }),
+    };
+
+    mockSupabaseClient.from.mockImplementation((((table: string) => {
+      if (table === 'users') return userQuery as never;
+      if (table === 'sync_queue') return syncQueueQuery as never;
+      throw new Error(`Unexpected table ${table}`);
+    }) as unknown) as never);
 
     const req = createRequest();
     const response = await GET(req);

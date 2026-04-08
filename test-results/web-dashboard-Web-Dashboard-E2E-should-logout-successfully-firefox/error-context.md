@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-dashboard.spec.ts >> Web Dashboard E2E >> should logout successfully
-- Location: e2e\playwright\web-dashboard.spec.ts:25:3
+- Location: e2e\playwright\web-dashboard.spec.ts:25:7
 
 # Error details
 

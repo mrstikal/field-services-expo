@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-tasks.spec.ts >> Web Tasks Management E2E >> should filter tasks by status
-- Location: e2e\playwright\web-tasks.spec.ts:23:3
+- Location: e2e\playwright\web-tasks.spec.ts:23:7
 
 # Error details
 

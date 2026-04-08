@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { tasks, reports, locations, users } from '@db/schema';
-import { gte, desc, eq, inArray } from 'drizzle-orm';
-import { db, connect } from '@db';
+import { getSupabaseServerUrl, getSupabaseServiceRoleKey } from '@db/env';
+
+type BusinessRole = 'technician' | 'dispatcher';
+
+function throwIfSupabaseError(error: { message: string } | null, context: string) {
+  if (error) {
+    throw new Error(`${context}: ${error.message}`);
+  }
+}
 
 /**
  * Sync Pull API - Returns changes since last sync timestamp
@@ -20,11 +26,13 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    const supabaseUrl = getSupabaseServerUrl();
+    const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
 
     // Verify token and get user
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      supabaseUrl,
+      supabaseServiceRoleKey
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -33,14 +41,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connect();
-
     // Get user's business role from users table
-    const userRecord = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
-    if (!userRecord.length) {
+    const { data: userRecords, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', user.id)
+      .limit(1);
+
+    throwIfSupabaseError(userError, 'Failed to load sync user');
+
+    if (!userRecords || userRecords.length === 0) {
       return NextResponse.json({ error: 'User not found in users table' }, { status: 401 });
     }
-    const businessRole = userRecord[0].role;
+
+    const businessRole = userRecords[0].role as BusinessRole;
 
     // Parse request body
     const body = await request.json();
@@ -54,59 +68,70 @@ export async function POST(request: NextRequest) {
     }
 
     // Get tasks changed since last sync
-    let changedTasks = await db
-      .select()
-      .from(tasks)
-      .where(gte(tasks.updated_at, lastSyncTimestamp))
-      .orderBy(desc(tasks.updated_at));
+    let tasksQuery = supabase
+      .from('tasks')
+      .select('*')
+      .gte('updated_at', lastSyncTimestamp)
+      .order('updated_at', { ascending: false });
 
-    // Filter tasks based on user role
     if (businessRole === 'technician') {
-      changedTasks = changedTasks.filter((t) => t.technician_id === user.id);
+      tasksQuery = tasksQuery.eq('technician_id', user.id);
     }
 
+    const { data: changedTasks = [], error: tasksError } = await tasksQuery;
+    throwIfSupabaseError(tasksError, 'Failed to load changed tasks');
+
     // Get reports changed since last sync
-    let changedReports = await db
-      .select()
-      .from(reports)
-      .where(gte(reports.updated_at, lastSyncTimestamp))
-      .orderBy(desc(reports.updated_at));
+    const { data: reportsSinceLastSync, error: reportsError } = await supabase
+      .from('reports')
+      .select('*')
+      .gte('updated_at', lastSyncTimestamp)
+      .order('updated_at', { ascending: false });
+
+    throwIfSupabaseError(reportsError, 'Failed to load changed reports');
+
+    let changedReports = (reportsSinceLastSync ?? []) as Array<Record<string, unknown>>;
 
     // Filter reports based on user role
     if (businessRole === 'technician') {
-      // For technicians, only fetch reports for tasks assigned to them
-      const changedReportIds = changedReports.map(r => r.id);
-      if (changedReportIds.length > 0) {
-        const reportToTaskMap = await db
-          .select({ 
-            report_id: reports.id,
-            task_technician_id: tasks.technician_id
-          })
-          .from(reports)
-          .leftJoin(tasks, eq(reports.task_id, tasks.id))
-          .where(inArray(reports.id, changedReportIds));
-          
-        const reportToTechMap = new Map(reportToTaskMap.map(item => [item.report_id, item.task_technician_id]));
-        
-        changedReports = changedReports.filter((r) => {
-          return reportToTechMap.get(r.id) === user.id;
-        });
+      const taskIds = [
+        ...new Set(
+          changedReports
+            .map((report) => report.task_id)
+            .filter((taskId): taskId is string => typeof taskId === 'string' && taskId.length > 0)
+        ),
+      ];
+
+      if (taskIds.length > 0) {
+        const { data: reportTasks, error: reportTasksError } = await supabase
+          .from('tasks')
+          .select('id, technician_id')
+          .in('id', taskIds);
+
+        throwIfSupabaseError(reportTasksError, 'Failed to map reports to technicians');
+
+        const technicianIdsByTaskId = new Map(
+          ((reportTasks ?? []) as Array<{ id: string; technician_id: string | null }>).map((task) => [task.id, task.technician_id])
+        );
+        changedReports = changedReports.filter((report) => technicianIdsByTaskId.get(report.task_id as string) === user.id);
+      } else {
+        changedReports = [];
       }
     }
 
     // Get locations changed since last sync
-    let changedLocations = await db
-      .select()
-      .from(locations)
-      .where(gte(locations.timestamp, lastSyncTimestamp))
-      .orderBy(desc(locations.timestamp));
+    let locationsQuery = supabase
+      .from('locations')
+      .select('*')
+      .gte('timestamp', lastSyncTimestamp)
+      .order('timestamp', { ascending: false });
 
-    // For dispatcher, return all locations; for technician, only own locations
     if (businessRole === 'technician') {
-      changedLocations = changedLocations.filter(
-        (loc) => loc.technician_id === user.id
-      );
+      locationsQuery = locationsQuery.eq('technician_id', user.id);
     }
+
+    const { data: changedLocations = [], error: locationsError } = await locationsQuery;
+    throwIfSupabaseError(locationsError, 'Failed to load changed locations');
 
     return NextResponse.json({
       success: true,

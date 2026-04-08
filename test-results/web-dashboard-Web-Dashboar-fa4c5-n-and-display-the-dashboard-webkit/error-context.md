@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-dashboard.spec.ts >> Web Dashboard E2E >> should login and display the dashboard
-- Location: e2e\playwright\web-dashboard.spec.ts:12:3
+- Location: e2e\playwright\web-dashboard.spec.ts:12:7
 
 # Error details
 

@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import NetInfo from '@react-native-community/netinfo';
 import { useNetworkStatus, useIsOnline, useIsOffline, useOnOnline, useOnOffline } from '../use-network-status';
+
+const netInfoMock = vi.hoisted(() => ({
+  fetch: vi.fn(),
+  addEventListener: vi.fn(),
+  remove: vi.fn(),
+}));
 
 // Mock dependencies
 vi.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
-  default: {
-    fetch: vi.fn(),
-    addEventListener: vi.fn(),
-    remove: vi.fn(),
-  },
+  default: netInfoMock,
   NetInfoState: {
     type: {
       unknown: 'unknown',
@@ -38,7 +39,7 @@ describe('useNetworkStatus', () => {
 
   describe('useNetworkStatus', () => {
     it('should return initial state as unknown', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: null,
         details: null,
@@ -54,7 +55,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return online status when connected and internet reachable', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: true,
         isInternetReachable: true,
         details: { ssid: 'TestWifi' },
@@ -70,7 +71,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return offline status when not connected', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: false,
         details: null,
@@ -85,7 +86,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return offline status when internet not reachable', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: true,
         isInternetReachable: false,
         details: { ssid: 'TestWifi' },
@@ -102,7 +103,7 @@ describe('useNetworkStatus', () => {
 
   describe('useIsOnline', () => {
     it('should return true when online and connected', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: true,
         isInternetReachable: true,
         details: null,
@@ -116,7 +117,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return false when offline', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: false,
         details: null,
@@ -130,7 +131,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return false when not connected even if internet reachable', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: true,
         details: null,
@@ -146,7 +147,7 @@ describe('useNetworkStatus', () => {
 
   describe('useIsOffline', () => {
     it('should return true when offline', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: false,
         details: null,
@@ -160,7 +161,7 @@ describe('useNetworkStatus', () => {
     });
 
     it('should return false when online', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: true,
         isInternetReachable: true,
         details: null,
@@ -176,7 +177,7 @@ describe('useNetworkStatus', () => {
 
   describe('useOnOnline', () => {
     it('should trigger callback when status becomes online', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: true,
         isInternetReachable: true,
         details: null,
@@ -193,7 +194,7 @@ describe('useNetworkStatus', () => {
 
   describe('useOnOffline', () => {
     it('should trigger callback when status becomes offline', async () => {
-      (NetInfo.fetch as unknown as Mock).mockResolvedValue({
+      (netInfoMock.fetch as unknown as Mock).mockResolvedValue({
         isConnected: false,
         isInternetReachable: false,
         details: null,

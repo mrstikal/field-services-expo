@@ -4,6 +4,20 @@ import { reportRepository } from '@/lib/db/report-repository';
 import { Task, Report } from '@shared/index';
 import { getDatabase } from '@/lib/db/local-database';
 
+export class SyncNetworkUnavailableError extends Error {
+  readonly apiUrl: string;
+
+  constructor(apiUrl: string, cause?: unknown) {
+    super(`Sync backend is unreachable at ${apiUrl}`);
+    this.name = 'SyncNetworkUnavailableError';
+    this.apiUrl = apiUrl;
+
+    if (cause !== undefined) {
+      this.cause = cause;
+    }
+  }
+}
+
 // Interface for sync queue items
 interface SyncQueueItem {
   id: string;
@@ -83,11 +97,19 @@ export class SyncEngine {
       ...options.headers,
     };
 
-    const apiUrl = `${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'}${url}`;
-    const response = await fetch(apiUrl, {
-      ...options,
-      headers,
-    });
+    const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+    const apiUrl = `${apiBaseUrl}${url}`;
+
+    let response: Response;
+
+    try {
+      response = await fetch(apiUrl, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      throw new SyncNetworkUnavailableError(apiUrl, error);
+    }
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);

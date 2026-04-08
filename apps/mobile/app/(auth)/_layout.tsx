@@ -7,9 +7,17 @@ export default function AuthLayout() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-slate-100">
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f1f5f9',
+          paddingHorizontal: 24,
+        }}
+      >
         <ActivityIndicator color="#1e40af" size="large" />
-        <Text className="mt-4 text-sm text-gray-500">Loading app...</Text>
+        <Text style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>Loading app...</Text>
       </View>
     );
   }

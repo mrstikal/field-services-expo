@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-tasks.spec.ts >> Web Tasks Management E2E >> should view task details
-- Location: e2e\playwright\web-tasks.spec.ts:34:3
+- Location: e2e\playwright\web-tasks.spec.ts:34:7
 
 # Error details
 

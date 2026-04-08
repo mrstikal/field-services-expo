@@ -1,9 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { syncQueue, tasks, reports, locations, users } from '@db/schema';
-import { eq, inArray } from 'drizzle-orm';
-import { db, connect } from '@db';
+import { getSupabaseServerUrl, getSupabaseServiceRoleKey } from '@db/env';
+
+type BusinessRole = 'technician' | 'dispatcher';
+
+function throwIfSupabaseError(error: { message: string } | null, context: string) {
+  if (error) {
+    throw new Error(`${context}: ${error.message}`);
+  }
+}
 
 /**
  * Sync Push API - Processes local changes from mobile app
@@ -21,11 +27,13 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    const supabaseUrl = getSupabaseServerUrl();
+    const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
 
     // Verify token and get user
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabase: any = createClient(
+      supabaseUrl,
+      supabaseServiceRoleKey
     );
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -34,14 +42,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connect();
-
     // Get user's business role from users table
-    const userRecord = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
-    if (!userRecord.length) {
+    const { data: userRecords, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', user.id)
+      .limit(1);
+
+    throwIfSupabaseError(userError, 'Failed to load sync user');
+
+    if (!userRecords || userRecords.length === 0) {
       return NextResponse.json({ error: 'User not found in users table' }, { status: 401 });
     }
-    const businessRole = userRecord[0].role;
+
+    const businessRole = userRecords[0].role as BusinessRole;
 
     // Parse request body
     const body = await request.json();
@@ -73,13 +87,13 @@ export async function POST(request: NextRequest) {
         const { type, action, data, version } = change;
 
         // Check authorization before processing any change
-        const authorized = await checkAuthorization(user.id, businessRole, type, action, data);
+         const authorized = await checkAuthorization(supabase, user.id, businessRole, type, action, data);
         if (!authorized) {
           throw new Error(`Unauthorized to ${action} ${type} - insufficient permissions`);
         }
 
         // Check for conflicts (version mismatch)
-        const localVersion = await getLocalVersion(type, data.id);
+         const localVersion = await getLocalVersion(supabase, type, data.id);
         if (localVersion && localVersion > version) {
           // Local version is newer - conflict!
           results.conflicts.push(`${type}:${data.id}`);
@@ -96,13 +110,13 @@ export async function POST(request: NextRequest) {
         // Process based on type and action
         switch (type) {
           case 'task':
-            await processTaskChange(action, data);
+            await processTaskChange(supabase, action, data);
             break;
           case 'report':
-            await processReportChange(action, data);
+            await processReportChange(supabase, action, data);
             break;
           case 'location':
-            await processLocationChange(action, data);
+            await processLocationChange(supabase, action, data);
             break;
           default:
             throw new Error(`Unknown type: ${type}`);
@@ -134,10 +148,12 @@ export async function POST(request: NextRequest) {
       .map((item) => item.id);
 
     if (syncQueueUpdates.length > 0) {
-      await db
-        .update(syncQueue)
-        .set({ status: 'synced' })
-        .where(inArray(syncQueue.id, syncQueueUpdates));
+      const { error: syncQueueUpdateError } = await supabase
+        .from('sync_queue')
+        .update({ status: 'synced' })
+        .in('id', syncQueueUpdates);
+
+      throwIfSupabaseError(syncQueueUpdateError, 'Failed to mark sync queue items as synced');
     }
 
     return NextResponse.json({
@@ -155,7 +171,14 @@ export async function POST(request: NextRequest) {
 }
 
 // Authorization helper function
-async function checkAuthorization(userId: string, userRole: string, type: string, action: string, data: Record<string, unknown>): Promise<boolean> {
+async function checkAuthorization(
+  supabase: any,
+  userId: string,
+  userRole: string,
+  type: string,
+  action: string,
+  data: Record<string, unknown>
+): Promise<boolean> {
   switch (type) {
     case 'task':
       // Dispatcher can do anything with tasks
@@ -169,15 +192,23 @@ async function checkAuthorization(userId: string, userRole: string, type: string
           // Technician can only create tasks assigned to themselves
           return data.technician_id === userId;
         } else {
-           // For update/delete, check if the existing task belongs to the technician
-           const task = await db.select().from(tasks).where(eq(tasks.id, data.id as string)).limit(1);
-          if (!task.length) {
+          const { data: taskRowsRaw, error: taskError } = await supabase
+            .from('tasks')
+            .select('technician_id')
+            .eq('id', data.id as string)
+            .limit(1);
+
+          throwIfSupabaseError(taskError, 'Failed to validate task ownership');
+
+          const taskRows = (taskRowsRaw ?? []) as Array<{ technician_id: string | null }>;
+
+          if (!taskRows || taskRows.length === 0) {
             // If task doesn't exist and it's an update/delete, authorize based on whether it should exist
             // In practice, we should check the sync queue or have the client send more context
             // For now, we'll allow it and let the DB operation fail if the record doesn't exist
             return true;
           }
-          return task[0].technician_id === userId;
+          return taskRows[0].technician_id === userId;
         }
       }
       break;
@@ -190,43 +221,56 @@ async function checkAuthorization(userId: string, userRole: string, type: string
       
       // Technician can only operate on reports for tasks assigned to them
       if (userRole === 'technician') {
-        // Get the task associated with this report
-        const reportTask = await db
-          .select({ technician_id: tasks.technician_id })
-          .from(reports)
-          .leftJoin(tasks, eq(reports.task_id, tasks.id))
-          .where(eq(reports.id, data.id as string))
+        const reportId = data.id as string | undefined;
+        const reportTaskId = data.task_id as string | undefined;
+
+        if (action === 'create') {
+          if (!reportTaskId) {
+            return false;
+          }
+
+          const { data: taskRowsRaw, error: taskError } = await supabase
+            .from('tasks')
+            .select('technician_id')
+            .eq('id', reportTaskId)
+            .limit(1);
+
+          throwIfSupabaseError(taskError, 'Failed to validate report task ownership');
+
+          const taskRows = (taskRowsRaw ?? []) as Array<{ technician_id: string | null }>;
+
+          return Boolean(taskRows?.length && taskRows[0].technician_id === userId);
+        }
+
+        if (!reportId) {
+          return false;
+        }
+
+        const { data: reportRowsRaw, error: reportError } = await supabase
+          .from('reports')
+          .select('task_id')
+          .eq('id', reportId)
           .limit(1);
 
-        if (reportTask.length === 0) {
-          // If creating a new report, check the task it belongs to
-          if (action === 'create') {
-            const task = await db.select().from(tasks).where(eq(tasks.id, data.task_id as string)).limit(1);
-            if (task.length === 0) {
-              // Task doesn't exist, can't validate ownership
-              return false;
-            }
-            return task[0].technician_id === userId;
-          } else {
-            // For update/delete of existing report, check if it was for their task
-            // This won't work as intended since we're querying by report ID, so check by data.id
-            // But for update/delete actions, data.id refers to the report ID
-            const taskOfReport = await db
-              .select({ technician_id: tasks.technician_id })
-              .from(reports)
-              .leftJoin(tasks, eq(reports.task_id, tasks.id))
-              .where(eq(reports.id, data.id as string))
-              .limit(1);
-              
-            if (taskOfReport.length === 0) {
-              return false;
-            }
-            
-            return taskOfReport[0].technician_id === userId;
-          }
+        throwIfSupabaseError(reportError, 'Failed to load report ownership');
+
+        const reportRows = (reportRowsRaw ?? []) as Array<{ task_id: string | null }>;
+        const resolvedTaskId = reportRows?.[0]?.task_id;
+        if (!resolvedTaskId) {
+          return false;
         }
-        
-        return reportTask[0].technician_id === userId;
+
+        const { data: taskRowsRaw, error: reportTaskError } = await supabase
+          .from('tasks')
+          .select('technician_id')
+          .eq('id', resolvedTaskId)
+          .limit(1);
+
+        throwIfSupabaseError(reportTaskError, 'Failed to load task for report ownership');
+
+        const taskRows = (taskRowsRaw ?? []) as Array<{ technician_id: string | null }>;
+
+        return Boolean(taskRows?.length && taskRows[0].technician_id === userId);
       }
       break;
 
@@ -242,16 +286,30 @@ async function checkAuthorization(userId: string, userRole: string, type: string
 }
 
 // Helper: Get local version of a record
-async function getLocalVersion(type: string, id: string): Promise<number | null> {
+async function getLocalVersion(supabase: any, type: string, id: string): Promise<number | null> {
   try {
     switch (type) {
       case 'task': {
-        const task = await db.select({ version: tasks.version }).from(tasks).where(eq(tasks.id, id)).limit(1);
-        return task.length ? task[0].version : null;
+        const { data: taskVersionsRaw, error } = await supabase
+          .from('tasks')
+          .select('version')
+          .eq('id', id)
+          .limit(1);
+
+        throwIfSupabaseError(error, 'Failed to load task version');
+        const taskVersions = (taskVersionsRaw ?? []) as Array<{ version: number | null }>;
+        return taskVersions.length ? taskVersions[0].version : null;
       }
       case 'report': {
-        const report = await db.select({ version: reports.version }).from(reports).where(eq(reports.id, id)).limit(1);
-        return report.length ? report[0].version : null;
+        const { data: reportVersionsRaw, error } = await supabase
+          .from('reports')
+          .select('version')
+          .eq('id', id)
+          .limit(1);
+
+        throwIfSupabaseError(error, 'Failed to load report version');
+        const reportVersions = (reportVersionsRaw ?? []) as Array<{ version: number | null }>;
+        return reportVersions.length ? reportVersions[0].version : null;
       }
       case 'location': {
         // Locations table doesn't have version column
@@ -266,78 +324,64 @@ async function getLocalVersion(type: string, id: string): Promise<number | null>
 }
 
 // Helper: Process task changes
-async function processTaskChange(action: string, data: Record<string, unknown>) {
+async function processTaskChange(supabase: any, action: string, data: Record<string, unknown>) {
   switch (action) {
-    case 'create':
-      // Use upsert with ON CONFLICT to handle duplicate keys gracefully
-       await db.insert(tasks).values(data as typeof tasks.$inferInsert).onConflictDoUpdate({
-         target: tasks.id,
-         set: {
-           title: (data.title as string) || '',
-           description: (data.description as string) || '',
-           address: (data.address as string) || '',
-           latitude: data.latitude as number | null,
-           longitude: data.longitude as number | null,
-           status: (data.status as 'assigned' | 'in_progress' | 'completed') || 'assigned',
-           priority: (data.priority as 'low' | 'medium' | 'high' | 'urgent') || 'medium',
-           category: (data.category as 'repair' | 'installation' | 'maintenance' | 'inspection') || 'repair',
-           due_date: new Date(data.due_date as string),
-           customer_name: (data.customer_name as string) || '',
-           customer_phone: (data.customer_phone as string) || '',
-           estimated_time: (data.estimated_time as number) || 0,
-           technician_id: data.technician_id as string | undefined,
-           updated_at: new Date(data.updated_at as string),
-           version: (data.version as number) || 1
-         }
-       });
+    case 'create': {
+      const { error } = await supabase.from('tasks').upsert([data], { onConflict: 'id' });
+      throwIfSupabaseError(error, 'Failed to upsert task');
       break;
-    case 'update':
-      await db.update(tasks).set(data).where(eq(tasks.id, data.id as string));
+    }
+    case 'update': {
+      const { error } = await supabase.from('tasks').update(data).eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to update task');
       break;
-    case 'delete':
-      await db.delete(tasks).where(eq(tasks.id, data.id as string));
+    }
+    case 'delete': {
+      const { error } = await supabase.from('tasks').delete().eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to delete task');
       break;
+    }
   }
 }
 
 // Helper: Process report changes
-async function processReportChange(action: string, data: Record<string, unknown>) {
+async function processReportChange(supabase: any, action: string, data: Record<string, unknown>) {
   switch (action) {
-    case 'create':
-      // Use upsert with ON CONFLICT to handle duplicate keys gracefully
-      await db.insert(reports).values(data as typeof reports.$inferInsert).onConflictDoUpdate({
-        target: reports.id,
-        set: {
-          task_id: (data.task_id as string) || '',
-          status: (data.status as 'draft' | 'completed' | 'synced') || 'draft',
-          photos: (data.photos as string[]) || [],
-          form_data: (data.form_data as Record<string, unknown>) || {},
-          signature: data.signature as string | undefined,
-          updated_at: new Date(data.updated_at as string),
-          version: (data.version as number) || 1
-        }
-      });
+    case 'create': {
+      const { error } = await supabase.from('reports').upsert([data], { onConflict: 'id' });
+      throwIfSupabaseError(error, 'Failed to upsert report');
       break;
-    case 'update':
-      await db.update(reports).set(data).where(eq(reports.id, data.id as string));
+    }
+    case 'update': {
+      const { error } = await supabase.from('reports').update(data).eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to update report');
       break;
-    case 'delete':
-      await db.delete(reports).where(eq(reports.id, data.id as string));
+    }
+    case 'delete': {
+      const { error } = await supabase.from('reports').delete().eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to delete report');
       break;
+    }
   }
 }
 
 // Helper: Process location changes
-async function processLocationChange(action: string, data: Record<string, unknown>) {
+async function processLocationChange(supabase: any, action: string, data: Record<string, unknown>) {
   switch (action) {
-    case 'create':
-      await db.insert(locations).values(data as typeof locations.$inferInsert);
+    case 'create': {
+      const { error } = await supabase.from('locations').upsert([data], { onConflict: 'id' });
+      throwIfSupabaseError(error, 'Failed to upsert location');
       break;
-    case 'update':
-      await db.update(locations).set(data as typeof locations.$inferInsert).where(eq(locations.id, data.id as string));
+    }
+    case 'update': {
+      const { error } = await supabase.from('locations').update(data).eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to update location');
       break;
-    case 'delete':
-      await db.delete(locations).where(eq(locations.id, data.id as string));
+    }
+    case 'delete': {
+      const { error } = await supabase.from('locations').delete().eq('id', data.id as string);
+      throwIfSupabaseError(error, 'Failed to delete location');
       break;
+    }
   }
 }

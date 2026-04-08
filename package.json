@@ -4,8 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo dev --filter=!field-service-mobile",
-    "dev:mobile": "cd apps/mobile && expo start",
+    "dev:all": "node ./scripts/start-web-and-mobile.mjs",
     "lint": "eslint apps/web apps/mobile packages/db packages/shared-types",
     "lint:turbo": "turbo lint",
     "typecheck": "turbo typecheck",
@@ -22,15 +21,16 @@
     "test:shared": "pnpm run test:shared-types && pnpm run test:db",
     "test:shared-types": "pnpm --filter @field-service/shared-types test",
     "test:db": "pnpm --filter @field-service/db test",
-    "test:mobile:unit": "pnpm --filter field-service-mobile vitest run",
-    "test:mobile:validators": "pnpm --filter field-service-mobile vitest run lib/validators",
-    "test:mobile:repositories": "pnpm --filter field-service-mobile vitest run lib/db",
-    "test:mobile:sync": "pnpm --filter field-service-mobile vitest run lib/sync",
-    "test:mobile:hooks": "pnpm --filter field-service-mobile vitest run lib/hooks",
-    "test:mobile:utils": "pnpm --filter field-service-mobile vitest run lib/utils",
-    "test:web:unit": "pnpm --filter field-service-web vitest run",
-    "test:web:realtime": "pnpm --filter field-service-web vitest run lib/__tests__/realtime-sync.test.ts",
-    "test:web:hooks": "pnpm --filter field-service-web vitest run lib/__tests__/hooks.test.tsx",
+    "test:mobile:unit": "pnpm run test:mobile:validators && pnpm run test:mobile:repositories && pnpm run test:mobile:sync && pnpm run test:mobile:hooks && pnpm run test:mobile:utils",
+    "test:mobile:validators": "pnpm --filter field-service-mobile vitest run lib/validators/__tests__",
+    "test:mobile:repositories": "pnpm --filter field-service-mobile vitest run lib/db/__tests__",
+    "test:mobile:sync": "pnpm --filter field-service-mobile vitest run lib/sync/__tests__",
+    "test:mobile:hooks": "pnpm --filter field-service-mobile vitest run lib/hooks/__tests__",
+    "test:mobile:utils": "pnpm --filter field-service-mobile vitest run lib/utils/__tests__",
+    "test:web:unit": "pnpm run test:web:lib && pnpm run test:web:api",
+    "test:web:lib": "pnpm --filter field-service-web vitest run lib/__tests__",
+    "test:web:realtime": "pnpm run test:web:lib",
+    "test:web:hooks": "pnpm run test:web:lib",
     "test:web:api": "pnpm --filter field-service-web vitest run app/api",
     "test:unit": "pnpm run test:shared && pnpm run test:mobile:unit && pnpm run test:web:unit",
     "test:integration": "pnpm run test:integration:mobile && pnpm run test:integration:web",
@@ -57,7 +57,7 @@
     "react-native-web": "^0.21.2",
     "react-test-renderer": "19.1.0",
     "turbo": "^2.9.4",
-    "typescript": "^6.0.2"
+    "typescript": "~5.9.2"
   },
   "packageManager": "pnpm@10.28.1",
   "dependencies": {
@@ -65,15 +65,11 @@
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-select": "^2.2.6",
-    "@react-native-picker/picker": "^2.11.4",
     "@sentry/nextjs": "^10.47.0",
     "@sentry/react": "^10.47.0",
-    "@sentry/react-native": "^8.7.0",
     "@supabase/ssr": "^0.10.0",
     "class-variance-authority": "^0.7.1",
-    "expo-image": "^55.0.8",
     "lucide-react": "^1.7.0",
-    "next": "^16.2.2",
-    "react-native-picker-select": "^9.3.1"
+    "next": "^16.2.2"
   }
 }

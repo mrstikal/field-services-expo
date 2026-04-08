@@ -48,11 +48,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <View className="flex-1 justify-center bg-slate-100 p-5">
-      <Text className="mb-2 text-center text-4xl font-bold text-blue-800">Field Service</Text>
-      <Text className="mb-8 text-center text-base text-gray-500">Technician Login</Text>
+    <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#f1f5f9', padding: 20 }}>
+      <Text style={{ marginBottom: 8, textAlign: 'center', fontSize: 36, fontWeight: '700', color: '#1e40af' }}>
+        Field Service
+      </Text>
+      <Text style={{ marginBottom: 32, textAlign: 'center', fontSize: 16, color: '#6b7280' }}>
+        Technician Login
+      </Text>
 
-      {error ? <Text className="mb-3 text-center text-red-500">{error}</Text> : null}
+      {error ? <Text style={{ marginBottom: 12, textAlign: 'center', color: '#ef4444' }}>{error}</Text> : null}
 
       <Controller
         control={control}
@@ -60,47 +64,75 @@ export default function LoginScreen() {
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
             autoCapitalize="none"
-            className="mb-3 rounded-lg border border-gray-200 bg-white p-3"
             keyboardType="email-address"
             onBlur={onBlur}
             onChangeText={onChange}
             placeholder="Email"
+            style={{
+              marginBottom: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#e5e7eb',
+              backgroundColor: '#ffffff',
+              padding: 12,
+            }}
             textContentType="emailAddress"
             value={value}
           />
         )}
       />
-      {errors.email ? <Text className="mb-2 text-xs text-red-500">{errors.email.message}</Text> : null}
+      {errors.email ? <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>{errors.email.message}</Text> : null}
 
       <Controller
         control={control}
         name="password"
         render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            className="mb-3 rounded-lg border border-gray-200 bg-white p-3"
             onBlur={onBlur}
             onChangeText={onChange}
             placeholder="Password"
             secureTextEntry
+            style={{
+              marginBottom: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#e5e7eb',
+              backgroundColor: '#ffffff',
+              padding: 12,
+            }}
             textContentType="password"
             value={value}
           />
         )}
       />
-      {errors.password ? <Text className="mb-2 text-xs text-red-500">{errors.password.message}</Text> : null}
+      {errors.password ? <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>{errors.password.message}</Text> : null}
 
       <TouchableOpacity
-        className={`items-center rounded-lg p-3 ${isSubmitting ? 'bg-gray-400' : 'bg-blue-800'}`}
         disabled={isSubmitting}
         onPress={handleSubmit(onSubmit)}
+        style={{
+          alignItems: 'center',
+          borderRadius: 12,
+          padding: 12,
+          backgroundColor: isSubmitting ? '#9ca3af' : '#1e40af',
+        }}
       >
-        <Text className="text-base font-semibold text-white">{isSubmitting ? 'Signing in...' : 'Sign in'}</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: '#ffffff' }}>
+          {isSubmitting ? 'Signing in...' : 'Sign in'}
+        </Text>
       </TouchableOpacity>
 
-      <View className="mt-5 rounded-lg bg-gray-100 p-4">
-        <Text className="text-center text-xs text-gray-500">Demo accounts:</Text>
-        <Text className="text-center text-xs text-gray-500">technik1@demo.cz / demo123</Text>
-        <Text className="text-center text-xs text-gray-500">technik2@demo.cz / demo123</Text>
+      <View
+        style={{
+          marginTop: 20,
+          borderRadius: 12,
+          backgroundColor: '#f3f4f6',
+          padding: 16,
+        }}
+      >
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>Demo accounts:</Text>
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>technik1@demo.cz / demo123</Text>
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>technik2@demo.cz / demo123</Text>
       </View>
     </View>
   );

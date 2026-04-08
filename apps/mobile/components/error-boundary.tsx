@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { captureException } from '@/lib/monitoring/sentry';
 
 interface ErrorBoundaryProps {
   readonly children: React.ReactNode;
@@ -28,6 +29,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
+    captureException(error, {
+      source: 'component-error-boundary',
+      componentStack: errorInfo.componentStack,
+    });
     this.props.onError?.(error);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
   }

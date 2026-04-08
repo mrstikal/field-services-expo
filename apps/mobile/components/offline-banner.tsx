@@ -87,9 +87,7 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
           onPress={sync}
         >
           {isSyncing ? (
-            <Animated.View className="animate-spin">
-              <ActivityIndicator color="#fff" size="small" />
-            </Animated.View>
+            <ActivityIndicator color="#fff" size="small" />
           ) : (
             <>
               <Ionicons color="#fff" name="sync" size={16} />

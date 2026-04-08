@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { syncQueue, users } from '@db/schema';
-import { eq, count } from 'drizzle-orm';
-import { db, connect } from '@db';
+import { getSupabaseServerUrl, getSupabaseServiceRoleKey } from '@db/env';
+
+function throwIfSupabaseError(error: { message: string } | null, context: string) {
+  if (error) {
+    throw new Error(`${context}: ${error.message}`);
+  }
+}
 
 /**
  * Sync Status API - Returns sync queue status for the authenticated user
@@ -16,10 +20,12 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    const supabaseUrl = getSupabaseServerUrl();
+    const supabaseServiceRoleKey = getSupabaseServiceRoleKey();
 
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      supabaseUrl,
+      supabaseServiceRoleKey
     );
 
     const {
@@ -31,26 +37,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connect();
-
     // Verify user exists in users table
-    const userRecord = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.id))
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
       .limit(1);
 
-    if (!userRecord.length) {
+    throwIfSupabaseError(userError, 'Failed to load sync user');
+
+    if (!userRecord || userRecord.length === 0) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
     // Count pending items in sync queue for this user
-    const [pendingResult] = await db
-      .select({ value: count() })
-      .from(syncQueue)
-      .where(eq(syncQueue.user_id, user.id));
+    const { data: pendingRows, error: pendingError } = await supabase
+      .from('sync_queue')
+      .select('id')
+      .eq('user_id', user.id);
 
-    const pendingCount = pendingResult?.value ?? 0;
+    throwIfSupabaseError(pendingError, 'Failed to load sync queue status');
+
+    const pendingCount = pendingRows?.length ?? 0;
 
     return NextResponse.json({
       success: true,

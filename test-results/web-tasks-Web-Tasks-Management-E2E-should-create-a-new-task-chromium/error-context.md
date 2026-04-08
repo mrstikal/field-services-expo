@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-tasks.spec.ts >> Web Tasks Management E2E >> should create a new task
-- Location: e2e\playwright\web-tasks.spec.ts:12:3
+- Location: e2e\playwright\web-tasks.spec.ts:12:7
 
 # Error details
 

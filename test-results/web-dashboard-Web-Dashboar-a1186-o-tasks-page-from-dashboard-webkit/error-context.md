@@ -7,7 +7,7 @@
 # Test info
 
 - Name: web-dashboard.spec.ts >> Web Dashboard E2E >> should navigate to tasks page from dashboard
-- Location: e2e\playwright\web-dashboard.spec.ts:19:3
+- Location: e2e\playwright\web-dashboard.spec.ts:19:7
 
 # Error details
 

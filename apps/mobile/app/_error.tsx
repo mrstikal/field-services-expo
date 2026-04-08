@@ -2,6 +2,8 @@ import { View, Text, TouchableOpacity, ScrollView, ViewStyle } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundaryProps } from 'expo-router';
+import { useEffect } from 'react';
+import { captureException } from '@/lib/monitoring/sentry';
 
 const errorContainerStyle: ViewStyle = {
   flexGrow: 1,
@@ -12,6 +14,12 @@ const errorContainerStyle: ViewStyle = {
 
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (error) {
+      captureException(error, { source: 'expo-router-error-boundary' });
+    }
+  }, [error]);
 
   return (
     <ScrollView
