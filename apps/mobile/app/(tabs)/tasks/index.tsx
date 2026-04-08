@@ -1,4 +1,10 @@
-import { View, Text, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,11 +18,13 @@ import { Task } from '@field-service/shared-types';
 import { useRealtimeTasks } from '@/lib/hooks/use-realtime-tasks';
 import { paddingStyles } from '@/lib/styles';
 import { useAuth } from '@/lib/auth-context';
+import { useIsOnline } from '@/lib/hooks/use-network-status';
 
 export default function TasksListScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const isOnline = useIsOnline();
   const [isFiltersVisible, setIsFiltersVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
@@ -28,12 +36,14 @@ export default function TasksListScreen() {
   // Enable real-time updates for tasks
   useRealtimeTasks();
 
-  const { data: allTasks = [], isLoading, error } = useQuery({
+  const {
+    data: allTasks = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['tasks', user?.id],
     queryFn: async () => {
-      let query = supabase
-        .from('tasks')
-        .select('*');
+      let query = supabase.from('tasks').select('*');
 
       // Filter tasks based on user role
       if (user?.role === 'technician') {
@@ -42,19 +52,22 @@ export default function TasksListScreen() {
       }
       // Dispatchers see all tasks (no filter needed due to RLS)
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      
+      const { data, error } = await query.order('created_at', {
+        ascending: false,
+      });
+
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && isOnline,
+    retry: false,
   });
 
   // Filter tasks based on selected filters
   const filteredTasks = allTasks.filter((task: Task) => {
     if (filters.status && task.status !== filters.status) return false;
     if (filters.priority && task.priority !== filters.priority) return false;
-    
+
     // Add date filtering logic if needed
     if (filters.dateRange) {
       const taskDate = new Date(task.created_at);
@@ -77,7 +90,7 @@ export default function TasksListScreen() {
   });
 
   const queryClient = useQueryClient();
-  
+
   const onRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -99,43 +112,60 @@ export default function TasksListScreen() {
     setIsFiltersVisible(true);
   }, []);
 
-  const handleFilterChange = useCallback((filterType: string, value: string | null) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: value,
-    }));
-  }, []);
+  const handleFilterChange = useCallback(
+    (filterType: string, value: string | null) => {
+      setFilters(prev => ({
+        ...prev,
+        [filterType]: value,
+      }));
+    },
+    []
+  );
 
   const handleApplyFilters = useCallback(() => {
     setIsFiltersVisible(false);
   }, []);
 
-  const handleTaskPress = useCallback((taskId: string) => {
-    router.push(`/tasks/${taskId}`);
-  }, [router]);
+  const handleTaskPress = useCallback(
+    (taskId: string) => {
+      router.push(`/tasks/${taskId}`);
+    },
+    [router]
+  );
 
-  const renderTaskCard = useCallback(({ item }: { readonly item: Task }) => (
-    <SwipeableTaskCard
-      item={item}
-      taskId={item.id}
-      onPress={handleTaskPress}
-    />
-  ), [handleTaskPress]);
+  const renderTaskCard = useCallback(
+    ({ item }: { readonly item: Task }) => (
+      <SwipeableTaskCard
+        item={item}
+        taskId={item.id}
+        onPress={handleTaskPress}
+      />
+    ),
+    [handleTaskPress]
+  );
 
   const ITEM_HEIGHT = 120; // Estimated height
 
-  const getItemLayout = useCallback((data: ArrayLike<Task> | null | undefined, index: number) => ({
-    length: ITEM_HEIGHT,
-    offset: ITEM_HEIGHT * index,
-    index,
-  }), []);
+  const getItemLayout = useCallback(
+    (data: ArrayLike<Task> | null | undefined, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
 
   return (
     <View className="flex-1 bg-slate-50">
-      <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-4" style={{ paddingTop: insets.top + 16 }}>
+      <View
+        className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-4"
+        style={{ paddingTop: insets.top + 16 }}
+      >
         <Text className="text-xl font-semibold text-gray-800">All Tasks</Text>
         <View className="flex-row items-center gap-3">
-          <Text className="text-sm text-gray-500">{filteredTasks.length} tasks</Text>
+          <Text className="text-sm text-gray-500">
+            {filteredTasks.length} tasks
+          </Text>
           <TouchableOpacity
             className="p-1"
             onPress={handleOpenFilters}
@@ -151,14 +181,18 @@ export default function TasksListScreen() {
       ) : error ? (
         <View className="flex-1 items-center justify-center">
           <Ionicons color="#ef4444" name="alert-circle-outline" size={48} />
-          <Text className="mt-3 text-base text-red-500">Error loading tasks: {error.message}</Text>
+          <Text className="mt-3 text-base text-red-500">
+            Error loading tasks: {error.message}
+          </Text>
         </View>
       ) : filteredTasks.length === 0 ? (
         <View className="flex-1 items-center justify-center p-8">
           <View className="mb-4 rounded-full bg-blue-50 p-6">
             <Ionicons color="#3b82f6" name="document-text-outline" size={64} />
           </View>
-          <Text className="text-xl font-semibold text-gray-800">No tasks found</Text>
+          <Text className="text-xl font-semibold text-gray-800">
+            No tasks found
+          </Text>
           <Text className="mt-2 text-center text-base text-gray-500">
             {filters.status || filters.priority || filters.dateRange
               ? 'Try adjusting your filters to see more tasks'
@@ -169,7 +203,9 @@ export default function TasksListScreen() {
               className="mt-6 rounded-lg bg-blue-800 px-6 py-3"
               onPress={handleResetFilters}
             >
-              <Text className="text-sm font-semibold text-white">Reset Filters</Text>
+              <Text className="text-sm font-semibold text-white">
+                Reset Filters
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -178,7 +214,7 @@ export default function TasksListScreen() {
           contentContainerStyle={paddingStyles.contentContainer}
           data={filteredTasks}
           getItemLayout={getItemLayout}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           maxToRenderPerBatch={10}
           refreshControl={
             <RefreshControl onRefresh={onRefresh} refreshing={isRefreshing} />

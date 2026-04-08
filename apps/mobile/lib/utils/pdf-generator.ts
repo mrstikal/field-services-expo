@@ -40,8 +40,9 @@ export function generateReportHTML(data: ReportData): string {
     )
     .join('');
 
-  const formDataHtml = Object.entries(data.formData)
-    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`);
+  const formDataHtml = Object.entries(data.formData).map(
+    ([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`
+  );
   const signatureHtml = data.signature
     ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
          <p><strong>Customer Signature:</strong></p>

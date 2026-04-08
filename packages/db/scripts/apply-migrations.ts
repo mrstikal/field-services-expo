@@ -4,7 +4,7 @@ async function applyMigrations() {
   console.log('No remote DB patch required.');
 }
 
-applyMigrations().catch((error) => {
+applyMigrations().catch(error => {
   console.error('Migration failed:', error);
   process.exit(1);
 });

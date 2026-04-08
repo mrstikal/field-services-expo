@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ReportRepository } from '../../lib/db/report-repository';
-import { getDatabase } from '../../lib/db/local-database';
+import { ReportRepository } from '@lib/db/report-repository';
+import { getDatabase } from '@lib/db/local-database';
 
 // Mock local database
-vi.mock('../../lib/db/local-database', () => ({
+vi.mock('@lib/db/local-database', () => ({
   getDatabase: vi.fn(),
 }));
 
@@ -17,13 +17,16 @@ describe('Mobile Report Workflow Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDatabase).mockReturnValue(mockDb as unknown as ReturnType<typeof getDatabase>);
+    vi.mocked(getDatabase).mockReturnValue(
+      mockDb as unknown as ReturnType<typeof getDatabase>
+    );
     repository = new ReportRepository();
 
     // Mock crypto.randomUUID
     if (!global.crypto.randomUUID) {
       (global as { crypto?: { randomUUID: () => string } }).crypto = {
-        randomUUID: () => 'report-uuid-' + Math.random().toString(36).substring(2, 9),
+        randomUUID: () =>
+          'report-uuid-' + Math.random().toString(36).substring(2, 9),
       };
     }
   });
@@ -61,21 +64,56 @@ describe('Mobile Report Workflow Integration', () => {
       id: 'report-123',
       task_id: 'task-123',
       status: 'draft',
+      photos: '[]',
+      form_data: '{}',
+      signature: undefined,
+      pdf_url: undefined,
+      created_at: undefined,
       version: 1,
       updated_at: new Date().toISOString(),
+      deleted_at: null,
+      synced: 0,
     };
 
     mockDb.getFirstAsync.mockResolvedValueOnce(existingReport);
-    mockDb.getFirstAsync.mockResolvedValueOnce({ ...existingReport, status: 'completed', version: 2 });
+    mockDb.getFirstAsync.mockResolvedValueOnce(existingReport);
 
-    const updatedReport = await repository.updateStatus('report-123', 'completed');
+    const updatedReport = await repository.updateStatus(
+      'report-123',
+      'completed'
+    );
 
     expect(updatedReport?.status).toBe('completed');
     expect(updatedReport?.version).toBe(2);
 
     expect(mockDb.runAsync).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE reports SET status = ?'),
-      expect.arrayContaining(['completed', expect.any(String), 2, 'report-123'])
+      expect.stringContaining('UPDATE reports SET'),
+      expect.arrayContaining([
+        'task-123',
+        'completed',
+        expect.any(String),
+        expect.any(String),
+        undefined,
+        undefined,
+        undefined,
+        expect.any(String),
+        null,
+        2,
+        0,
+        'report-123',
+      ])
+    );
+
+    expect(mockDb.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO sync_queue'),
+      expect.arrayContaining([
+        expect.any(String),
+        'report',
+        'update',
+        'report-123',
+        expect.any(String),
+        2,
+      ])
     );
   });
 });

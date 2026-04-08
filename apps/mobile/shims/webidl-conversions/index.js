@@ -1,3 +1,4 @@
+/* global module */
 function makeException(ErrorType, message, options = {}) {
   const context = options.context ? `${options.context} ` : '';
   return new ErrorType(`${context}${message}`);
@@ -9,7 +10,11 @@ function DOMString(value, options = {}) {
   }
 
   if (typeof value === 'symbol') {
-    throw makeException(TypeError, 'is a symbol, which cannot be converted to a string', options);
+    throw makeException(
+      TypeError,
+      'is a symbol, which cannot be converted to a string',
+      options
+    );
   }
 
   return String(value);
@@ -29,4 +34,3 @@ module.exports = {
   DOMString,
   USVString,
 };
-

@@ -9,8 +9,13 @@ function getRelease() {
     return undefined;
   }
 
-  const runtimeVersion = typeof config.runtimeVersion === 'string' ? config.runtimeVersion : undefined;
-  return runtimeVersion ? `${config.version}+${runtimeVersion}` : config.version;
+  const runtimeVersion =
+    typeof config.runtimeVersion === 'string'
+      ? config.runtimeVersion
+      : undefined;
+  return runtimeVersion
+    ? `${config.version}+${runtimeVersion}`
+    : config.version;
 }
 
 export function initSentry() {
@@ -36,12 +41,15 @@ export function initSentry() {
   isInitialized = true;
 }
 
-export function captureException(error: unknown, context?: Record<string, unknown>) {
+export function captureException(
+  error: unknown,
+  context?: Record<string, unknown>
+) {
   if (!isInitialized) {
     return;
   }
 
-  Sentry.withScope((scope) => {
+  Sentry.withScope(scope => {
     if (context) {
       Object.entries(context).forEach(([key, value]) => {
         scope.setExtra(key, value);
@@ -51,4 +59,3 @@ export function captureException(error: unknown, context?: Record<string, unknow
     Sentry.captureException(error);
   });
 }
-

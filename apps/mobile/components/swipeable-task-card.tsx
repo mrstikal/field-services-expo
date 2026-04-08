@@ -49,7 +49,11 @@ const getPriorityClassName = (priority: string) => {
   }
 };
 
-const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, taskId, onPress }) => {
+const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
+  item,
+  taskId,
+  onPress,
+}) => {
   // Accessibility label for screen readers
   const accessibilityLabel = `Task: ${item.title}, Priority: ${item.priority}, Status: ${item.status}`;
   const accessibilityRole = 'button';
@@ -128,9 +132,13 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, taskId, onP
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+          Math.abs(gestureState.dx) > 8 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
         onPanResponderMove: (_, gestureState) => {
-          const clamped = Math.max(-SWIPE_LIMIT, Math.min(SWIPE_LIMIT, gestureState.dx));
+          const clamped = Math.max(
+            -SWIPE_LIMIT,
+            Math.min(SWIPE_LIMIT, gestureState.dx)
+          );
           translateX.setValue(clamped);
         },
         onPanResponderRelease: (_, gestureState) => {
@@ -168,36 +176,49 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, taskId, onP
         </View>
       </View>
 
-        <Animated.View
-          className="rounded-lg border-l-4 border-l-blue-600 bg-white"
-          style={{ transform: [{ translateX }] }}
-          {...panResponder.panHandlers}
+      <Animated.View
+        className="rounded-lg border-l-4 border-l-blue-600 bg-white"
+        style={{ transform: [{ translateX }] }}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
+          className="p-3"
+          onPress={() => onPress(taskId)}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityRole={accessibilityRole}
+          testID="task-card"
         >
-          <TouchableOpacity
-            className="p-3"
-            onPress={() => onPress(taskId)}
-            accessibilityLabel={accessibilityLabel}
-            accessibilityRole={accessibilityRole}
-          >
           <View className="mb-2 flex-row items-start justify-between">
             <View className="flex-1">
-              <Text className="text-sm font-semibold text-gray-800">{item.title}</Text>
+              <Text className="text-sm font-semibold text-gray-800">
+                {item.title}
+              </Text>
               <View className="mt-1.5 flex-row items-center">
                 <Ionicons color="#6b7280" name="location-outline" size={12} />
-                <Text className="ml-1 flex-1 text-xs text-gray-500">{item.address}</Text>
+                <Text className="ml-1 flex-1 text-xs text-gray-500">
+                  {item.address}
+                </Text>
               </View>
             </View>
-            <View className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}>
-              <Text className="text-[10px] font-semibold capitalize text-white">{item.priority}</Text>
+            <View
+              className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
+            >
+              <Text className="text-[10px] font-semibold capitalize text-white">
+                {item.priority}
+              </Text>
             </View>
           </View>
           <View className="flex-row items-center justify-between">
             <View className="rounded bg-gray-100 px-2 py-1">
-              <Text className="text-[11px] font-medium text-gray-500">{getStatusLabel(item.status)}</Text>
+              <Text className="text-[11px] font-medium text-gray-500">
+                {getStatusLabel(item.status)}
+              </Text>
             </View>
             <View className="flex-row items-center">
               <Ionicons color="#6b7280" name="time-outline" size={12} />
-              <Text className="ml-1 text-[11px] text-gray-500">{item.estimated_time} min</Text>
+              <Text className="ml-1 text-[11px] text-gray-500">
+                {item.estimated_time} min
+              </Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -207,4 +228,3 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({ item, taskId, onP
 };
 
 export default SwipeableTaskCard;
-

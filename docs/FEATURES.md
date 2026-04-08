@@ -7,6 +7,7 @@ Detailed description of all features available in the Field Service application.
 The mobile app is built with Expo (React Native) and designed for field technicians.
 
 ### Authentication
+
 - Email/password login with Zod validation
 - Secure token storage via `expo-secure-store`
 - Persistent session across app restarts
@@ -14,6 +15,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Demo credentials pre-filled for quick access
 
 ### Task Management
+
 - View all assigned tasks in a scrollable list (`FlatList` with optimized rendering)
 - Dashboard with today's tasks and statistics (new, completed, overdue)
 - Filter tasks by status, priority, date
@@ -27,6 +29,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Pull-to-refresh for manual sync
 
 ### Offline-First Architecture
+
 - All tasks stored locally in SQLite (`expo-sqlite`)
 - Works fully without internet connection
 - Sync queue for changes made offline
@@ -37,6 +40,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Conflict resolution: last-write-wins with version numbers
 
 ### GPS & Location Tracking
+
 - Foreground location tracking
 - Background location tracking via `expo-location` + TaskManager
 - Geofencing: automatic task status change when arriving at job site (radius ~100m)
@@ -44,6 +48,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Battery-aware: reduced frequency at low battery
 
 ### Camera & Photo Documentation
+
 - Capture photos directly within a report
 - Multiple photos per report
 - Image compression before saving (`expo-image-manipulator`)
@@ -51,6 +56,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Upload to Supabase Storage on sync
 
 ### Barcode Scanning
+
 - Full-screen camera with overlay frame
 - EAN/QR code detection
 - Lookup scanned part in inventory database
@@ -59,6 +65,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Error boundary for unavailable camera
 
 ### Reports & PDF Generation
+
 - Create service reports linked to tasks
 - Dynamic form fields based on task type:
   - Text, number, checkbox, photo, dropdown
@@ -72,6 +79,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 - Report status: `draft` → `completed` → `synced`
 
 ### Profile
+
 - View technician profile
 - Online/offline status
 - Last known location
@@ -83,6 +91,7 @@ The mobile app is built with Expo (React Native) and designed for field technici
 The web dashboard is built with Next.js and designed for dispatchers managing field operations.
 
 ### Authentication
+
 - Email/password login with Zod validation
 - Auth token stored in cookies
 - Middleware-based route protection
@@ -90,6 +99,7 @@ The web dashboard is built with Next.js and designed for dispatchers managing fi
 - Demo credentials pre-filled
 
 ### Dashboard Overview
+
 - 6 statistics cards:
   - Total tasks
   - Assigned tasks
@@ -102,6 +112,7 @@ The web dashboard is built with Next.js and designed for dispatchers managing fi
 - Real-time updates via Supabase Realtime
 
 ### Task Management
+
 - Full task list with sorting and filtering
 - Filter by status: all / assigned / in_progress / completed
 - Table columns: title, customer, address, priority, status, time, actions
@@ -112,6 +123,7 @@ The web dashboard is built with Next.js and designed for dispatchers managing fi
 - Push task to technician via WebSocket notification
 
 ### Technician Management
+
 - Statistics: total, online, offline
 - Table with technician details:
   - Name, email, phone
@@ -121,6 +133,7 @@ The web dashboard is built with Next.js and designed for dispatchers managing fi
 - Click technician → detail view with their tasks
 
 ### Map View
+
 - Mapbox GL JS / react-map-gl integration
 - Real-time technician positions on map
 - Click marker → technician detail + their tasks
@@ -128,6 +141,7 @@ The web dashboard is built with Next.js and designed for dispatchers managing fi
 - Geofence visualization (circles around task locations)
 
 ### Analytics
+
 - Task completion rates
 - Performance metrics per technician
 - Historical data views
@@ -169,6 +183,7 @@ TRANSITION OFFLINE → ONLINE:
 ```
 
 ### Conflict Resolution
+
 - Every record has `version` (integer) and `updated_at` (timestamp)
 - On push sync, server compares versions
 - Default strategy: **last write wins**
@@ -191,15 +206,15 @@ TRANSITION OFFLINE → ONLINE:
 
 ## 🎯 Demo Credentials
 
-| Role       | Email                  | Password |
-|------------|------------------------|----------|
-| Dispatcher | dispatcher1@demo.cz    | demo123  |
-| Dispatcher | dispatcher2@demo.cz    | demo123  |
-| Technician | technik1@demo.cz       | demo123  |
-| Technician | technik2@demo.cz       | demo123  |
-| Technician | technik3@demo.cz       | demo123  |
-| Technician | technik4@demo.cz       | demo123  |
-| Technician | technik5@demo.cz       | demo123  |
+| Role       | Email               | Password |
+| ---------- | ------------------- | -------- |
+| Dispatcher | dispatcher1@demo.cz | demo123  |
+| Dispatcher | dispatcher2@demo.cz | demo123  |
+| Technician | technik1@demo.cz    | demo123  |
+| Technician | technik2@demo.cz    | demo123  |
+| Technician | technik3@demo.cz    | demo123  |
+| Technician | technik4@demo.cz    | demo123  |
+| Technician | technik5@demo.cz    | demo123  |
 
 > **Note:** Auth users must be created in Supabase Auth with matching emails and passwords.
 > See [DATABASE_SETUP.md](./DATABASE_SETUP.md) for details.

@@ -69,6 +69,7 @@ Vytvořena univerzální ErrorBoundary komponenta pro Next.js:
 #### Tasks List (`apps/mobile/app/(tabs)/tasks/index.tsx`)
 
 Vylepšen empty state s:
+
 - Ikona s rounded pozadím
 - Kontextová zpráva
 - Tlačítko pro reset filtrů
@@ -76,6 +77,7 @@ Vylepšen empty state s:
 #### Reports List (`apps/mobile/app/(tabs)/reports/index.tsx`)
 
 Vylepšen empty state s:
+
 - Ikona s rounded pozadím
 - Kontextová zpráva
 - Tlačítko pro vytvoření reportu
@@ -85,10 +87,12 @@ Vylepšen empty state s:
 #### Skeleton Loading
 
 ##### Mobile
+
 - `apps/mobile/components/skeleton-task-list.tsx` - Skeleton pro seznam úkolů
 - Animovaný shimmer efekt
 
 ##### Web
+
 - `apps/web/components/skeleton-table.tsx` - Skeleton pro tabulky
 - **SkeletonTable** - Skeleton pro tabulky
 - **SkeletonCard** - Skeleton pro karty
@@ -106,6 +110,7 @@ Vylepšen empty state s:
 #### Offline Banner (`apps/mobile/components/offline-banner.tsx`)
 
 Vylepšen s:
+
 - Animovaná ikona při offline stavu (pulse)
 - Animovaný sync tlačítko (spin)
 - Lepší vizuální oddělení stavů
@@ -239,11 +244,7 @@ pnpm add expo-image
 ```tsx
 import { Image } from 'expo-image';
 
-<Image
-  source={{ uri: photo.uri }}
-  contentFit="cover"
-  transition={100}
-/>
+<Image source={{ uri: photo.uri }} contentFit="cover" transition={100} />;
 ```
 
 ### Bundle Size Analysis

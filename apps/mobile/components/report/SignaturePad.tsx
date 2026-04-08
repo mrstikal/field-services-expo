@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Alert } from 'react-native';
-import SignatureCanvas, { SignatureViewRef } from 'react-native-signature-canvas';
+import SignatureCanvas, {
+  SignatureViewRef,
+} from 'react-native-signature-canvas';
 import { useWindowDimensions } from 'react-native';
 
 interface SignaturePadProps {
@@ -39,7 +41,9 @@ export function SignaturePad({ isOpen, onClose, onSign }: SignaturePadProps) {
           <TouchableOpacity className="p-2" onPress={onClose}>
             <Text className="text-2xl text-gray-500">✕</Text>
           </TouchableOpacity>
-          <Text className="text-xl font-semibold text-gray-800">Customer Signature</Text>
+          <Text className="text-xl font-semibold text-gray-800">
+            Customer Signature
+          </Text>
           <TouchableOpacity className="p-2" onPress={handleClear}>
             <Text className="text-sm font-semibold text-red-500">Clear</Text>
           </TouchableOpacity>
@@ -62,7 +66,9 @@ export function SignaturePad({ isOpen, onClose, onSign }: SignaturePadProps) {
             disabled={!isSigned}
             onPress={handleClear}
           >
-            <Text className="text-base font-semibold text-white">Save Signature</Text>
+            <Text className="text-base font-semibold text-white">
+              Save Signature
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

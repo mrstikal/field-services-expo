@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,7 @@ function getAuthErrorMessage(error: unknown): string {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,8 @@ export default function LoginPage() {
 
     try {
       await signIn(data.email, data.password);
-      router.push('/dashboard');
+      const nextPath = searchParams?.get('next') || '/dashboard';
+      window.location.assign(nextPath);
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -72,14 +73,14 @@ export default function LoginPage() {
           <CardTitle className="text-2xl font-bold text-center">
             Field Service
           </CardTitle>
-          <p className="text-center text-sm text-gray-500">
-            Dispatcher login
-          </p>
+          <p className="text-center text-sm text-gray-500">Dispatcher login</p>
         </CardHeader>
         <CardContent>
-          {error ? <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error ? (
+            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
               {error}
-            </div> : null}
+            </div>
+          ) : null}
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="email">
@@ -91,7 +92,9 @@ export default function LoginPage() {
                 type="email"
                 {...register('email')}
               />
-              {errors.email ? <p className="text-sm text-red-600">{errors.email.message}</p> : null}
+              {errors.email ? (
+                <p className="text-sm text-red-600">{errors.email.message}</p>
+              ) : null}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="password">
@@ -103,7 +106,11 @@ export default function LoginPage() {
                 type="password"
                 {...register('password')}
               />
-              {errors.password ? <p className="text-sm text-red-600">{errors.password.message}</p> : null}
+              {errors.password ? (
+                <p className="text-sm text-red-600">
+                  {errors.password.message}
+                </p>
+              ) : null}
             </div>
             <Button className="w-full" disabled={isLoading} type="submit">
               {isLoading ? 'Signing in...' : 'Sign in'}

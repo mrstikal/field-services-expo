@@ -19,7 +19,10 @@ function normalizeBaseUrl(value: string | undefined): string {
 }
 
 export function useServerAvailability(): ServerAvailabilityState {
-  const apiBaseUrl = useMemo(() => normalizeBaseUrl(process.env.EXPO_PUBLIC_API_URL), []);
+  const apiBaseUrl = useMemo(
+    () => normalizeBaseUrl(process.env.EXPO_PUBLIC_API_URL),
+    []
+  );
   const healthUrl = useMemo(() => `${apiBaseUrl}${HEALTH_PATH}`, [apiBaseUrl]);
   const [state, setState] = useState<ServerAvailabilityState>({
     apiBaseUrl,
@@ -34,7 +37,7 @@ export function useServerAvailability(): ServerAvailabilityState {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-    setState((previous) => ({
+    setState(previous => ({
       ...previous,
       isChecking: true,
     }));
@@ -48,14 +51,14 @@ export function useServerAvailability(): ServerAvailabilityState {
         },
       });
 
-      setState((previous) => ({
+      setState(previous => ({
         ...previous,
         isAvailable: response.ok,
         isChecking: false,
         checkedAt: Date.now(),
       }));
     } catch {
-      setState((previous) => ({
+      setState(previous => ({
         ...previous,
         isAvailable: false,
         isChecking: false,
@@ -73,11 +76,14 @@ export function useServerAvailability(): ServerAvailabilityState {
       checkAvailability();
     }, CHECK_INTERVAL_MS);
 
-    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState === 'active') {
-        checkAvailability();
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState: AppStateStatus) => {
+        if (nextState === 'active') {
+          checkAvailability();
+        }
       }
-    });
+    );
 
     return () => {
       if (intervalRef.current) {
@@ -89,4 +95,3 @@ export function useServerAvailability(): ServerAvailabilityState {
 
   return state;
 }
-

@@ -56,7 +56,7 @@ export function useNetworkStatus(): NetworkInfo {
         // Update all listeners with the initial state
         netInfoListenersRef.current.forEach(listener => listener(initialState));
       });
-      
+
       // Subscribe to changes
       netInfoSubscriptionRef.current = NetInfo.addEventListener(state => {
         // Update all listeners when state changes
@@ -66,10 +66,15 @@ export function useNetworkStatus(): NetworkInfo {
 
     return () => {
       // Remove this hook's update function from the listeners
-      netInfoListenersRef.current = netInfoListenersRef.current.filter(listener => listener !== updateNetworkInfo);
-      
+      netInfoListenersRef.current = netInfoListenersRef.current.filter(
+        listener => listener !== updateNetworkInfo
+      );
+
       // If no more listeners, clean up subscription
-      if (netInfoListenersRef.current.length === 0 && netInfoSubscriptionRef.current) {
+      if (
+        netInfoListenersRef.current.length === 0 &&
+        netInfoSubscriptionRef.current
+      ) {
         netInfoSubscriptionRef.current();
         netInfoSubscriptionRef.current = null;
       }

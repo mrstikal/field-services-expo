@@ -1,6 +1,10 @@
-import { POST } from '../route';
+import { POST } from '@/app/api/sync/push/route';
 import { NextRequest } from 'next/server';
-import { mockSupabaseAuth, mockSupabaseClient, mockSupabaseFrom } from '@/vitest.setup';
+import {
+  mockSupabaseAuth,
+  mockSupabaseClient,
+  mockSupabaseFrom,
+} from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -19,7 +23,8 @@ describe('Push Sync API', () => {
   const createRequest = (body: unknown, token = 'test-token') => {
     return {
       headers: {
-        get: (name: string) => (name === 'authorization' ? `Bearer ${token}` : null),
+        get: (name: string) =>
+          name === 'authorization' ? `Bearer ${token}` : null,
       },
       json: async () => body,
     } as unknown as NextRequest;
@@ -27,16 +32,30 @@ describe('Push Sync API', () => {
 
   it('should process successful changes', async () => {
     const userId = 'user-1';
-    mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+    mockSupabaseAuth.getUser.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    } as never);
 
     const changes = [
-      { id: 'q-1', type: 'task', action: 'create', data: { id: 'task-1', title: 'New Task' }, version: 1 }
+      {
+        id: 'q-1',
+        type: 'task',
+        action: 'create',
+        data: { id: 'task-1', title: 'New Task' },
+        version: 1,
+      },
     ];
 
     const userQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue({ data: [{ id: userId, role: 'dispatcher' }], error: null }),
+      limit: vi
+        .fn()
+        .mockResolvedValue({
+          data: [{ id: userId, role: 'dispatcher' }],
+          error: null,
+        }),
     };
     const taskUpsertQuery = {
       upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -46,12 +65,12 @@ describe('Push Sync API', () => {
       in: vi.fn().mockResolvedValue({ data: null, error: null }),
     };
 
-    mockSupabaseClient.from.mockImplementation((((table: string) => {
+    mockSupabaseClient.from.mockImplementation(((table: string) => {
       if (table === 'users') return userQuery as never;
       if (table === 'tasks') return taskUpsertQuery as never;
       if (table === 'sync_queue') return syncQueueQuery as never;
       throw new Error(`Unexpected table ${table}`);
-    }) as unknown) as never);
+    }) as unknown as never);
 
     const req = createRequest({ changes });
     const response = await POST(req);
@@ -64,16 +83,30 @@ describe('Push Sync API', () => {
 
   it('should detect version conflicts', async () => {
     const userId = 'user-1';
-    mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+    mockSupabaseAuth.getUser.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    } as never);
 
     const changes = [
-      { id: 'q-1', type: 'task', action: 'update', data: { id: 'task-1', title: 'Stale Task' }, version: 3 } // Client has version 3
+      {
+        id: 'q-1',
+        type: 'task',
+        action: 'update',
+        data: { id: 'task-1', title: 'Stale Task' },
+        version: 3,
+      }, // Client has version 3
     ];
 
     const userQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue({ data: [{ id: userId, role: 'dispatcher' }], error: null }),
+      limit: vi
+        .fn()
+        .mockResolvedValue({
+          data: [{ id: userId, role: 'dispatcher' }],
+          error: null,
+        }),
     };
     const taskVersionQuery = {
       select: vi.fn().mockReturnThis(),
@@ -81,11 +114,11 @@ describe('Push Sync API', () => {
       limit: vi.fn().mockResolvedValue({ data: [{ version: 5 }], error: null }),
     };
 
-    mockSupabaseClient.from.mockImplementation((((table: string) => {
+    mockSupabaseClient.from.mockImplementation(((table: string) => {
       if (table === 'users') return userQuery as never;
       if (table === 'tasks') return taskVersionQuery as never;
       throw new Error(`Unexpected table ${table}`);
-    }) as unknown) as never);
+    }) as unknown as never);
 
     const req = createRequest({ changes });
     const response = await POST(req);

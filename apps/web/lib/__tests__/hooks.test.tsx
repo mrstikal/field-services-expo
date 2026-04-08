@@ -1,5 +1,8 @@
 import { renderHook } from '@testing-library/react';
-import { useRealtimeTasks, useRealtimeTask } from '../hooks/use-realtime-tasks';
+import {
+  useRealtimeTasks,
+  useRealtimeTask,
+} from '@lib/hooks/use-realtime-tasks';
 import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -40,7 +43,9 @@ describe('Realtime Hooks', () => {
       const taskId = 'task-123';
       renderHook(() => useRealtimeTask(taskId));
 
-      expect(supabase.channel).toHaveBeenCalledWith(`public:tasks:id=eq.${taskId}`);
+      expect(supabase.channel).toHaveBeenCalledWith(
+        `public:tasks:id=eq.${taskId}`
+      );
     });
 
     it('should not subscribe if taskId is missing', () => {
@@ -51,17 +56,21 @@ describe('Realtime Hooks', () => {
 
     it('should update query data when receiving new data', () => {
       const taskId = 'task-123';
-      let eventCallback: (payload: { new: { id: string; title: string } }) => void = () => {};
+      let eventCallback: (payload: {
+        new: { id: string; title: string };
+      }) => void = () => {};
 
       vi.mocked(supabase.channel).mockReturnValue({
-        on: vi.fn().mockImplementation((_event: any, _filter: any, callback: any) => {
-          eventCallback = callback;
-          return {
-            subscribe: vi.fn().mockReturnValue({
-              unsubscribe: vi.fn(),
-            }),
-          };
-        }),
+        on: vi
+          .fn()
+          .mockImplementation((_event: any, _filter: any, callback: any) => {
+            eventCallback = callback;
+            return {
+              subscribe: vi.fn().mockReturnValue({
+                unsubscribe: vi.fn(),
+              }),
+            };
+          }),
       } as never);
 
       renderHook(() => useRealtimeTask(taskId));
@@ -69,8 +78,13 @@ describe('Realtime Hooks', () => {
       const newData = { id: taskId, title: 'Updated Task' };
       eventCallback({ new: newData });
 
-      expect(queryClientMock.setQueryData).toHaveBeenCalledWith(['task', taskId], newData);
-      expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['tasks'] });
+      expect(queryClientMock.setQueryData).toHaveBeenCalledWith(
+        ['task', taskId],
+        newData
+      );
+      expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['tasks'],
+      });
     });
   });
 });

@@ -17,11 +17,10 @@ export default function SmokeRoot() {
           Bootstrap OK
         </Text>
         <Text style={{ fontSize: 14, textAlign: 'center', color: '#4b5563' }}>
-          If you can see this screen, the SharedArrayBuffer crash is happening in expo-router or app imports,
-          not in the bare Expo runtime.
+          If you can see this screen, the SharedArrayBuffer crash is happening
+          in expo-router or app imports, not in the bare Expo runtime.
         </Text>
       </View>
     </View>
   );
 }
-

@@ -1,8 +1,15 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  Animated,
+} from 'react-native';
 import { useNetworkStatus, useIsOffline } from '@/lib/hooks/use-network-status';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface OfflineBannerProps {
   readonly showSyncButton?: boolean;
@@ -13,6 +20,7 @@ interface OfflineBannerProps {
  * Shows network status and sync status with improved animations
  */
 export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
+  const insets = useSafeAreaInsets();
   const { status } = useNetworkStatus();
   const { isSyncing, sync, pendingItems, lastSync } = useOfflineSync();
   const isOffline = useIsOffline();
@@ -52,15 +60,30 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   };
 
   return (
-    <View className="flex-row items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+    <View
+      className="flex-row items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3"
+      style={{ paddingTop: insets.top + 12 }}
+      testID="offline-banner"
+    >
       <View className="flex-1 flex-row items-center gap-2">
         {isOffline ? (
           <>
             <Animated.View style={{ opacity: pulseAnim }}>
-              <Ionicons color="#ef4444" name="cloud-offline-outline" size={20} />
+              <Ionicons
+                color="#ef4444"
+                name="cloud-offline-outline"
+                size={20}
+              />
             </Animated.View>
-            <Text className="text-sm font-semibold text-slate-800">Offline</Text>
-            <Text className="ml-1 text-xs text-slate-500">Changes will sync when online</Text>
+            <Text
+              className="text-sm font-semibold text-slate-800"
+              testID="offline-banner-offline-text"
+            >
+              Offline
+            </Text>
+            <Text className="ml-1 text-xs text-slate-500">
+              Changes will sync when online
+            </Text>
           </>
         ) : (
           <>

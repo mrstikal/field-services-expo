@@ -1,4 +1,4 @@
-import { RealtimeSyncService } from '../../lib/realtime-sync';
+import { RealtimeSyncService } from '@lib/realtime-sync';
 import { supabase } from '@/lib/supabase';
 
 // Mock supabase (mocks are usually in vitest.setup.ts, but we need specific control here)
@@ -40,7 +40,7 @@ describe('Web Realtime Updates Integration', () => {
   it(' should subscribe to technician updates with filter', () => {
     const callback = vi.fn();
     const technicianId = 'tech-123';
-    
+
     service.subscribeToTechnicianUpdates(technicianId, callback);
 
     expect(supabase.channel).toHaveBeenCalledWith(`technician-${technicianId}`);
@@ -65,9 +65,11 @@ describe('Web Realtime Updates Integration', () => {
     await service.broadcastTaskEvent(taskId);
 
     expect(supabase.from).toHaveBeenCalledWith('tasks');
-    expect(mockUpdate.update).toHaveBeenCalledWith(expect.objectContaining({
-      updated_at: expect.any(String)
-    }));
+    expect(mockUpdate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updated_at: expect.any(String),
+      })
+    );
     expect(mockUpdate.eq).toHaveBeenCalledWith('id', taskId);
   });
 });

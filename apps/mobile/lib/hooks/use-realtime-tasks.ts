@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@field-service/shared-types';
+import { useIsOnline } from '@/lib/hooks/use-network-status';
 
 /**
  * Hook for real-time task updates using Supabase Realtime
@@ -9,8 +10,13 @@ import { Task } from '@field-service/shared-types';
  */
 export function useRealtimeTasks() {
   const queryClient = useQueryClient();
+  const isOnline = useIsOnline();
 
   useEffect(() => {
+    if (!isOnline) {
+      return;
+    }
+
     // Subscribe to all task changes (INSERT, UPDATE, DELETE)
     const subscription = supabase
       .channel('public:tasks')
@@ -21,7 +27,7 @@ export function useRealtimeTasks() {
           schema: 'public',
           table: 'tasks',
         },
-        (payload) => {
+        payload => {
           console.log('Task change detected:', payload);
 
           // Invalidate the tasks query to refetch
@@ -41,7 +47,7 @@ export function useRealtimeTasks() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [queryClient]);
+  }, [isOnline, queryClient]);
 }
 
 /**
@@ -49,9 +55,10 @@ export function useRealtimeTasks() {
  */
 export function useRealtimeTask(taskId: string | undefined) {
   const queryClient = useQueryClient();
+  const isOnline = useIsOnline();
 
   useEffect(() => {
-    if (!taskId) return;
+    if (!taskId || !isOnline) return;
 
     const subscription = supabase
       .channel(`public:tasks:id=eq.${taskId}`)
@@ -63,7 +70,7 @@ export function useRealtimeTask(taskId: string | undefined) {
           table: 'tasks',
           filter: `id=eq.${taskId}`,
         },
-        (payload) => {
+        payload => {
           console.log('Task detail change detected:', payload);
 
           // Update the specific task query
@@ -80,5 +87,5 @@ export function useRealtimeTask(taskId: string | undefined) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [taskId, queryClient]);
+  }, [isOnline, taskId, queryClient]);
 }

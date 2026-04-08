@@ -23,7 +23,7 @@ export function useRealtimeTasks() {
           schema: 'public',
           table: 'tasks',
         },
-        (payload) => {
+        payload => {
           console.log('Task change detected:', payload);
 
           // Invalidate the tasks query to refetch
@@ -65,7 +65,7 @@ export function useRealtimeTask(taskId: string | undefined) {
           table: 'tasks',
           filter: `id=eq.${taskId}`,
         },
-        (payload) => {
+        payload => {
           console.log('Task detail change detected:', payload);
 
           // Update the specific task query

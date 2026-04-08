@@ -4,18 +4,19 @@ Complete guide for deploying the Field Service application to production.
 
 ## 📋 Overview
 
-| Component | Platform | Method |
-|-----------|----------|--------|
-| Web Dashboard | Vercel | GitHub Actions / CLI |
-| Mobile App | EAS Build | GitHub Actions / CLI |
-| Database | Supabase | Managed cloud |
-| OTA Updates | EAS Update | CLI |
+| Component     | Platform   | Method               |
+| ------------- | ---------- | -------------------- |
+| Web Dashboard | Vercel     | GitHub Actions / CLI |
+| Mobile App    | EAS Build  | GitHub Actions / CLI |
+| Database      | Supabase   | Managed cloud        |
+| OTA Updates   | EAS Update | CLI                  |
 
 ---
 
 ## 🌐 Web Deployment (Vercel)
 
 ### Prerequisites
+
 - Vercel account at [vercel.com](https://vercel.com)
 - Vercel CLI installed: `npm install -g vercel`
 - Environment variables configured (see [ENVIRONMENT.md](./ENVIRONMENT.md))
@@ -36,6 +37,7 @@ vercel deploy --prod
 The CI/CD pipeline in `.github/workflows/ci.yml` automatically deploys the web app on every push to `main`.
 
 **Required GitHub Secrets:**
+
 ```
 VERCEL_TOKEN        – Vercel API token
 VERCEL_ORG_ID       – Vercel organization ID
@@ -43,6 +45,7 @@ VERCEL_PROJECT_ID   – Vercel project ID
 ```
 
 To get these values:
+
 1. Go to [vercel.com/account/tokens](https://vercel.com/account/tokens) → create token
 2. Run `vercel link` locally → check `.vercel/project.json` for org/project IDs
 
@@ -62,6 +65,7 @@ NEXT_PUBLIC_MAPBOX_TOKEN
 ## 📱 Mobile Deployment (EAS Build)
 
 ### Prerequisites
+
 - Expo account at [expo.dev](https://expo.dev)
 - EAS CLI installed: `npm install -g eas-cli`
 - Logged in: `eas login`
@@ -70,11 +74,11 @@ NEXT_PUBLIC_MAPBOX_TOKEN
 
 The `apps/mobile/eas.json` defines three profiles:
 
-| Profile | Purpose | Distribution |
-|---------|---------|--------------|
-| `development` | Local development with dev client | Internal |
-| `preview` | Internal testing (APK/TestFlight) | Internal |
-| `production` | App Store / Play Store release | Store |
+| Profile       | Purpose                           | Distribution |
+| ------------- | --------------------------------- | ------------ |
+| `development` | Local development with dev client | Internal     |
+| `preview`     | Internal testing (APK/TestFlight) | Internal     |
+| `production`  | App Store / Play Store release    | Store        |
 
 ### Building
 
@@ -110,6 +114,7 @@ eas submit --platform ios --profile production
 The workflow in `.github/workflows/dev-build.yml` triggers EAS builds automatically.
 
 **Required GitHub Secret:**
+
 ```
 EAS_TOKEN   – Expo access token (from expo.dev/accounts/[user]/settings/access-tokens)
 ```
@@ -144,6 +149,7 @@ eas update --branch preview --message "Feature: new filter options"
 ### Update Policy
 
 Configured in `apps/mobile/app.json`:
+
 - `ON_LAUNCH` – Check for updates every time the app launches
 - `ON_ERROR_RECOVERY` – Only update when the app encounters a fatal error
 
@@ -168,6 +174,7 @@ pnpm drizzle-kit push
 3. Click **Run**
 
 Or via CLI:
+
 ```bash
 psql -U postgres -d postgres -h db.your-project.supabase.co -p 5432 -f packages/db/rls-policies.sql
 ```
@@ -207,6 +214,7 @@ Deploy Web   EAS Build
 ```
 
 **Steps:**
+
 1. `pnpm lint` – ESLint check
 2. `pnpm typecheck` – TypeScript type check
 3. `pnpm build` – Turborepo build

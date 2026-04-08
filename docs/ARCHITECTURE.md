@@ -449,26 +449,31 @@ export interface Report {
 ## 🎯 Key Design Decisions
 
 ### 1. Offline-First Architecture
+
 - **Why:** Technicians work in the field without stable internet
 - **How:** SQLite for local storage, sync queue for changes, delta sync
 - **Benefit:** App works without internet, data syncs automatically
 
 ### 2. Monorepo (Turborepo + pnpm)
+
 - **Why:** Share code between mobile and web (types, utils)
 - **How:** Workspace structure, shared-types package
 - **Benefit:** DRY principle, consistent API, easier maintenance
 
 ### 3. Type Safety (TypeScript + Zod)
+
 - **Why:** Prevent runtime errors, better DX
 - **How:** Strict TypeScript mode, Zod validation on both sides
 - **Benefit:** Fewer bugs, better IDE support, code as documentation
 
 ### 4. Real-Time Updates (Supabase Realtime)
+
 - **Why:** Dispatcher sees live status of technicians and tasks
 - **How:** WebSocket subscriptions, TanStack Query integration
 - **Benefit:** Instant updates without polling
 
 ### 5. Row Level Security (RLS)
+
 - **Why:** Data security, technicians see only their tasks
 - **How:** Supabase RLS policies at database level
 - **Benefit:** Security at database level, cannot be bypassed

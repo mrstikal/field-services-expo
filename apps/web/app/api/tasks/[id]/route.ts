@@ -1,128 +1,238 @@
-import { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+import { taskUpdateInputSchema } from '@field-service/shared-types';
+import { logApiError } from '@/lib/api-errors';
+import { getAppUserProfile, isDispatcher } from '@/lib/server-auth';
+import { requireRequestUser } from '@/lib/server-supabase';
 
-async function getSupabaseClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Ignored in contexts where cookies cannot be mutated.
-          }
-        },
-      },
-    }
+function isMissingDeletedAtColumnError(
+  error: { code?: string; message?: string } | null
+) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === '42703' ||
+    (error.code === 'PGRST204' && error.message?.includes('deleted_at')) ===
+      true
   );
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+async function loadTask(
+  supabase: Awaited<ReturnType<typeof requireRequestUser>>['supabase'],
+  id: string
+) {
+  const buildQuery = (withDeletedAtFilter: boolean) => {
+    let query = supabase.from('tasks').select('*').eq('id', id);
+
+    if (withDeletedAtFilter) {
+      query = query.is('deleted_at', null);
+    }
+
+    return query.maybeSingle();
+  };
+
+  let { data, error } = await buildQuery(true);
+  if (isMissingDeletedAtColumnError(error)) {
+    ({ data, error } = await buildQuery(false));
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+async function requireDispatcherAccess(request: NextRequest) {
+  const context = await requireRequestUser(request);
+  if (context.error || !context.user) {
+    return {
+      ...context,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    };
+  }
+
+  const profile = await getAppUserProfile(context.supabase, context.user);
+  if (!isDispatcher(profile)) {
+    return {
+      ...context,
+      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    };
+  }
+
+  return { ...context, response: null };
+}
+
+function invalidIdResponse() {
+  return NextResponse.json({ error: 'Task ID is required.' }, { status: 400 });
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await getSupabaseClient();
-    const id = params.id;
+    const { supabase, user, error } = await requireRequestUser(_request);
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
+    const { id } = await params;
     if (!id) {
-      return Response.json({ error: 'Task ID is required' }, { status: 400 });
+      return invalidIdResponse();
     }
 
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching task:', error);
-      return Response.json({ error: error.message }, { status: error.code === 'PGRST116' ? 404 : 400 });
+    const task = await loadTask(supabase, id);
+    if (!task || task.deleted_at) {
+      return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
     }
 
-    return Response.json(task, { status: 200 });
+    return NextResponse.json(task);
   } catch (error) {
-    console.error('Unexpected error fetching task:', error);
-    return Response.json(
-      { error: 'An unexpected error occurred while fetching the task' },
+    logApiError('tasks:get', error);
+    return NextResponse.json(
+      { error: 'Unable to load task.' },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await getSupabaseClient();
-    const id = params.id;
-
-    if (!id) {
-      return Response.json({ error: 'Task ID is required' }, { status: 400 });
+    const { supabase, response } = await requireDispatcherAccess(request);
+    if (response) {
+      return response;
     }
 
-    const updateData = await request.json();
+    const { id } = await params;
+    if (!id) {
+      return invalidIdResponse();
+    }
 
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    const existingTask = await loadTask(supabase, id);
+    if (!existingTask || existingTask.deleted_at) {
+      return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
+    }
+
+    const parsedBody = taskUpdateInputSchema.safeParse(await request.json());
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid task payload.', details: parsedBody.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const payload = {
+      ...parsedBody.data,
+      updated_at: new Date().toISOString(),
+      version: Number(existingTask.version ?? 0) + 1,
+    };
+
+    const buildUpdateQuery = (withDeletedAtFilter: boolean) => {
+      let query = supabase.from('tasks').update(payload).eq('id', id);
+
+      if (withDeletedAtFilter) {
+        query = query.is('deleted_at', null);
+      }
+
+      return query.select('*').single();
+    };
+
+    let { data, error } = await buildUpdateQuery(true);
+    if (isMissingDeletedAtColumnError(error)) {
+      ({ data, error } = await buildUpdateQuery(false));
+    }
 
     if (error) {
-      console.error('Error updating task:', error);
-      return Response.json({ error: error.message }, { status: 400 });
+      throw error;
     }
 
-    if (!task) {
-      return Response.json({ error: 'Task not found' }, { status: 404 });
-    }
-
-    return Response.json(task, { status: 200 });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Unexpected error updating task:', error);
-    return Response.json(
-      { error: 'An unexpected error occurred while updating the task' },
-      { status: 500 }
+    logApiError('tasks:update', error);
+    return NextResponse.json(
+      { error: 'Unable to update task.' },
+      { status: 400 }
     );
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  // PATCH and PUT are similar in this implementation as both use Supabase .update()
-  return PUT(request, { params });
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return PUT(request, context);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = await getSupabaseClient();
-    const id = params.id;
-
-    if (!id) {
-      return Response.json({ error: 'Task ID is required' }, { status: 400 });
+    const { supabase, response } = await requireDispatcherAccess(_request);
+    if (response) {
+      return response;
     }
 
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', id);
+    const { id } = await params;
+    if (!id) {
+      return invalidIdResponse();
+    }
+
+    const existingTask = await loadTask(supabase, id);
+    if (!existingTask || existingTask.deleted_at) {
+      return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
+    }
+
+    const now = new Date().toISOString();
+    const deletePayload = {
+      deleted_at: now,
+      updated_at: now,
+      version: Number(existingTask.version ?? 0) + 1,
+    };
+
+    const buildDeleteQuery = (
+      withDeletedAtFilter: boolean,
+      withDeletedAtPayload: boolean
+    ) => {
+      let query = supabase
+        .from('tasks')
+        .update(
+          withDeletedAtPayload
+            ? deletePayload
+            : {
+                updated_at: now,
+                version: Number(existingTask.version ?? 0) + 1,
+              }
+        )
+        .eq('id', id);
+
+      if (withDeletedAtFilter) {
+        query = query.is('deleted_at', null);
+      }
+
+      return query;
+    };
+
+    let { error } = await buildDeleteQuery(true, true);
+    if (isMissingDeletedAtColumnError(error)) {
+      ({ error } = await buildDeleteQuery(false, false));
+    }
 
     if (error) {
-      console.error('Error deleting task:', error);
-      return Response.json({ error: error.message }, { status: 400 });
+      throw error;
     }
 
-    return new Response(null, { status: 204 });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error('Unexpected error deleting task:', error);
-    return Response.json(
-      { error: 'An unexpected error occurred while deleting the task' },
-      { status: 500 }
+    logApiError('tasks:delete', error);
+    return NextResponse.json(
+      { error: 'Unable to delete task.' },
+      { status: 400 }
     );
   }
 }

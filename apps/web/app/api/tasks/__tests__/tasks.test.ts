@@ -1,4 +1,4 @@
-import { GET, POST } from '../route';
+import { GET, POST } from '@/app/api/tasks/route';
 import { NextRequest } from 'next/server';
 
 // Mock cookies for SSR client
@@ -17,8 +17,18 @@ const mockFrom = vi.fn();
 vi.mock('@supabase/ssr', () => ({
   createServerClient: vi.fn(() => ({
     auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
-      getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'test-token' } }, error: null }),
+      getUser: vi
+        .fn()
+        .mockResolvedValue({
+          data: { user: { id: 'test-user' } },
+          error: null,
+        }),
+      getSession: vi
+        .fn()
+        .mockResolvedValue({
+          data: { session: { access_token: 'test-token' } },
+          error: null,
+        }),
     },
     from: mockFrom,
   })),
@@ -54,11 +64,15 @@ describe('Tasks API', () => {
 
     it('should return 500 when database error occurs', async () => {
       mockFrom.mockReturnValue({
-        select: vi.fn().mockResolvedValue({ data: null, error: { message: 'DB error' } }),
+        select: vi
+          .fn()
+          .mockResolvedValue({ data: null, error: { message: 'DB error' } }),
       });
 
       const response = await GET();
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(500);
       expect(data.error).toBe('DB error');
@@ -70,7 +84,9 @@ describe('Tasks API', () => {
       });
 
       const response = await GET();
-      const data = await (response as { json: () => Promise<unknown[]> }).json();
+      const data = await (
+        response as { json: () => Promise<unknown[]> }
+      ).json();
 
       expect(response.status).toBe(200);
       expect(data).toEqual([]);
@@ -82,7 +98,12 @@ describe('Tasks API', () => {
       mockFrom.mockReturnValue({
         insert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: { id: 'new-task-1', title: 'Test Task' }, error: null }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id: 'new-task-1', title: 'Test Task' },
+            error: null,
+          }),
       });
 
       const taskData = {
@@ -93,7 +114,9 @@ describe('Tasks API', () => {
 
       const req = createRequest(taskData);
       const response = await POST(req);
-      const data = await (response as { json: () => Promise<{ id: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ id: string }> }
+      ).json();
 
       expect(response.status).toBe(201);
       expect(data.id).toBe('new-task-1');
@@ -104,7 +127,9 @@ describe('Tasks API', () => {
 
       const req = createRequest(taskData);
       const response = await POST(req);
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('required');
@@ -114,7 +139,12 @@ describe('Tasks API', () => {
       mockFrom.mockReturnValue({
         insert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Insert failed' } }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: null,
+            error: { message: 'Insert failed' },
+          }),
       });
 
       const taskData = {
@@ -125,7 +155,9 @@ describe('Tasks API', () => {
 
       const req = createRequest(taskData);
       const response = await POST(req);
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toBe('Insert failed');

@@ -1,16 +1,19 @@
-appId: com.fieldservice.app
+appId: com.fieldservicemonorepo
 ---
-- launchApp
-- runFlow: mobile-auth.yaml
+- runFlow: login-technician.yaml
 - tapOn:
     id: "tab-tasks"
 - assertVisible: "All Tasks"
-- setAirplaneMode: true
+- setAirplaneMode: enabled
 - tapOn:
-    id: "tasks-filter-button"
-- tapOn: "Close"
-- assertVisible: "Offline"
-- setAirplaneMode: false
+    text: "Minimize"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "offline-banner-offline-text"
+    timeout: 15000
+- setAirplaneMode: disabled
 - waitForAnimationToEnd
-- assertNotVisible: "Offline"
+- assertNotVisible:
+    id: "offline-banner-offline-text"
 - assertVisible: "All Tasks"

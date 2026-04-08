@@ -344,6 +344,15 @@ async function setupUsbBridgeAndLaunchApp() {
     return;
   }
 
+  // Force stop Expo Go to clear any stale state/routes
+  console.log('[dev:all] Clearing Expo Go state to ensure clean start');
+  const forceStopResult = runCommand(adb, ['shell', 'am', 'force-stop', 'host.exp.exponent']);
+  if (forceStopResult.status !== 0) {
+    console.warn(`[dev:all] Warning: Failed to force-stop Expo Go: ${forceStopResult.stderr.trim() || forceStopResult.stdout.trim()}`);
+  }
+
+  await sleep(500);
+
   for (const port of [metroPort, webPort]) {
     const reverseResult = runCommand(adb, ['reverse', `tcp:${port}`, `tcp:${port}`]);
     if (reverseResult.status !== 0) {
@@ -355,10 +364,11 @@ async function setupUsbBridgeAndLaunchApp() {
     'shell',
     'am',
     'start',
+    '-S',
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    `exp://127.0.0.1:${metroPort}`,
+    `exp://127.0.0.1:${metroPort}/--/`,
     'host.exp.exponent',
   ]);
 
@@ -367,7 +377,7 @@ async function setupUsbBridgeAndLaunchApp() {
     return;
   }
 
-  console.log('[dev:all] Expo Go launched over USB.');
+  console.log('[dev:all] Expo Go launched over USB with clean state.');
 }
 
 function startProcess(name, args) {

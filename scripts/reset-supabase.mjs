@@ -2,29 +2,28 @@
 
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
-import * as path from 'path';
+import * as path from 'node:path';
 
-// Load environment variables
 dotenv.config({ path: path.join(process.cwd(), 'env.local') });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error('❌ Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in env.local');
+  console.error('Error: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set in env.local');
   process.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 const DEMO_PASSWORD = 'demo123';
+const NOOP_ID = '00000000-0000-0000-0000-000000000000';
+const REQUIRED_SCHEMA_SQL = [
+  'ALTER TABLE reports ADD COLUMN IF NOT EXISTS pdf_url TEXT;',
+  'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS deleted_at timestamp;',
+  'ALTER TABLE reports ADD COLUMN IF NOT EXISTS deleted_at timestamp;',
+];
 
-type DemoAuthUser = {
-  email: string;
-  role: 'technician' | 'dispatcher';
-  name: string;
-};
-
-const demoAuthUsers: DemoAuthUser[] = [
+const demoAuthUsers = [
   { email: 'dispatcher1@demo.cz', role: 'dispatcher', name: 'John Smith' },
   { email: 'dispatcher2@demo.cz', role: 'dispatcher', name: 'Jane Doe' },
   { email: 'technik1@demo.cz', role: 'technician', name: 'Peter Johnson' },
@@ -34,8 +33,12 @@ const demoAuthUsers: DemoAuthUser[] = [
   { email: 'technik5@demo.cz', role: 'technician', name: 'David Miller' },
 ];
 
+function formatSchemaInstructions() {
+  return REQUIRED_SCHEMA_SQL.join('\n');
+}
+
 async function ensureAuthUsers() {
-  console.log('🔐 Ensuring Supabase Auth demo users...');
+  console.log('Ensuring Supabase Auth demo users...');
 
   const { data: authData, error: authListError } = await supabase.auth.admin.listUsers({
     page: 1,
@@ -45,9 +48,7 @@ async function ensureAuthUsers() {
   if (authListError) throw authListError;
 
   const existingByEmail = new Map(
-    (authData?.users ?? [])
-      .filter((u) => !!u.email)
-      .map((u) => [u.email!.toLowerCase(), u])
+    (authData?.users ?? []).filter((user) => user.email).map((user) => [user.email.toLowerCase(), user])
   );
 
   for (const demoUser of demoAuthUsers) {
@@ -81,87 +82,85 @@ async function ensureAuthUsers() {
     if (createError) throw createError;
   }
 
-  console.log('✓ Auth users ready (password: demo123)\n');
+  console.log('Auth users ready (password: demo123)\n');
 }
 
-async function ensureSchema() {
-  console.log('🏗️  Ensuring database schema...');
+async function ensureSchemaCompatibility() {
+  console.log('Validating database schema...');
 
-  // Add pdf_url column to reports if it doesn't exist
-  // We check by trying to select it first
-  const checkResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/reports?select=pdf_url&limit=1`,
-    {
-      method: 'GET',
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY!,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-      },
+  const schemaChecks = [
+    { table: 'reports', columns: ['id', 'pdf_url', 'deleted_at'] },
+    { table: 'tasks', columns: ['id', 'deleted_at'] },
+  ];
+
+  const failures = [];
+
+  for (const check of schemaChecks) {
+    const { error } = await supabase.from(check.table).select(check.columns.join(', ')).limit(1);
+
+    if (error) {
+      failures.push({ check, error });
     }
-  );
+  }
 
-  if (!checkResponse.ok) {
-    // Column doesn't exist, we need to add it
-    // Use Supabase's pg endpoint (available in newer Supabase versions)
-    const sqlResponse = await fetch(`${SUPABASE_URL}/pg/query`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY!,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query: 'ALTER TABLE reports ADD COLUMN IF NOT EXISTS pdf_url TEXT;'
-      }),
-    });
+  if (failures.length > 0) {
+    console.error('Database schema is not compatible with demo reset.');
+    console.error('Reset was aborted before any data was deleted.');
+    console.error('Please run this SQL in Supabase Dashboard SQL Editor:');
+    console.error(`${formatSchemaInstructions()}\n`);
 
-    if (sqlResponse.ok) {
-      console.log('✓ pdf_url column added to reports table\n');
-    } else {
-      console.warn('⚠️  Could not add pdf_url column automatically.');
-      console.warn('   Please run this SQL in Supabase Dashboard SQL Editor:');
-      console.warn('   ALTER TABLE reports ADD COLUMN IF NOT EXISTS pdf_url TEXT;\n');
+    for (const failure of failures) {
+      console.error(
+        `- ${failure.check.table} (${failure.check.columns.join(', ')}): ${failure.error.message}`
+      );
     }
-  } else {
-    console.log('✓ Schema is up to date\n');
+
+    throw new Error('Required schema columns are missing.');
+  }
+
+  console.log('Schema is compatible\n');
+}
+
+async function deleteAllRows(table) {
+  const { error } = await supabase.from(table).delete().neq('id', NOOP_ID);
+
+  if (error) {
+    throw error;
   }
 }
 
 async function resetDatabase() {
   try {
-    console.log('🔄 Resetting Supabase database...\n');
+    console.log('Resetting Supabase database...\n');
 
-    await ensureSchema();
+    await ensureSchemaCompatibility();
     await ensureAuthUsers();
 
-    // Get actual user IDs from auth.users
-    console.log('🔍 Fetching actual user IDs from auth...');
+    console.log('Fetching actual user IDs from auth...');
     const { data: authData, error: authError } = await supabase.auth.admin.listUsers({
       page: 1,
       perPage: 1000,
     });
     if (authError) throw authError;
 
-    const userIdMap = new Map<string, string>();
+    const userIdMap = new Map();
     for (const authUser of authData?.users ?? []) {
       if (authUser.email) {
         userIdMap.set(authUser.email.toLowerCase(), authUser.id);
       }
     }
-    console.log('✓ User IDs fetched\n');
+    console.log('User IDs fetched\n');
 
-    // Clear existing data
-    console.log('🗑️  Clearing existing data...');
-    await supabase.from('locations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('sync_queue').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('reports').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('parts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('users').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    console.log('✓ Data cleared\n');
+    console.log('Clearing existing data...');
+    await deleteAllRows('locations');
+    await deleteAllRows('sync_queue');
+    await deleteAllRows('reports');
+    await deleteAllRows('tasks');
+    await deleteAllRows('parts');
+    await deleteAllRows('users');
+    console.log('Data cleared\n');
 
-    // Insert demo users with correct IDs from auth
-    console.log('👥 Inserting demo users...');
+    console.log('Inserting demo users...');
     const usersToInsert = [
       {
         id: userIdMap.get('dispatcher1@demo.cz') || '550e8400-e29b-41d4-a716-446655440001',
@@ -244,16 +243,13 @@ async function resetDatabase() {
 
     const { error: usersError } = await supabase.from('users').insert(usersToInsert);
     if (usersError) throw usersError;
-    console.log('✓ Users inserted\n');
+    console.log('Users inserted\n');
 
-    // Get technician IDs for task assignment
     const technik1Id = userIdMap.get('technik1@demo.cz');
     const technik2Id = userIdMap.get('technik2@demo.cz');
 
-    // Insert demo tasks (10 tasks: 3 for technik1, 3 for technik2, 4 unassigned)
-    console.log('📋 Inserting demo tasks...');
+    console.log('Inserting demo tasks...');
     const tasksToInsert = [
-      // Tasks for technik1 (3 tasks)
       {
         id: '650e8400-e29b-41d4-a716-446655440001',
         title: 'Switchboard maintenance',
@@ -305,14 +301,13 @@ async function resetDatabase() {
         technician_id: technik1Id,
         version: 1,
       },
-      // Tasks for technik2 (3 tasks)
       {
         id: '650e8400-e29b-41d4-a716-446655440005',
         title: 'Cable replacement',
         description: 'Replacement of old cables in switchboard at factory',
         address: 'Králova Pole, Brno',
         latitude: 49.1833,
-        longitude: 16.6000,
+        longitude: 16.6,
         status: 'in_progress',
         priority: 'high',
         category: 'repair',
@@ -357,7 +352,6 @@ async function resetDatabase() {
         technician_id: technik2Id,
         version: 1,
       },
-      // Unassigned tasks (4 tasks)
       {
         id: '650e8400-e29b-41d4-a716-446655440002',
         title: 'Circuit breaker installation',
@@ -430,10 +424,9 @@ async function resetDatabase() {
 
     const { error: tasksError } = await supabase.from('tasks').insert(tasksToInsert);
     if (tasksError) throw tasksError;
-    console.log('✓ Tasks inserted\n');
+    console.log('Tasks inserted\n');
 
-    // Insert demo reports
-    console.log('📄 Inserting demo reports...');
+    console.log('Inserting demo reports...');
     const { error: reportsError } = await supabase.from('reports').insert([
       {
         id: '750e8400-e29b-41d4-a716-446655440001',
@@ -441,7 +434,8 @@ async function resetDatabase() {
         status: 'completed',
         photos: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
         form_data: { description: 'Repair completed', parts_used: '3x circuit breaker' },
-        signature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+        signature:
+          'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
         version: 1,
       },
       {
@@ -450,15 +444,15 @@ async function resetDatabase() {
         status: 'completed',
         photos: ['https://example.com/photo3.jpg'],
         form_data: { description: 'Replacement completed', parts_used: '5x cable' },
-        signature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+        signature:
+          'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
         version: 1,
       },
     ]);
     if (reportsError) throw reportsError;
-    console.log('✓ Reports inserted\n');
+    console.log('Reports inserted\n');
 
-    // Insert demo parts
-    console.log('🔧 Inserting demo parts...');
+    console.log('Inserting demo parts...');
     const { error: partsError } = await supabase.from('parts').insert([
       {
         id: '850e8400-e29b-41d4-a716-446655440001',
@@ -507,10 +501,9 @@ async function resetDatabase() {
       },
     ]);
     if (partsError) throw partsError;
-    console.log('✓ Parts inserted\n');
+    console.log('Parts inserted\n');
 
-    // Insert demo locations
-    console.log('📍 Inserting demo locations...');
+    console.log('Inserting demo locations...');
     const locationsToInsert = [
       {
         id: '950e8400-e29b-41d4-a716-446655440001',
@@ -532,12 +525,12 @@ async function resetDatabase() {
 
     const { error: locationsError } = await supabase.from('locations').insert(locationsToInsert);
     if (locationsError) throw locationsError;
-    console.log('✓ Locations inserted\n');
+    console.log('Locations inserted\n');
 
-    console.log('✅ Database reset completed successfully!');
-    console.log('📊 Demo data is now ready for testing.\n');
+    console.log('Database reset completed successfully!');
+    console.log('Demo data is now ready for testing.\n');
   } catch (error) {
-    console.error('❌ Error resetting database:', error);
+    console.error('Error resetting database:', error);
     process.exit(1);
   }
 }

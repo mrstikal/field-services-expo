@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import SwipeableTaskCard from '../swipeable-task-card';
+import SwipeableTaskCard from '@/components/swipeable-task-card';
 import { Task } from '@field-service/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -68,7 +68,11 @@ describe('SwipeableTaskCard', () => {
   it('should render task title and address', () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     expect(getByText('Test Swipeable Task')).toBeDefined();
@@ -78,7 +82,11 @@ describe('SwipeableTaskCard', () => {
   it('should render priority badge', () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     expect(getByText('high')).toBeDefined();
@@ -87,7 +95,11 @@ describe('SwipeableTaskCard', () => {
   it('should render status label', () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     expect(getByText('Assigned')).toBeDefined();
@@ -96,7 +108,11 @@ describe('SwipeableTaskCard', () => {
   it('should render estimated time', () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     expect(getByText('60 min')).toBeDefined();
@@ -105,11 +121,17 @@ describe('SwipeableTaskCard', () => {
   it('should call onPress when card is tapped', () => {
     const onPressMock = vi.fn();
     const { getByLabelText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     fireEvent.press(
-      getByLabelText(`Task: ${mockTask.title}, Priority: ${mockTask.priority}, Status: ${mockTask.status}`)
+      getByLabelText(
+        `Task: ${mockTask.title}, Priority: ${mockTask.priority}, Status: ${mockTask.status}`
+      )
     );
     expect(onPressMock).toHaveBeenCalledWith(mockTask.id);
   });
@@ -117,7 +139,11 @@ describe('SwipeableTaskCard', () => {
   it('should show swipe action hints (Complete / Dismiss)', () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     expect(getByText('Complete')).toBeDefined();
@@ -153,7 +179,11 @@ describe('SwipeableTaskCard', () => {
   it('should call Haptics.notificationAsync with Success on complete swipe action', async () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     // Trigger the Complete action button directly
@@ -170,7 +200,11 @@ describe('SwipeableTaskCard', () => {
   it('should call Haptics.notificationAsync with Error on dismiss swipe action', async () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     // Trigger the Dismiss action button directly
@@ -187,7 +221,11 @@ describe('SwipeableTaskCard', () => {
   it('should invalidate tasks query after complete action', async () => {
     const onPressMock = vi.fn();
     const { getByText } = render(
-      <SwipeableTaskCard item={mockTask} taskId={mockTask.id} onPress={onPressMock} />
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
     );
 
     fireEvent.press(getByText('Complete'));

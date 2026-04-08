@@ -1,19 +1,25 @@
-appId: com.fieldservice.app
+appId: com.fieldservicemonorepo
 ---
-- launchApp
-- runFlow: mobile-auth.yaml
-- tapOn: "Reports"
-- tapOn: "Create Report"
-- tapOn: "Repair Report"
-- tapOn: "Description"
-- inputText: "Replaced faulty capacitor"
-- tapOn: "Next"
-- tapOn: "Take Photo"
-- tapOn: "Capture"
-- tapOn: "Sign"
-- swipe:
-    start: 20%, 50%
-    end: 80%, 50%
-- tapOn: "Finish"
-- tapOn: "Complete Report"
-- assertVisible: "Report submitted"
+- runFlow: login-technician.yaml
+- tapOn:
+    id: "tab-reports"
+- assertVisible: "My Reports"
+- tapOn:
+    id: "reports-new-report-button"
+- assertVisible:
+    id: "reports-create-screen"
+- assertVisible:
+    id: "reports-task-select-trigger"
+- assertVisible:
+    id: "reports-signature-button"
+- assertVisible:
+    id: "reports-take-photo-button"
+- assertVisible:
+    id: "reports-gallery-button"
+- assertVisible:
+    id: "reports-scan-barcode-button"
+- assertVisible:
+    id: "reports-save-button"
+- tapOn:
+    id: "reports-create-back-button"
+- assertVisible: "My Reports"

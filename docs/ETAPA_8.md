@@ -37,11 +37,11 @@ Rozšířené profily s EAS Update routing:
 
 **Profilová rozdíly:**
 
-| Profil | Channel | Auto-increment | Použití |
-|--------|---------|----------------|---------|
-| `development` | `development` | N/A | Lokální vývoj s dev client |
-| `preview` | `preview` | `false` | Interní testování (APK/IPA) |
-| `production` | `production` | `true` | App Store / Play Store |
+| Profil        | Channel       | Auto-increment | Použití                     |
+| ------------- | ------------- | -------------- | --------------------------- |
+| `development` | `development` | N/A            | Lokální vývoj s dev client  |
+| `preview`     | `preview`     | `false`        | Interní testování (APK/IPA) |
+| `production`  | `production`  | `true`         | App Store / Play Store      |
 
 ### 2. OTA Update konfigurace (`apps/mobile/app.json`)
 
@@ -61,6 +61,7 @@ Přidány `updates.url` a `runtimeVersion`:
 ```
 
 **Jak to funguje:**
+
 - `ON_LOAD` – App zkontroluje update při každém spuštění
 - `runtimeVersion.policy: appVersion` – Update se aplikuje jen pro stejnou verzi app
 - `updates.url` – EAS Update endpoint (dynamicky nahrazen v `app.config.ts`)
@@ -74,7 +75,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.EXPO_PUBLIC_ENV || 'development';
-  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'YOUR_EAS_PROJECT_ID';
+  const easProjectId =
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'YOUR_EAS_PROJECT_ID';
 
   return {
     ...config,
@@ -92,11 +94,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 ```
 
 **Výhody:**
+
 - Různé EAS project IDs pro dev/staging/production
 - Čtení env variables (`EXPO_PUBLIC_*`)
 - Dynamické nastavení `updates.url`
 
 **Použití:**
+
 ```bash
 # Development build
 EXPO_PUBLIC_ENV=development \
@@ -143,10 +147,12 @@ jobs:
 ```
 
 **Workflow trigger:**
+
 - `push na main` – automatický OTA update na `production` branch
 - `workflow_dispatch` – manuální spuštění s výběrem branch
 
 **Použití:**
+
 ```bash
 # Manuální spuštění
 gh workflow run ota-update.yml --ref main -f branch=preview
@@ -175,11 +181,11 @@ Deploy Web   EAS Build
 
 **Kdy se co spustí:**
 
-| Event | Web | Mobile Build | OTA Update |
-|-------|-----|--------------|------------|
-| Push to `main` | ✅ Deploy | ✅ Build | ✅ Push |
-| Push to `develop` | ❌ | ✅ Build | ❌ |
-| Manual workflow_dispatch | ❌ | ✅ Build | ✅ Push |
+| Event                    | Web       | Mobile Build | OTA Update |
+| ------------------------ | --------- | ------------ | ---------- |
+| Push to `main`           | ✅ Deploy | ✅ Build     | ✅ Push    |
+| Push to `develop`        | ❌        | ✅ Build     | ❌         |
+| Manual workflow_dispatch | ❌        | ✅ Build     | ✅ Push    |
 
 ---
 
@@ -244,12 +250,12 @@ EXPO_PUBLIC_ENV=production
 
 V GitHub repository settings → Secrets and variables → Actions:
 
-| Secret | Popis | Získat |
-|--------|-------|--------|
-| `EAS_TOKEN` | Expo access token | [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) |
-| `VERCEL_TOKEN` | Vercel API token | [vercel.com/account/tokens](https://vercel.com/account/tokens) |
-| `VERCEL_ORG_ID` | Vercel organization ID | `vercel link` → `.vercel/project.json` |
-| `VERCEL_PROJECT_ID` | Vercel project ID | `vercel link` → `.vercel/project.json` |
+| Secret              | Popis                  | Získat                                                                     |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| `EAS_TOKEN`         | Expo access token      | [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens) |
+| `VERCEL_TOKEN`      | Vercel API token       | [vercel.com/account/tokens](https://vercel.com/account/tokens)             |
+| `VERCEL_ORG_ID`     | Vercel organization ID | `vercel link` → `.vercel/project.json`                                     |
+| `VERCEL_PROJECT_ID` | Vercel project ID      | `vercel link` → `.vercel/project.json`                                     |
 
 ---
 
@@ -277,6 +283,7 @@ Před deployem do production:
 ### 2. OTA Update se nezobrazí v app
 
 **Řešení:**
+
 - Zkontrolujte `updates.url` v `app.json`
 - Ujistěte se, že `runtimeVersion.policy` odpovídá verzi app
 - Zkuste `eas update --branch production --force` (vynutit update)
@@ -298,6 +305,7 @@ Etapa 8 byla úspěšně dokončena s následujícími výsledky:
 - ✅ Kompletní dokumentace
 
 **Výhody:**
+
 - 🚀 Rychlé OTA updates bez App Store review
 - 🔄 Automatický build a deploy přes CI/CD
 - 📱 Production-ready deployment workflow

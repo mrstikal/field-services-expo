@@ -1,6 +1,12 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import MapView from '../map-view';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from '@testing-library/react';
+import MapView from '@components/map-view';
 import { supabase } from '@/lib/supabase';
 
 vi.mock('mapbox-gl/dist/mapbox-gl.css', () => ({}));
@@ -9,20 +15,36 @@ vi.mock('mapbox-gl/dist/mapbox-gl.css', () => ({}));
 vi.mock('react-map-gl/mapbox', () => ({
   __esModule: true,
   default: vi.fn(({ children, onMove, initialViewState }: any) => (
-    <div data-testid="mock-map" data-initial-lat={initialViewState.latitude} data-initial-lng={initialViewState.longitude}>
+    <div
+      data-testid="mock-map"
+      data-initial-lat={initialViewState.latitude}
+      data-initial-lng={initialViewState.longitude}
+    >
       {children}
-      <button data-testid="mock-map-move" onClick={() => onMove({ viewState: { latitude: 1, longitude: 1, zoom: 1 } })} />
+      <button
+        data-testid="mock-map-move"
+        onClick={() =>
+          onMove({ viewState: { latitude: 1, longitude: 1, zoom: 1 } })
+        }
+      />
     </div>
   )),
   Marker: vi.fn(({ children, latitude, longitude, onClick }: any) => (
-    <div data-testid="mock-marker" data-lat={latitude} data-lng={longitude} onClick={onClick}>
+    <div
+      data-testid="mock-marker"
+      data-lat={latitude}
+      data-lng={longitude}
+      onClick={onClick}
+    >
       {children}
     </div>
   )),
   Popup: vi.fn(({ children, latitude, longitude, onClose }: any) => (
     <div data-testid="mock-popup" data-lat={latitude} data-lng={longitude}>
       {children}
-      <button data-testid="mock-popup-close" onClick={onClose}>Close</button>
+      <button data-testid="mock-popup-close" onClick={onClose}>
+        Close
+      </button>
     </div>
   )),
   NavigationControl: vi.fn(() => <div data-testid="mock-navigation-control" />),
@@ -36,9 +58,13 @@ vi.mock('@/lib/supabase', () => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
           in: vi.fn(() => Promise.resolve({ data: [], error: null })),
-          then: vi.fn((cb: any) => Promise.resolve({ data: [], error: null }).then(cb)),
+          then: vi.fn((cb: any) =>
+            Promise.resolve({ data: [], error: null }).then(cb)
+          ),
         })),
-        then: vi.fn((cb: any) => Promise.resolve({ data: [], error: null }).then(cb)),
+        then: vi.fn((cb: any) =>
+          Promise.resolve({ data: [], error: null }).then(cb)
+        ),
       })),
     })),
     channel: vi.fn(() => ({
@@ -71,7 +97,14 @@ describe('MapView', () => {
   ];
 
   const mockTasks = [
-    { id: 'task1', title: 'Task One', latitude: 49.75, longitude: 15.47, status: 'assigned', technician_id: 'tech1' },
+    {
+      id: 'task1',
+      title: 'Task One',
+      latitude: 49.75,
+      longitude: 15.47,
+      status: 'assigned',
+      technician_id: 'tech1',
+    },
   ];
 
   beforeEach(() => {
@@ -80,7 +113,9 @@ describe('MapView', () => {
       if (tableName === 'users') {
         return {
           select: vi.fn(() => ({
-            eq: vi.fn(() => Promise.resolve({ data: mockTechnicians, error: null })),
+            eq: vi.fn(() =>
+              Promise.resolve({ data: mockTechnicians, error: null })
+            ),
           })),
         };
       } else if (tableName === 'tasks') {

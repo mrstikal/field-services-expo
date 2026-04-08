@@ -17,7 +17,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -59,7 +62,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             <Ionicons color="#ef4444" name="alert-circle-outline" size={64} />
           </View>
 
-          <Text className="mb-2 text-2xl font-bold text-gray-800">Something went wrong</Text>
+          <Text className="mb-2 text-2xl font-bold text-gray-800">
+            Something went wrong
+          </Text>
           <Text className="mb-4 text-center text-base text-gray-500">
             We apologize, but an unexpected error occurred.
           </Text>
@@ -69,7 +74,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-600">
                 Error details
               </Text>
-              <Text className="font-mono text-xs text-red-700">{this.state.error.message}</Text>
+              <Text className="font-mono text-xs text-red-700">
+                {this.state.error.message}
+              </Text>
             </View>
           ) : null}
 
@@ -81,7 +88,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               >
                 <View className="flex-row items-center gap-2">
                   <Ionicons color="#ffffff" name="refresh-outline" size={18} />
-                  <Text className="text-base font-semibold text-white">Try again</Text>
+                  <Text className="text-base font-semibold text-white">
+                    Try again
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -95,7 +104,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
             >
               <View className="flex-row items-center gap-2">
                 <Ionicons color="#374151" name="home-outline" size={18} />
-                <Text className="text-base font-semibold text-gray-700">Back to home</Text>
+                <Text className="text-base font-semibold text-gray-700">
+                  Back to home
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -108,7 +119,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 }
 
 // Error boundary for camera operations (fallback to gallery)
-export class CameraErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+export class CameraErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -127,11 +141,16 @@ export class CameraErrorBoundary extends React.Component<{ children: React.React
       return (
         <View className="flex-1 items-center justify-center bg-slate-50 p-6">
           <Ionicons color="#f59e0b" name="image-outline" size={64} />
-          <Text className="mt-4 text-lg font-semibold text-gray-800">Camera unavailable</Text>
-          <Text className="mt-2 text-center text-gray-500">
-            Could not access camera. Please check permissions or use gallery instead.
+          <Text className="mt-4 text-lg font-semibold text-gray-800">
+            Camera unavailable
           </Text>
-          <Text className="mt-4 text-sm text-gray-400">{this.state.error?.message}</Text>
+          <Text className="mt-2 text-center text-gray-500">
+            Could not access camera. Please check permissions or use gallery
+            instead.
+          </Text>
+          <Text className="mt-4 text-sm text-gray-400">
+            {this.state.error?.message}
+          </Text>
         </View>
       );
     }
@@ -141,7 +160,10 @@ export class CameraErrorBoundary extends React.Component<{ children: React.React
 }
 
 // Error boundary for location operations
-export class LocationErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+export class LocationErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -160,11 +182,15 @@ export class LocationErrorBoundary extends React.Component<{ children: React.Rea
       return (
         <View className="flex-1 items-center justify-center bg-slate-50 p-6">
           <Ionicons color="#3b82f6" name="location-outline" size={64} />
-          <Text className="mt-4 text-lg font-semibold text-gray-800">Location unavailable</Text>
+          <Text className="mt-4 text-lg font-semibold text-gray-800">
+            Location unavailable
+          </Text>
           <Text className="mt-2 text-center text-gray-500">
             Could not access location services. Some features may be limited.
           </Text>
-          <Text className="mt-4 text-sm text-gray-400">{this.state.error?.message}</Text>
+          <Text className="mt-4 text-sm text-gray-400">
+            {this.state.error?.message}
+          </Text>
         </View>
       );
     }
@@ -174,7 +200,10 @@ export class LocationErrorBoundary extends React.Component<{ children: React.Rea
 }
 
 // Error boundary for file system operations
-export class FileSystemErrorBoundary extends React.Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+export class FileSystemErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -193,11 +222,15 @@ export class FileSystemErrorBoundary extends React.Component<{ children: React.R
       return (
         <View className="flex-1 items-center justify-center bg-slate-50 p-6">
           <Ionicons color="#10b981" name="document-outline" size={64} />
-          <Text className="mt-4 text-lg font-semibold text-gray-800">Storage unavailable</Text>
+          <Text className="mt-4 text-lg font-semibold text-gray-800">
+            Storage unavailable
+          </Text>
           <Text className="mt-2 text-center text-gray-500">
             Could not access storage. Please check permissions.
           </Text>
-          <Text className="mt-4 text-sm text-gray-400">{this.state.error?.message}</Text>
+          <Text className="mt-4 text-sm text-gray-400">
+            {this.state.error?.message}
+          </Text>
         </View>
       );
     }

@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { initDatabase, closeDatabase } from './local-database';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
+import { initDatabase } from './local-database';
 import { SQLiteDatabase, SQLiteRunResult } from 'expo-sqlite';
 
 interface DatabaseContextType {
@@ -8,9 +14,15 @@ interface DatabaseContextType {
   error: Error | null;
 }
 
-const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
+const DatabaseContext = createContext<DatabaseContextType | undefined>(
+  undefined
+);
 
-export function DatabaseProvider({ children }: { readonly children: ReactNode }) {
+export function DatabaseProvider({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   const [db, setDb] = useState<SQLiteDatabase | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -40,14 +52,6 @@ export function DatabaseProvider({ children }: { readonly children: ReactNode })
       isMounted = false;
     };
   }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      closeDatabase();
-    };
-  }, []);
-
   return (
     <DatabaseContext.Provider value={{ db, isInitialized, error }}>
       {children}
@@ -85,11 +89,11 @@ export function useDatabaseQuery<T>(
     setIsLoading(true);
 
     db.getAllAsync<T>(query, params)
-      .then((result) => {
+      .then(result => {
         setData(result);
         setIsLoading(false);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error('Database query error:', err);
         setIsLoading(false);
       });
@@ -98,7 +102,7 @@ export function useDatabaseQuery<T>(
   return { data, isLoading, error: initError };
 }
 
-  // Helper hook for database mutations
+// Helper hook for database mutations
 export function useDatabaseMutation() {
   const { db, isInitialized, error: initError } = useDatabase();
 

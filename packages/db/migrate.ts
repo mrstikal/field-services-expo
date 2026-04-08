@@ -110,11 +110,11 @@ async function main() {
   `);
   console.log('✓ sync_queue table created');
 
-   console.log('All tables created successfully!');
-   await getClient().end();
+  console.log('All tables created successfully!');
+  await getClient().end();
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error('Error creating tables:', err);
   process.exit(1);
 });

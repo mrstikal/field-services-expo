@@ -1,50 +1,109 @@
-import { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  taskCreateInputSchema,
+  taskStatusSchema,
+  type TaskListResponse,
+} from '@field-service/shared-types';
+import { requireRequestUser } from '@/lib/server-supabase';
+import { getAppUserProfile, isDispatcher } from '@/lib/server-auth';
+import { logApiError } from '@/lib/api-errors';
 
-async function getSupabaseClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
+const DEFAULT_PAGE = 1;
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
+
+function parsePositiveInt(value: string | null, fallback: number) {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function isMissingDeletedAtColumnError(
+  error: { code?: string; message?: string } | null
+) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === '42703' ||
+    (error.code === 'PGRST204' && error.message?.includes('deleted_at')) ===
+      true
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-    const { data: tasks, error } = await supabase
-      .from('tasks')
-      .select('*');
-
-    if (error) {
-      console.error('Error fetching tasks:', error);
-      return Response.json({ error: error.message }, { status: 500 });
+    const { supabase, user, error } = await requireRequestUser(request);
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return Response.json(tasks, { status: 200 });
+    const page = parsePositiveInt(
+      request.nextUrl.searchParams.get('page'),
+      DEFAULT_PAGE
+    );
+    const pageSize = Math.min(
+      parsePositiveInt(
+        request.nextUrl.searchParams.get('pageSize'),
+        DEFAULT_PAGE_SIZE
+      ),
+      MAX_PAGE_SIZE
+    );
+    const statusParam = request.nextUrl.searchParams.get('status');
+    const parsedStatus = statusParam
+      ? taskStatusSchema.safeParse(statusParam)
+      : null;
+
+    if (statusParam && !parsedStatus?.success) {
+      return NextResponse.json(
+        { error: 'Invalid task status filter.' },
+        { status: 400 }
+      );
+    }
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const buildQuery = (withDeletedAtFilter: boolean) => {
+      let query = supabase
+        .from('tasks')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (withDeletedAtFilter) {
+        query = query.is('deleted_at', null);
+      }
+
+      if (parsedStatus?.success) {
+        query = query.eq('status', parsedStatus.data);
+      }
+
+      return query;
+    };
+
+    let { data, count, error: tasksError } = await buildQuery(true);
+    if (isMissingDeletedAtColumnError(tasksError)) {
+      ({ data, count, error: tasksError } = await buildQuery(false));
+    }
+
+    if (tasksError) {
+      throw tasksError;
+    }
+
+    const response: TaskListResponse = {
+      data: (data ?? []) as TaskListResponse['data'],
+      totalCount: count ?? 0,
+      page,
+      pageSize,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Unexpected error fetching tasks:', error);
-    return Response.json(
-      { error: 'An unexpected error occurred while fetching tasks' },
+    logApiError('tasks:list', error);
+    return NextResponse.json(
+      { error: 'Unable to load tasks.' },
       { status: 500 }
     );
   }
@@ -52,35 +111,64 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseClient();
-    
-    const data = await request.json();
-    
-    // Validate required fields
-    if (!data.title || !data.description || !data.address) {
-      return Response.json(
-        { error: 'Title, description, and address are required' }, 
+    const { supabase, user, error } = await requireRequestUser(request);
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const profile = await getAppUserProfile(supabase, user);
+    if (!isDispatcher(profile)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const parsedBody = taskCreateInputSchema.safeParse(await request.json());
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid task payload.', details: parsedBody.error.flatten() },
         { status: 400 }
       );
     }
 
-    const { data: task, error } = await supabase
-      .from('tasks')
-      .insert([data])
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Error creating task:', error);
-      return Response.json({ error: error.message }, { status: 400 });
+    const now = new Date().toISOString();
+    const insertPayload = {
+      ...parsedBody.data,
+      created_at: now,
+      updated_at: now,
+      version: 1,
+      deleted_at: null,
+    };
+
+    const buildInsertQuery = (withDeletedAtField: boolean) =>
+      supabase
+        .from('tasks')
+        .insert([
+          withDeletedAtField
+            ? insertPayload
+            : {
+                ...parsedBody.data,
+                created_at: now,
+                updated_at: now,
+                version: 1,
+              },
+        ])
+        .select('*')
+        .single();
+
+    let { data, error: insertError } = await buildInsertQuery(true);
+    if (isMissingDeletedAtColumnError(insertError)) {
+      ({ data, error: insertError } = await buildInsertQuery(false));
     }
-    
-    return Response.json(task, { status: 201 });
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error('Unexpected error creating task:', error);
-    return Response.json(
-      { error: 'An unexpected error occurred while creating the task' }, 
-      { status: 500 }
+    logApiError('tasks:create', error);
+    return NextResponse.json(
+      { error: 'Unable to create task.' },
+      { status: 400 }
     );
   }
 }

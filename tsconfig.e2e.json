@@ -13,6 +13,7 @@
   "include": [
     "playwright.config.ts",
     "e2e/playwright/**/*.ts",
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "scripts/**/*.mjs"
   ]
 }

@@ -1,6 +1,12 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { SkeletonTable, SkeletonCard, SkeletonList, SkeletonStats, SkeletonForm } from '../skeleton-table';
+import {
+  SkeletonTable,
+  SkeletonCard,
+  SkeletonList,
+  SkeletonStats,
+  SkeletonForm,
+} from '@components/skeleton-table';
 
 describe('SkeletonTable', () => {
   it('should render without crashing', () => {

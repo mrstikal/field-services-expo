@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import MapGL, { Marker, Popup, NavigationControl, GeolocateControl, MapRef } from 'react-map-gl/mapbox';
+import MapGL, {
+  Marker,
+  Popup,
+  NavigationControl,
+  GeolocateControl,
+  MapRef,
+} from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/lib/supabase';
-
 
 interface Technician {
   id: string;
@@ -37,11 +42,13 @@ interface ClusterPoint {
   technicians: Technician[];
 }
 
- 
 export default function MapView({ height }: MapViewProps) {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [selectedTechnician, setSelectedTechnician] = useState<Technician | null>(null);
-  const [technicianTaskCounts, setTechnicianTaskCounts] = useState<Record<string, number>>({});
+  const [selectedTechnician, setSelectedTechnician] =
+    useState<Technician | null>(null);
+  const [technicianTaskCounts, setTechnicianTaskCounts] = useState<
+    Record<string, number>
+  >({});
   const [taskGeofences, setTaskGeofences] = useState<TaskGeofence[]>([]);
   const [viewport, setViewport] = useState({
     latitude: 49.75,
@@ -98,10 +105,7 @@ export default function MapView({ height }: MapViewProps) {
     const loadTechnicians = async () => {
       try {
         const [usersResult, tasksResult] = await Promise.all([
-          supabase
-            .from('users')
-            .select('*')
-            .eq('role', 'technician'),
+          supabase.from('users').select('*').eq('role', 'technician'),
           supabase
             .from('tasks')
             .select('id, title, latitude, longitude, status, technician_id')
@@ -111,7 +115,9 @@ export default function MapView({ height }: MapViewProps) {
         const { data, error } = usersResult;
         if (error) {
           if (error.message === 'Invalid API key') {
-            console.error('Supabase API key is invalid. Please check NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.');
+            console.error(
+              'Supabase API key is invalid. Please check NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.'
+            );
           } else {
             console.error('Error loading technicians:', error);
           }
@@ -124,17 +130,25 @@ export default function MapView({ height }: MapViewProps) {
         }
 
         if (tasksResult.data) {
-          const counts = tasksResult.data.reduce<Record<string, number>>((acc, task) => {
-            const technicianId = typeof task.technician_id === 'string' ? task.technician_id : null;
-            if (technicianId) {
-              acc[technicianId] = (acc[technicianId] || 0) + 1;
-            }
-            return acc;
-          }, {});
+          const counts = tasksResult.data.reduce<Record<string, number>>(
+            (acc, task) => {
+              const technicianId =
+                typeof task.technician_id === 'string'
+                  ? task.technician_id
+                  : null;
+              if (technicianId) {
+                acc[technicianId] = (acc[technicianId] || 0) + 1;
+              }
+              return acc;
+            },
+            {}
+          );
           setTechnicianTaskCounts(counts);
 
-          const geofences = tasksResult.data.filter(task =>
-            typeof task.latitude === 'number' && typeof task.longitude === 'number'
+          const geofences = tasksResult.data.filter(
+            task =>
+              typeof task.latitude === 'number' &&
+              typeof task.longitude === 'number'
           ) as TaskGeofence[];
           setTaskGeofences(geofences);
         }
@@ -158,9 +172,9 @@ export default function MapView({ height }: MapViewProps) {
           event: 'UPDATE',
           schema: 'public',
           table: 'users',
-          filter: "role=eq=technician",
+          filter: 'role=eq=technician',
         },
-        (payload) => {
+        payload => {
           setTechnicians(prev =>
             prev.map(tech =>
               tech.id === payload.new.id ? (payload.new as Technician) : tech
@@ -225,23 +239,32 @@ export default function MapView({ height }: MapViewProps) {
 
   if (!isMapReady) {
     return (
-      <div className="relative flex items-center justify-center bg-gray-100" style={{ height: height || '400px' }}>
+      <div
+        className="relative flex items-center justify-center bg-gray-100"
+        style={{ height: height || '400px' }}
+      >
         <div className="text-gray-500">Loading map...</div>
       </div>
     );
   }
 
-
   if (viewport.latitude === 0 && viewport.longitude === 0) {
     return (
-      <div className="flex items-center justify-center bg-gray-100 rounded-lg" style={{ height: height || '400px' }}>
+      <div
+        className="flex items-center justify-center bg-gray-100 rounded-lg"
+        style={{ height: height || '400px' }}
+      >
         <div className="text-gray-500">Initializing map...</div>
       </div>
     );
   }
 
   return (
-    <div className="relative" style={{ height: height || '400px' }} suppressHydrationWarning>
+    <div
+      className="relative"
+      style={{ height: height || '400px' }}
+      suppressHydrationWarning
+    >
       {isMounted && isMapReady ? (
         <MapGL
           ref={mapRef}
@@ -252,88 +275,103 @@ export default function MapView({ height }: MapViewProps) {
           mapStyle="mapbox://styles/mapbox/streets-v12"
           style={styles.mapContainer}
         >
-        {/* Navigation controls */}
-        <div className="absolute top-4 right-4 z-10">
-          <NavigationControl position="top-right" />
-        </div>
+          {/* Navigation controls */}
+          <div className="absolute top-4 right-4 z-10">
+            <NavigationControl position="top-right" />
+          </div>
 
-        {/* Geolocate control */}
-        <div className="absolute top-40 right-4 z-10">
-          <GeolocateControl position="top-right" />
-        </div>
+          {/* Geolocate control */}
+          <div className="absolute top-40 right-4 z-10">
+            <GeolocateControl position="top-right" />
+          </div>
 
-        {/* Geofence zones for active tasks */}
-        {taskGeofences.map(task => (
-          <Marker
-            anchor="center"
-            key={`geofence-${task.id}`}
-            latitude={task.latitude}
-            longitude={task.longitude}
-          >
-            <div style={styles.geofenceCircle} title={`Geofence: ${task.title}`} />
-          </Marker>
-        ))}
-
-        {/* Technicians markers (clustered by zoom level) */}
-        {clusteredPoints.map(cluster => {
-          const isCluster = cluster.technicians.length > 1;
-          const representative = cluster.technicians[0];
-
-          return (
+          {/* Geofence zones for active tasks */}
+          {taskGeofences.map(task => (
             <Marker
-              anchor="bottom"
-              key={cluster.id}
-              latitude={cluster.latitude}
-              longitude={cluster.longitude}
-              onClick={() => handleClusterClick(cluster)}
+              anchor="center"
+              key={`geofence-${task.id}`}
+              latitude={task.latitude}
+              longitude={task.longitude}
             >
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-110 ${
-                  isCluster
-                    ? 'bg-blue-600'
-                    : representative.is_online
-                      ? 'bg-green-500'
-                      : 'bg-gray-400'
-                }`}
-                style={styles.markerShadow}
-              >
-                <span className="text-white text-xs font-bold">
-                  {isCluster ? cluster.technicians.length : representative.name.charAt(0)}
-                </span>
-              </div>
+                style={styles.geofenceCircle}
+                title={`Geofence: ${task.title}`}
+              />
             </Marker>
-          );
-        })}
+          ))}
 
-        {/* Popup for selected technician */}
-        {selectedTechnician ? <Popup
-            anchor="top"
-            className="map-popup"
-            closeButton
-            closeOnClick={false}
-            latitude={selectedTechnician.last_location?.latitude || 0}
-            longitude={selectedTechnician.last_location?.longitude || 0}
-            onClose={closePopup}
-            maxWidth="300px"
-          >
-            <div className="p-2">
-              <h3 className="font-bold text-gray-900">{selectedTechnician.name}</h3>
-              <p className="text-sm text-gray-600">{selectedTechnician.email}</p>
-              <div className="flex items-center gap-2 mt-2">
+          {/* Technicians markers (clustered by zoom level) */}
+          {clusteredPoints.map(cluster => {
+            const isCluster = cluster.technicians.length > 1;
+            const representative = cluster.technicians[0];
+
+            return (
+              <Marker
+                anchor="bottom"
+                key={cluster.id}
+                latitude={cluster.latitude}
+                longitude={cluster.longitude}
+                onClick={() => handleClusterClick(cluster)}
+              >
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    selectedTechnician.is_online ? 'bg-green-500' : 'bg-gray-400'
+                  className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-110 ${
+                    isCluster
+                      ? 'bg-blue-600'
+                      : representative.is_online
+                        ? 'bg-green-500'
+                        : 'bg-gray-400'
                   }`}
-                />
-                <span className="text-xs text-gray-600">
-                  {selectedTechnician.is_online ? 'Online' : 'Offline'} - {formatLastSeen(selectedTechnician.created_at)}
-                </span>
+                  style={styles.markerShadow}
+                >
+                  <span className="text-white text-xs font-bold">
+                    {isCluster
+                      ? cluster.technicians.length
+                      : representative.name.charAt(0)}
+                  </span>
+                </div>
+              </Marker>
+            );
+          })}
+
+          {/* Popup for selected technician */}
+          {selectedTechnician ? (
+            <Popup
+              anchor="top"
+              className="map-popup"
+              closeButton
+              closeOnClick={false}
+              latitude={selectedTechnician.last_location?.latitude || 0}
+              longitude={selectedTechnician.last_location?.longitude || 0}
+              onClose={closePopup}
+              maxWidth="300px"
+            >
+              <div className="p-2">
+                <h3 className="font-bold text-gray-900">
+                  {selectedTechnician.name}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {selectedTechnician.email}
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      selectedTechnician.is_online
+                        ? 'bg-green-500'
+                        : 'bg-gray-400'
+                    }`}
+                  />
+                  <span className="text-xs text-gray-600">
+                    {selectedTechnician.is_online ? 'Online' : 'Offline'} -{' '}
+                    {formatLastSeen(selectedTechnician.created_at)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  Active tasks:{' '}
+                  {technicianTaskCounts[selectedTechnician.id] || 0}
+                </p>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
-                Active tasks: {technicianTaskCounts[selectedTechnician.id] || 0}
-              </p>
-            </div>
-          </Popup> : null}
+            </Popup>
+          ) : null}
         </MapGL>
       ) : null}
     </div>

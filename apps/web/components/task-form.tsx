@@ -3,24 +3,32 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabase';
-import { useQuery } from '@tanstack/react-query';
-import { Task, TaskCategory, TaskPriority, TaskStatus } from '@field-service/shared-types';
+import type {
+  Task,
+  TaskCategory,
+  TaskCreateInput,
+  TaskPriority,
+  TaskStatus,
+} from '@field-service/shared-types';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
-const formatDateTimeLocal = (value?: string) => {
+const UNASSIGNED = '__unassigned__';
+
+const formatDateTimeLocal = (value?: string | null) => {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return '';
 
@@ -28,36 +36,46 @@ const formatDateTimeLocal = (value?: string) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-const dueDateSchema = z
-  .string()
-  .min(1, 'Due date is required')
-  .refine((value) => !Number.isNaN(new Date(value).getTime()), 'Invalid due date')
-  .transform((value) => new Date(value).toISOString());
-
-// Define Zod schema for task
-const taskSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(255),
-  description: z.string().min(1, 'Description is required'),
-  address: z.string().min(1, 'Address is required'),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
+const taskFormSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200),
+  description: z.string().min(1, 'Description is required').max(5000),
+  address: z.string().min(1, 'Address is required').max(500),
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
   status: z.enum(['assigned', 'in_progress', 'completed'] as const),
   priority: z.enum(['low', 'medium', 'high', 'urgent'] as const),
-  category: z.enum(['repair', 'installation', 'maintenance', 'inspection'] as const),
-  due_date: dueDateSchema,
-  customer_name: z.string().min(1, 'Customer name is required'),
-  customer_phone: z.string().min(1, 'Customer phone is required'),
-  estimated_time: z.number().min(1, 'Estimated time must be greater than 0'),
-  technician_id: z.string().optional(),
+  category: z.enum([
+    'repair',
+    'installation',
+    'maintenance',
+    'inspection',
+  ] as const),
+  due_date: z
+    .string()
+    .min(1, 'Due date is required')
+    .transform(value => new Date(value).toISOString()),
+  customer_name: z.string().min(1, 'Customer name is required').max(200),
+  customer_phone: z.string().min(1, 'Customer phone is required').max(50),
+  estimated_time: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60),
+  technician_id: z.string(),
 });
 
-type TaskFormValues = z.infer<typeof taskSchema>;
+type TaskFormValues = z.infer<typeof taskFormSchema>;
+
+interface TechnicianOption {
+  id: string;
+  name: string;
+  email: string;
+}
 
 interface TaskFormProps {
   readonly task?: Task;
-  readonly onSubmit: (data: TaskFormValues) => Promise<void>;
+  readonly onSubmit: (data: TaskCreateInput) => Promise<void>;
   readonly onCancel: () => void;
-  readonly technicians?: Array<{ id: string; name: string; email: string }>;
   readonly loading?: boolean;
 }
 
@@ -65,11 +83,22 @@ export default function TaskForm({
   task,
   onSubmit,
   onCancel,
-  technicians,
-  loading = false
+  loading = false,
 }: TaskFormProps) {
-  const [techs, setTechs] = useState<Array<{ id: string; name: string; email: string }>>([]);
-  
+  const { data: fetchedTechnicians = [] } = useQuery({
+    queryKey: ['technician-options'],
+    queryFn: async () => {
+      const response = await authenticatedFetch('/api/technicians', {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error('Unable to load technicians.');
+      }
+      return (await response.json()) as TechnicianOption[];
+    },
+  });
+  const technicians = fetchedTechnicians;
+
   const {
     register,
     handleSubmit,
@@ -78,91 +107,53 @@ export default function TaskForm({
     setValue,
     reset,
   } = useForm<TaskFormValues>({
-    resolver: zodResolver(taskSchema),
+    resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: task?.title || '',
-      description: task?.description || '',
-      address: task?.address || '',
-      latitude: task?.latitude || 0,
-      longitude: task?.longitude || 0,
-      status: task?.status || 'assigned',
-      priority: task?.priority || 'medium',
-      category: task?.category || 'repair',
+      title: task?.title ?? '',
+      description: task?.description ?? '',
+      address: task?.address ?? '',
+      latitude: task?.latitude ?? null,
+      longitude: task?.longitude ?? null,
+      status: task?.status ?? 'assigned',
+      priority: task?.priority ?? 'medium',
+      category: task?.category ?? 'repair',
       due_date: formatDateTimeLocal(task?.due_date),
-      customer_name: task?.customer_name || '',
-      customer_phone: task?.customer_phone || '',
-      estimated_time: task?.estimated_time || 60,
-      technician_id: task?.technician_id || undefined,
+      customer_name: task?.customer_name ?? '',
+      customer_phone: task?.customer_phone ?? '',
+      estimated_time: task?.estimated_time ?? 60,
+      technician_id: task?.technician_id ?? UNASSIGNED,
     },
   });
 
-  // Use useWatch to track values
-  const watchedPriority = useWatch({
-    control,
-    name: 'priority',
-  });
-  
-  const watchedStatus = useWatch({
-    control,
-    name: 'status',
-  });
-  
-  const watchedCategory = useWatch({
-    control,
-    name: 'category',
-  });
-  
-  const watchedTechnicianId = useWatch({
-    control,
-    name: 'technician_id',
-  });
-
-  // If we don't have technicians passed as props, fetch them
-  const { data: fetchedTechnicians } = useQuery({
-    queryKey: ['technicians'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('role', 'technician');
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !technicians,
-  });
-
   useEffect(() => {
-    if (technicians) {
-      setTechs(technicians);
-    } else if (fetchedTechnicians) {
-      setTechs(fetchedTechnicians);
-    }
-  }, [technicians, fetchedTechnicians]);
-
-  // Reset form when task changes
-  useEffect(() => {
-    if (task) {
-      reset({
-        title: task.title || '',
-        description: task.description || '',
-        address: task.address || '',
-        latitude: task.latitude || 0,
-        longitude: task.longitude || 0,
-        status: task.status || 'assigned',
-        priority: task.priority || 'medium',
-        category: task.category || 'repair',
-        due_date: formatDateTimeLocal(task.due_date),
-        customer_name: task.customer_name || '',
-        customer_phone: task.customer_phone || '',
-        estimated_time: task.estimated_time || 60,
-        technician_id: task.technician_id || undefined,
-      });
-    }
+    reset({
+      title: task?.title ?? '',
+      description: task?.description ?? '',
+      address: task?.address ?? '',
+      latitude: task?.latitude ?? null,
+      longitude: task?.longitude ?? null,
+      status: task?.status ?? 'assigned',
+      priority: task?.priority ?? 'medium',
+      category: task?.category ?? 'repair',
+      due_date: formatDateTimeLocal(task?.due_date),
+      customer_name: task?.customer_name ?? '',
+      customer_phone: task?.customer_phone ?? '',
+      estimated_time: task?.estimated_time ?? 60,
+      technician_id: task?.technician_id ?? UNASSIGNED,
+    });
   }, [task, reset]);
 
-  const onSubmitForm = (data: TaskFormValues) => {
-    onSubmit(data);
+  const watchedPriority = useWatch({ control, name: 'priority' });
+  const watchedStatus = useWatch({ control, name: 'status' });
+  const watchedCategory = useWatch({ control, name: 'category' });
+  const watchedTechnicianId = useWatch({ control, name: 'technician_id' });
+
+  const submitForm = async (values: TaskFormValues) => {
+    await onSubmit({
+      ...values,
+      technician_id:
+        values.technician_id === UNASSIGNED ? null : values.technician_id,
+    });
   };
 
   return (
@@ -171,22 +162,26 @@ export default function TaskForm({
         <CardTitle>{task ? 'Edit Task' : 'Create New Task'}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmitForm)}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form className="space-y-4" onSubmit={handleSubmit(submitForm)}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="title">Task Title *</Label>
               <Input
                 id="title"
-                {...register('title')}
                 placeholder="Enter task title"
+                {...register('title')}
               />
-              {errors.title ? <p className="text-sm text-red-600">{errors.title.message}</p> : null}
+              {errors.title ? (
+                <p className="text-sm text-red-600">{errors.title.message}</p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="priority">Priority *</Label>
               <Select
-                onValueChange={(value) => setValue('priority', value as TaskPriority)}
+                onValueChange={value =>
+                  setValue('priority', value as TaskPriority)
+                }
                 value={watchedPriority}
               >
                 <SelectTrigger>
@@ -199,13 +194,12 @@ export default function TaskForm({
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.priority ? <p className="text-sm text-red-600">{errors.priority.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
               <Select
-                onValueChange={(value) => setValue('status', value as TaskStatus)}
+                onValueChange={value => setValue('status', value as TaskStatus)}
                 value={watchedStatus}
               >
                 <SelectTrigger>
@@ -217,13 +211,14 @@ export default function TaskForm({
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.status ? <p className="text-sm text-red-600">{errors.status.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
               <Select
-                onValueChange={(value) => setValue('category', value as TaskCategory)}
+                onValueChange={value =>
+                  setValue('category', value as TaskCategory)
+                }
                 value={watchedCategory}
               >
                 <SelectTrigger>
@@ -236,38 +231,34 @@ export default function TaskForm({
                   <SelectItem value="inspection">Inspection</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.category ? <p className="text-sm text-red-600">{errors.category.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="customer_name">Customer Name *</Label>
               <Input
                 id="customer_name"
-                {...register('customer_name')}
                 placeholder="Customer name"
+                {...register('customer_name')}
               />
-              {errors.customer_name ? <p className="text-sm text-red-600">{errors.customer_name.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="customer_phone">Customer Phone *</Label>
               <Input
                 id="customer_phone"
-                {...register('customer_phone')}
                 placeholder="+420 XXX XXX XXX"
+                {...register('customer_phone')}
               />
-              {errors.customer_phone ? <p className="text-sm text-red-600">{errors.customer_phone.message}</p> : null}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="estimated_time">Estimated Time (minutes) *</Label>
               <Input
                 id="estimated_time"
+                placeholder="Time in minutes"
                 type="number"
                 {...register('estimated_time', { valueAsNumber: true })}
-                placeholder="Time in minutes"
               />
-              {errors.estimated_time ? <p className="text-sm text-red-600">{errors.estimated_time.message}</p> : null}
             </div>
 
             <div className="space-y-2">
@@ -277,41 +268,63 @@ export default function TaskForm({
                 type="datetime-local"
                 {...register('due_date')}
               />
-              {errors.due_date ? <p className="text-sm text-red-600">{errors.due_date.message}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="address">Address *</Label>
               <Input
                 id="address"
-                {...register('address')}
                 placeholder="Address where the work will take place"
+                {...register('address')}
               />
-              {errors.address ? <p className="text-sm text-red-600">{errors.address.message}</p> : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="latitude">Latitude</Label>
+              <Input
+                id="latitude"
+                type="number"
+                step="any"
+                {...register('latitude', {
+                  setValueAs: value => (value === '' ? null : Number(value)),
+                })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="longitude">Longitude</Label>
+              <Input
+                id="longitude"
+                type="number"
+                step="any"
+                {...register('longitude', {
+                  setValueAs: value => (value === '' ? null : Number(value)),
+                })}
+              />
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Work Description *</Label>
               <Textarea
                 id="description"
-                {...register('description')}
                 placeholder="Detailed description of the work to be performed..."
                 rows={4}
+                {...register('description')}
               />
-              {errors.description ? <p className="text-sm text-red-600">{errors.description.message}</p> : null}
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="technician_id">Assign to Technician</Label>
               <Select
-                onValueChange={(value) => setValue('technician_id', value)}
-                value={watchedTechnicianId || ''}
+                onValueChange={value => setValue('technician_id', value)}
+                value={watchedTechnicianId}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select technician" />
                 </SelectTrigger>
                 <SelectContent>
-                  {techs.map((tech) => (
+                  <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                  {technicians.map(tech => (
                     <SelectItem key={tech.id} value={tech.id}>
                       {tech.name} ({tech.email})
                     </SelectItem>

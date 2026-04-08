@@ -1,6 +1,11 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ErrorBoundary, MapErrorBoundary, FormErrorBoundary, TableErrorBoundary } from '../error-boundary';
+import {
+  ErrorBoundary,
+  MapErrorBoundary,
+  FormErrorBoundary,
+  TableErrorBoundary,
+} from '@components/error-boundary';
 
 // Component that throws an error for testing
 const ThrowingComponent = ({ shouldThrow }: { shouldThrow: boolean }) => {
@@ -107,7 +112,9 @@ describe('MapErrorBoundary', () => {
         <ThrowingComponent shouldThrow={true} />
       </MapErrorBoundary>
     );
-    expect(screen.getByText('Map is temporarily unavailable')).toBeInTheDocument();
+    expect(
+      screen.getByText('Map is temporarily unavailable')
+    ).toBeInTheDocument();
   });
 });
 

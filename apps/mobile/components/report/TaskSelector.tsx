@@ -11,7 +11,10 @@ interface TaskSelectorProps {
   readonly onSelectTask: (task: Task) => void;
 }
 
-export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) {
+export function TaskSelector({
+  selectedTask,
+  onSelectTask,
+}: TaskSelectorProps) {
   const { user } = useAuth();
 
   const { data: tasks = [] } = useQuery({
@@ -45,11 +48,15 @@ export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) 
         return (userTasks || []) as Task[];
       }
 
-       // Get task IDs that already have reports
-       const taskIdsWithReports = new Set(existingReports?.map((r: { task_id: string }) => r.task_id) || []);
+      // Get task IDs that already have reports
+      const taskIdsWithReports = new Set(
+        existingReports?.map((r: { task_id: string }) => r.task_id) || []
+      );
 
       // Return only tasks that don't have a report yet
-      return (userTasks || []).filter((task) => !taskIdsWithReports.has(task.id)) as Task[];
+      return (userTasks || []).filter(
+        task => !taskIdsWithReports.has(task.id)
+      ) as Task[];
     },
     enabled: !!user?.id,
   });
@@ -58,58 +65,71 @@ export function TaskSelector({ selectedTask, onSelectTask }: TaskSelectorProps) 
     onSelectTask(task);
   };
 
-   const pickerItems = tasks.map((task) => ({
-     label: `${task.title} - ${task.address}`,
-     value: task.id,
-     key: task.id,
-     text: `${task.title}\nDue: ${new Date(task.due_date).toLocaleDateString()}`,
-   }));
+  const pickerItems = tasks.map(task => ({
+    label: `${task.title} - ${task.address}`,
+    value: task.id,
+    key: task.id,
+    text: `${task.title}\nDue: ${new Date(task.due_date).toLocaleDateString()}`,
+  }));
 
-   return (
-     <RNPickerSelect
-       onValueChange={(itemValue) => {
-         const task = tasks.find((t: Task) => t.id === itemValue);
-         if (task) {
-           handleTaskSelect(task);
-         }
-       }}
-       items={pickerItems}
-       placeholder={{ label: 'Choose a task...', value: undefined, key: 'placeholder' }}
-       value={selectedTask?.id}
-       useNativeAndroidPickerStyle={false}
-       Icon={() => (
-         <View className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-           <Text className="text-sm text-gray-400">▼</Text>
-         </View>
-       )}
-       style={{
-         iconContainer: {
-           height: 0,
-           width: 0,
-         },
-         inputIOS: {
-           fontSize: 16,
-           paddingVertical: 12,
-           paddingHorizontal: 12,
-           paddingRight: 30,
-           borderWidth: 1,
-           borderColor: '#e5e7eb',
-           borderRadius: 8,
-           color: '#1f2937',
-           backgroundColor: '#ffffff',
-         },
-         inputAndroid: {
-           fontSize: 16,
-           paddingVertical: 12,
-           paddingHorizontal: 12,
-           paddingRight: 30,
-           borderWidth: 1,
-           borderColor: '#e5e7eb',
-           borderRadius: 8,
-           color: '#1f2937',
-           backgroundColor: '#ffffff',
-         },
-       }}
-     />
-   );
+  return (
+    <RNPickerSelect
+      onValueChange={itemValue => {
+        const task = tasks.find((t: Task) => t.id === itemValue);
+        if (task) {
+          handleTaskSelect(task);
+        }
+      }}
+      items={pickerItems}
+      placeholder={{
+        label: 'Choose a task...',
+        value: undefined,
+        key: 'placeholder',
+      }}
+      pickerProps={{
+        testID: 'reports-task-select-input',
+      }}
+      textInputProps={{
+        testID: 'reports-task-select-input',
+      }}
+      touchableWrapperProps={{
+        testID: 'reports-task-select-trigger',
+      }}
+      value={selectedTask?.id}
+      useNativeAndroidPickerStyle={false}
+      Icon={() => (
+        <View className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+          <Text className="text-sm text-gray-400">▼</Text>
+        </View>
+      )}
+      style={{
+        iconContainer: {
+          height: 0,
+          width: 0,
+        },
+        inputIOS: {
+          fontSize: 16,
+          paddingVertical: 12,
+          paddingHorizontal: 12,
+          paddingRight: 30,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+          borderRadius: 8,
+          color: '#1f2937',
+          backgroundColor: '#ffffff',
+        },
+        inputAndroid: {
+          fontSize: 16,
+          paddingVertical: 12,
+          paddingHorizontal: 12,
+          paddingRight: 30,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+          borderRadius: 8,
+          color: '#1f2937',
+          backgroundColor: '#ffffff',
+        },
+      }}
+    />
+  );
 }

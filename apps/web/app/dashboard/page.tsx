@@ -21,7 +21,11 @@ interface Technician {
 }
 
 export default function DashboardPage() {
-  const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useQuery({
+  const {
+    data: tasks = [],
+    isLoading: tasksLoading,
+    error: tasksError,
+  } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
       const { data, error } = await supabase.from('tasks').select('*');
@@ -35,7 +39,11 @@ export default function DashboardPage() {
     },
   });
 
-  const { data: technicians = [], isLoading: techLoading, error: techError } = useQuery({
+  const {
+    data: technicians = [],
+    isLoading: techLoading,
+    error: techError,
+  } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -56,7 +64,9 @@ export default function DashboardPage() {
     return (
       <div className="p-8">
         <div className="text-center py-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Dashboard Overview
+          </h1>
           <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
           <div className="mt-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -71,10 +81,14 @@ export default function DashboardPage() {
     return (
       <div className="p-8">
         <div className="text-center py-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Dashboard Overview
+          </h1>
           <p className="text-gray-600 mt-2">Welcome back, Dispatcher!</p>
           <div className="mt-4">
-            <p className="text-red-600">Error: {tasksError?.message || techError?.message}</p>
+            <p className="text-red-600">
+              Error: {tasksError?.message || techError?.message}
+            </p>
           </div>
         </div>
       </div>
@@ -84,9 +98,11 @@ export default function DashboardPage() {
   const stats = {
     totalTasks: tasks.length,
     assignedTasks: tasks.filter((t: Task) => t.status === 'assigned').length,
-    inProgressTasks: tasks.filter((t: Task) => t.status === 'in_progress').length,
+    inProgressTasks: tasks.filter((t: Task) => t.status === 'in_progress')
+      .length,
     completedTasks: tasks.filter((t: Task) => t.status === 'completed').length,
-    onlineTechnicians: technicians.filter((t: Technician) => t.is_online).length,
+    onlineTechnicians: technicians.filter((t: Technician) => t.is_online)
+      .length,
     totalTechnicians: technicians.length,
   };
 
@@ -137,7 +153,9 @@ export default function DashboardPage() {
             <div className="text-3xl font-bold text-orange-600">
               {stats.inProgressTasks}
             </div>
-            <p className="text-xs text-gray-500 mt-2">Currently being worked on</p>
+            <p className="text-xs text-gray-500 mt-2">
+              Currently being worked on
+            </p>
           </CardContent>
         </Card>
 
@@ -210,7 +228,9 @@ export default function DashboardPage() {
                       }}
                     />
                   </div>
-                  <span className="text-sm font-medium">{stats.assignedTasks}</span>
+                  <span className="text-sm font-medium">
+                    {stats.assignedTasks}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
@@ -228,7 +248,9 @@ export default function DashboardPage() {
                       }}
                     />
                   </div>
-                  <span className="text-sm font-medium">{stats.inProgressTasks}</span>
+                  <span className="text-sm font-medium">
+                    {stats.inProgressTasks}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between">
@@ -246,7 +268,9 @@ export default function DashboardPage() {
                       }}
                     />
                   </div>
-                  <span className="text-sm font-medium">{stats.completedTasks}</span>
+                  <span className="text-sm font-medium">
+                    {stats.completedTasks}
+                  </span>
                 </div>
               </div>
             </div>
@@ -260,7 +284,10 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               {technicians.slice(0, 5).map((tech: Technician) => (
-                <div className="flex items-center justify-between" key={tech.id}>
+                <div
+                  className="flex items-center justify-between"
+                  key={tech.id}
+                >
                   <span className="text-sm text-gray-700">{tech.name}</span>
                   <div className="flex items-center gap-2">
                     <div

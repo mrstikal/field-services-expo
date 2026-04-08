@@ -1,4 +1,4 @@
-import { initDatabase } from './local-database';
+import { initDatabase, clearAllTables, getDatabase } from './local-database';
 import { taskRepository } from './task-repository';
 import { reportRepository } from './report-repository';
 import { supabase } from '@/lib/supabase';
@@ -7,14 +7,19 @@ import { supabase } from '@/lib/supabase';
  * Initialize database with seed data from server
  * Called on app first launch
  */
-export async function initializeDatabaseWithSeedData() {
+export async function initializeDatabaseWithSeedData(forceReset = false) {
   try {
     // Initialize local database
     await initDatabase();
 
+    if (forceReset) {
+      console.log('Forcing database reset...');
+      await clearAllTables(getDatabase());
+    }
+
     // Check if we already have data locally
     const hasTasks = await taskRepository.getAll();
-    if (hasTasks.length > 0) {
+    if (hasTasks.length > 0 && !forceReset) {
       return; // Data already exists
     }
 
@@ -54,6 +59,15 @@ export async function initializeDatabaseWithSeedData() {
   } catch (error) {
     console.error('Error initializing database with seed data:', error);
   }
+}
+
+/**
+ * Resets the local database by clearing all data and re-fetching seed data from the server.
+ */
+export async function resetDatabase() {
+  console.log('Resetting local database...');
+  await initializeDatabaseWithSeedData(true);
+  console.log('Local database reset complete.');
 }
 
 /**

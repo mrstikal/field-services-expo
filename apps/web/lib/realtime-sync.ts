@@ -22,7 +22,11 @@ export class RealtimeSyncService {
    * Subscribe to real-time task updates
    */
   public subscribeToTasks(
-    callback: (payload: { eventType: string; newData?: Task; oldData?: Task }) => void
+    callback: (payload: {
+      eventType: string;
+      newData?: Task;
+      oldData?: Task;
+    }) => void
   ): RealtimeSubscription {
     const channel = supabase
       .channel('tasks-changes')
@@ -33,7 +37,7 @@ export class RealtimeSyncService {
           schema: 'public',
           table: 'tasks',
         },
-        (payload) => {
+        payload => {
           callback({
             eventType: payload.eventType,
             newData: payload.new as Task,
@@ -61,7 +65,11 @@ export class RealtimeSyncService {
    */
   public subscribeToTechnicianUpdates(
     technicianId: string,
-    callback: (payload: { eventType: string; newData?: Record<string, unknown>; oldData?: Record<string, unknown> }) => void
+    callback: (payload: {
+      eventType: string;
+      newData?: Record<string, unknown>;
+      oldData?: Record<string, unknown>;
+    }) => void
   ): RealtimeSubscription {
     const channel = supabase
       .channel(`technician-${technicianId}`)
@@ -73,7 +81,7 @@ export class RealtimeSyncService {
           table: 'users',
           filter: `id=eq.${technicianId}`,
         },
-        (payload) => {
+        payload => {
           callback({
             eventType: payload.eventType,
             newData: payload.new,
@@ -99,7 +107,11 @@ export class RealtimeSyncService {
    * Subscribe to real-time report updates
    */
   public subscribeToReports(
-    callback: (payload: { eventType: string; newData?: Record<string, unknown>; oldData?: Record<string, unknown> }) => void
+    callback: (payload: {
+      eventType: string;
+      newData?: Record<string, unknown>;
+      oldData?: Record<string, unknown>;
+    }) => void
   ): RealtimeSubscription {
     const channel = supabase
       .channel('reports-changes')
@@ -110,7 +122,7 @@ export class RealtimeSyncService {
           schema: 'public',
           table: 'reports',
         },
-        (payload) => {
+        payload => {
           callback({
             eventType: payload.eventType,
             newData: payload.new,
@@ -136,7 +148,7 @@ export class RealtimeSyncService {
    * Unsubscribes from all active subscriptions
    */
   public unsubscribeAll(): void {
-    this.subscriptions.forEach((subscription) => {
+    this.subscriptions.forEach(subscription => {
       subscription.unsubscribe();
     });
     this.subscriptions.clear();
@@ -173,7 +185,10 @@ export class RealtimeSyncService {
    */
   public subscribeToBroadcast(
     channelName: string,
-    callback: (payload: { type: string; message: Record<string, unknown> }) => void
+    callback: (payload: {
+      type: string;
+      message: Record<string, unknown>;
+    }) => void
   ): RealtimeSubscription {
     // For communication we use database changes instead of broadcast channels
     const channel = supabase
@@ -185,7 +200,13 @@ export class RealtimeSyncService {
           schema: 'public',
           table: 'messages', // Assuming a table for messages
         },
-        (payload) => callback(payload as unknown as { type: string; message: Record<string, unknown> })
+        payload =>
+          callback(
+            payload as unknown as {
+              type: string;
+              message: Record<string, unknown>;
+            }
+          )
       )
       .subscribe();
 

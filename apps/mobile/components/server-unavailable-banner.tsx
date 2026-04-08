@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useServerAvailability } from '@/lib/hooks/use-server-availability';
 
 export function ServerUnavailableBanner() {
-  const { apiBaseUrl, isAvailable, isChecking, checkedAt } = useServerAvailability();
+  const { apiBaseUrl, isAvailable, isChecking, checkedAt } =
+    useServerAvailability();
   const insets = useSafeAreaInsets();
   const [bannerHeight, setBannerHeight] = useState(0);
 
@@ -14,11 +15,16 @@ export function ServerUnavailableBanner() {
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-    setBannerHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+    setBannerHeight(currentHeight =>
+      currentHeight === nextHeight ? currentHeight : nextHeight
+    );
   }, []);
 
   const checkedAtLabel = checkedAt
-    ? new Date(checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? new Date(checkedAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
     : 'just now';
 
   return (
@@ -54,7 +60,8 @@ export function ServerUnavailableBanner() {
             Web server is not running or is unreachable from the mobile app.
           </Text>
           <Text style={{ color: '#92400e', fontSize: 12, marginTop: 4 }}>
-            Check `pnpm --filter field-service-web dev`, port 3000, and `adb reverse tcp:3000 tcp:3000`.
+            Check `pnpm --filter field-service-web dev`, port 3000, and `adb
+            reverse tcp:3000 tcp:3000`.
           </Text>
           <Text style={{ color: '#b45309', fontSize: 11, marginTop: 4 }}>
             {apiBaseUrl} • last checked at {checkedAtLabel}
@@ -64,4 +71,3 @@ export function ServerUnavailableBanner() {
     </>
   );
 }
-

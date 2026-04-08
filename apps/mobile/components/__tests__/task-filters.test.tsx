@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import TaskFilters from '../task-filters';
+import TaskFilters from '@/components/task-filters';
 
 describe('TaskFilters', () => {
   const mockFilters = {

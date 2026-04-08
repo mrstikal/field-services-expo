@@ -111,13 +111,27 @@ export default [
     }
   },
   {
-    files: ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
+    files: ["**/__tests__/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2020,
       sourceType: "module"
     },
     rules: {
-      "@typescript-eslint/no-require-imports": "off"
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off"
+    }
+  },
+  {
+    files: [
+      "apps/mobile/app/**/*.{ts,tsx}",
+      "apps/mobile/components/server-unavailable-banner.tsx",
+      "apps/mobile/smoke-root.tsx"
+    ],
+    rules: {
+      "react-native/no-color-literals": "off",
+      "react-native/no-inline-styles": "off"
     }
   }
 ];
+

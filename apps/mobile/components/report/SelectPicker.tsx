@@ -10,8 +10,16 @@ interface SelectPickerProps {
   onClose: () => void;
 }
 
-export function SelectPicker({ field, value, onChange, isOpen, onClose }: SelectPickerProps) {
-  const [selectedValue, setSelectedValue] = useState<string | number | undefined>(value);
+export function SelectPicker({
+  field,
+  value,
+  onChange,
+  isOpen,
+  onClose,
+}: SelectPickerProps) {
+  const [selectedValue, setSelectedValue] = useState<
+    string | number | undefined
+  >(value);
 
   const handleValueChange = (itemValue: string | number) => {
     setSelectedValue(itemValue);
@@ -26,11 +34,13 @@ export function SelectPicker({ field, value, onChange, isOpen, onClose }: Select
   return (
     <RNPickerSelect
       onValueChange={handleValueChange}
-      items={field.options?.map((option) => ({
-        label: option.label,
-        value: option.value,
-        key: option.value,
-      })) ?? []}
+      items={
+        field.options?.map(option => ({
+          label: option.label,
+          value: option.value,
+          key: option.value,
+        })) ?? []
+      }
       placeholder={{ label: 'Select...', value: undefined, key: 'placeholder' }}
       value={selectedValue}
       style={{

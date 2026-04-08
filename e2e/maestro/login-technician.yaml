@@ -1,0 +1,45 @@
+appId: com.fieldservicemonorepo
+---
+- setAirplaneMode: disabled
+- tapOn:
+    text: "Minimize"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "login-submit-button"
+    timeout: 20000
+    optional: true
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    id: "profile-sign-out-button"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "login-submit-button"
+    timeout: 10000
+    optional: true
+- tapOn:
+    id: "login-submit-button"
+    optional: true
+- tapOn:
+    id: "task-detail-back-button"
+    optional: true
+- tapOn:
+    id: "reports-create-back-button"
+    optional: true
+- tapOn:
+    id: "tab-home"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "login-submit-button"
+    timeout: 5000
+    optional: true
+- tapOn:
+    id: "login-submit-button"
+    optional: true
+- extendedWaitUntil:
+    visible: "Today's Tasks"
+    timeout: 60000

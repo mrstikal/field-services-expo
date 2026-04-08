@@ -18,7 +18,9 @@ if (fs.existsSync(envPath)) {
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  console.error('DATABASE_URL environment variable is not set. Please configure it in env.local');
+  console.error(
+    'DATABASE_URL environment variable is not set. Please configure it in env.local'
+  );
   process.exit(1);
 }
 

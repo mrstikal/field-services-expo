@@ -2,7 +2,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 
 // Supabase Storage Configuration
-const STORAGE_BUCKET = process.env.EXPO_PUBLIC_SUPABASE_S3_BUCKET || 'FieldService';
+const STORAGE_BUCKET =
+  process.env.EXPO_PUBLIC_SUPABASE_S3_BUCKET || 'FieldService';
 
 if (!STORAGE_BUCKET) {
   console.warn('Storage bucket not configured. File uploads will fail.');
@@ -72,9 +73,9 @@ export async function uploadFileToStorage(
     }
 
     // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from(STORAGE_BUCKET)
-      .getPublicUrl(remotePath);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(remotePath);
 
     return publicUrl;
   } catch (error) {

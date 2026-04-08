@@ -1,4 +1,3 @@
- 
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -40,7 +39,10 @@ export default function LoginScreen() {
       await signIn(data.email, data.password);
       router.replace('/(tabs)');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Sign in failed. Please try again.';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Sign in failed. Please try again.';
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -48,15 +50,43 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#f1f5f9', padding: 20 }}>
-      <Text style={{ marginBottom: 8, textAlign: 'center', fontSize: 36, fontWeight: '700', color: '#1e40af' }}>
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        backgroundColor: '#f1f5f9',
+        padding: 20,
+      }}
+    >
+      <Text
+        style={{
+          marginBottom: 8,
+          textAlign: 'center',
+          fontSize: 36,
+          fontWeight: '700',
+          color: '#1e40af',
+        }}
+      >
         Field Service
       </Text>
-      <Text style={{ marginBottom: 32, textAlign: 'center', fontSize: 16, color: '#6b7280' }}>
+      <Text
+        style={{
+          marginBottom: 32,
+          textAlign: 'center',
+          fontSize: 16,
+          color: '#6b7280',
+        }}
+      >
         Technician Login
       </Text>
 
-      {error ? <Text style={{ marginBottom: 12, textAlign: 'center', color: '#ef4444' }}>{error}</Text> : null}
+      {error ? (
+        <Text
+          style={{ marginBottom: 12, textAlign: 'center', color: '#ef4444' }}
+        >
+          {error}
+        </Text>
+      ) : null}
 
       <Controller
         control={control}
@@ -82,7 +112,11 @@ export default function LoginScreen() {
           />
         )}
       />
-      {errors.email ? <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>{errors.email.message}</Text> : null}
+      {errors.email ? (
+        <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>
+          {errors.email.message}
+        </Text>
+      ) : null}
 
       <Controller
         control={control}
@@ -107,7 +141,11 @@ export default function LoginScreen() {
           />
         )}
       />
-      {errors.password ? <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>{errors.password.message}</Text> : null}
+      {errors.password ? (
+        <Text style={{ marginBottom: 8, fontSize: 12, color: '#ef4444' }}>
+          {errors.password.message}
+        </Text>
+      ) : null}
 
       <TouchableOpacity
         disabled={isSubmitting}
@@ -133,11 +171,16 @@ export default function LoginScreen() {
           padding: 16,
         }}
       >
-        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>Demo accounts:</Text>
-        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>technik1@demo.cz / demo123</Text>
-        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>technik2@demo.cz / demo123</Text>
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>
+          Demo accounts:
+        </Text>
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>
+          technik1@demo.cz / demo123
+        </Text>
+        <Text style={{ textAlign: 'center', fontSize: 12, color: '#6b7280' }}>
+          technik2@demo.cz / demo123
+        </Text>
       </View>
     </View>
   );
 }
-

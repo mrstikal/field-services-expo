@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { OfflineBanner } from '../offline-banner';
+import { OfflineBanner } from '@/components/offline-banner';
 import { useNetworkStatus, useIsOffline } from '@/lib/hooks/use-network-status';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
 import type { Mock } from 'vitest';
@@ -16,9 +16,13 @@ vi.mock('@/lib/hooks/use-offline-sync', () => ({
 }));
 
 describe('OfflineBanner', () => {
-  const mockUseNetworkStatus = useNetworkStatus as unknown as ReturnType<typeof vi.fn>;
+  const mockUseNetworkStatus = useNetworkStatus as unknown as ReturnType<
+    typeof vi.fn
+  >;
   const mockUseIsOffline = useIsOffline as unknown as ReturnType<typeof vi.fn>;
-  const mockUseOfflineSync = useOfflineSync as unknown as ReturnType<typeof vi.fn>;
+  const mockUseOfflineSync = useOfflineSync as unknown as ReturnType<
+    typeof vi.fn
+  >;
 
   beforeEach(() => {
     vi.clearAllMocks();

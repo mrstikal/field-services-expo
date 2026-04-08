@@ -1,16 +1,34 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import TaskDialog from '../task-dialog';
+import TaskDialog from '@components/task-dialog';
 import { Task } from '@field-service/shared-types';
 
 // Mock TaskForm component
-vi.mock('../task-form', () => ({
+vi.mock('@components/task-form', () => ({
   __esModule: true,
   default: vi.fn(({ onSubmit, onCancel, task, loading }: any) => (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(task || { /* mock data */ }); }}>
-      <input data-testid="task-form-title" value={task?.title || ''} onChange={() => {}} />
-      <button type="submit" disabled={loading}>Submit</button>
-      <button type="button" onClick={onCancel}>Cancel</button>
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        onSubmit(
+          task ||
+            {
+              /* mock data */
+            }
+        );
+      }}
+    >
+      <input
+        data-testid="task-form-title"
+        value={task?.title || ''}
+        onChange={() => {}}
+      />
+      <button type="submit" disabled={loading}>
+        Submit
+      </button>
+      <button type="button" onClick={onCancel}>
+        Cancel
+      </button>
     </form>
   )),
 }));
@@ -18,17 +36,33 @@ vi.mock('../task-form', () => ({
 // Mock UI components
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: vi.fn(({ children, open, onOpenChange }: any) => (
-    <div data-testid="dialog" data-open={open} onClick={() => onOpenChange(false)}>{open ? children : null}</div>
+    <div
+      data-testid="dialog"
+      data-open={open}
+      onClick={() => onOpenChange(false)}
+    >
+      {open ? children : null}
+    </div>
   )),
-  DialogContent: vi.fn(({ children }: any) => <div data-testid="dialog-content">{children}</div>),
-  DialogHeader: vi.fn(({ children }: any) => <div data-testid="dialog-header">{children}</div>),
-  DialogTitle: vi.fn(({ children }: any) => <h2 data-testid="dialog-title">{children}</h2>),
-  DialogFooter: vi.fn(({ children }: any) => <div data-testid="dialog-footer">{children}</div>),
+  DialogContent: vi.fn(({ children }: any) => (
+    <div data-testid="dialog-content">{children}</div>
+  )),
+  DialogHeader: vi.fn(({ children }: any) => (
+    <div data-testid="dialog-header">{children}</div>
+  )),
+  DialogTitle: vi.fn(({ children }: any) => (
+    <h2 data-testid="dialog-title">{children}</h2>
+  )),
+  DialogFooter: vi.fn(({ children }: any) => (
+    <div data-testid="dialog-footer">{children}</div>
+  )),
 }));
 
 vi.mock('@/components/ui/button', () => ({
   Button: vi.fn(({ children, onClick, disabled, variant }: any) => (
-    <button onClick={onClick} disabled={disabled} data-variant={variant}>{children}</button>
+    <button onClick={onClick} disabled={disabled} data-variant={variant}>
+      {children}
+    </button>
   )),
 }));
 
@@ -72,7 +106,9 @@ describe('TaskDialog', () => {
       />
     );
     expect(screen.getByTestId('dialog')).toHaveAttribute('data-open', 'true');
-    expect(screen.getByTestId('dialog-title')).toHaveTextContent('Create New Task');
+    expect(screen.getByTestId('dialog-title')).toHaveTextContent(
+      'Create New Task'
+    );
   });
 
   it('should not render when open is false', () => {

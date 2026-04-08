@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TasksTable, columns } from '../tasks-table';
+import { TasksTable, columns } from '@components/tasks-table';
 import { Task } from '@field-service/shared-types';
 import { useReactTable } from '@tanstack/react-table';
 
@@ -24,7 +24,12 @@ vi.mock('@/components/ui/button', () => ({
 
 vi.mock('@/components/ui/input', () => ({
   Input: vi.fn(({ onChange, placeholder, value, ...props }: any) => (
-    <input onChange={onChange} placeholder={placeholder} value={value} {...props} />
+    <input
+      onChange={onChange}
+      placeholder={placeholder}
+      value={value}
+      {...props}
+    />
   )),
 }));
 
@@ -32,12 +37,18 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: vi.fn(({ children }: any) => <div>{children}</div>),
   DropdownMenuTrigger: vi.fn(({ children }: any) => <>{children}</>),
   DropdownMenuContent: vi.fn(({ children }: any) => <div>{children}</div>),
-  DropdownMenuCheckboxItem: vi.fn(({ children, checked, onCheckedChange }: any) => (
-    <label>
-      <input type="checkbox" checked={checked} onChange={(e: any) => onCheckedChange(e.target.checked)} />
-      {children}
-    </label>
-  )),
+  DropdownMenuCheckboxItem: vi.fn(
+    ({ children, checked, onCheckedChange }: any) => (
+      <label>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e: any) => onCheckedChange(e.target.checked)}
+        />
+        {children}
+      </label>
+    )
+  ),
 }));
 
 vi.mock('@/components/ui/table', () => ({
@@ -59,7 +70,17 @@ describe('TasksTable', () => {
       priority: 'high',
       status: 'assigned',
       estimated_time: 60,
-      description: '', latitude: 0, longitude: 0, category: 'repair', due_date: '', customer_phone: '', technician_id: '', created_at: '2024-01-01', updated_at: '2024-01-01', version: 1, synced: 0,
+      description: '',
+      latitude: 0,
+      longitude: 0,
+      category: 'repair',
+      due_date: '',
+      customer_phone: '',
+      technician_id: '',
+      created_at: '2024-01-01',
+      updated_at: '2024-01-01',
+      version: 1,
+      synced: 0,
     },
     {
       id: '2',
@@ -69,7 +90,17 @@ describe('TasksTable', () => {
       priority: 'low',
       status: 'completed',
       estimated_time: 30,
-      description: '', latitude: 0, longitude: 0, category: 'repair', due_date: '', customer_phone: '', technician_id: '', created_at: '2024-01-02', updated_at: '2024-01-02', version: 1, synced: 0,
+      description: '',
+      latitude: 0,
+      longitude: 0,
+      category: 'repair',
+      due_date: '',
+      customer_phone: '',
+      technician_id: '',
+      created_at: '2024-01-02',
+      updated_at: '2024-01-02',
+      version: 1,
+      synced: 0,
     },
   ];
 
@@ -81,11 +112,12 @@ describe('TasksTable', () => {
       original: task,
       getIsSelected: () => false,
       getValue: (key: keyof Task) => task[key],
-      getVisibleCells: () => columns.map((col) => ({
-        id: `${task.id}-${((col as any).accessorKey || col.id)}`,
-        column: { columnDef: col },
-        getContext: () => ({ row }),
-      })),
+      getVisibleCells: () =>
+        columns.map(col => ({
+          id: `${task.id}-${(col as any).accessorKey || col.id}`,
+          column: { columnDef: col },
+          getContext: () => ({ row }),
+        })),
     };
 
     return row;
@@ -95,16 +127,16 @@ describe('TasksTable', () => {
     getHeaderGroups: () => [
       {
         id: 'headerGroup1',
-        headers: columns.map((col) => ({
+        headers: columns.map(col => ({
           id: (col as any).accessorKey || col.id,
           column: { columnDef: col },
           isPlaceholder: false,
-          getContext: () => ({})
+          getContext: () => ({}),
         })),
       },
     ],
     getRowModel: () => ({
-      rows: rows.map((task) => createMockRow(task)),
+      rows: rows.map(task => createMockRow(task)),
     }),
     getRowCount: () => rows.length,
     getCanPreviousPage: () => false,
@@ -115,12 +147,14 @@ describe('TasksTable', () => {
       setFilterValue: vi.fn(),
       getFilterValue: vi.fn(() => ''),
     })),
-    getAllColumns: vi.fn(() => columns.map((col) => ({
-      id: (col as any).accessorKey || col.id,
-      getCanHide: () => true,
-      getIsVisible: () => true,
-      toggleVisibility: vi.fn(),
-    }))),
+    getAllColumns: vi.fn(() =>
+      columns.map(col => ({
+        id: (col as any).accessorKey || col.id,
+        getCanHide: () => true,
+        getIsVisible: () => true,
+        toggleVisibility: vi.fn(),
+      }))
+    ),
     getFilteredSelectedRowModel: () => ({ rows: [] }),
     getFilteredRowModel: () => ({ rows }),
   });
@@ -148,7 +182,9 @@ describe('TasksTable', () => {
       })),
     });
     render(<TasksTable data={mockTasks} />);
-    fireEvent.change(screen.getByPlaceholderText('Filter tasks...'), { target: { value: 'Task' } });
+    fireEvent.change(screen.getByPlaceholderText('Filter tasks...'), {
+      target: { value: 'Task' },
+    });
     expect(setFilterValueMock).toHaveBeenCalledWith('Task');
   });
 
@@ -157,7 +193,12 @@ describe('TasksTable', () => {
     mockUseReactTable.mockReturnValueOnce({
       ...createMockTable(),
       getAllColumns: vi.fn(() => [
-        { id: 'title', getCanHide: () => true, getIsVisible: () => true, toggleVisibility: toggleVisibilityMock },
+        {
+          id: 'title',
+          getCanHide: () => true,
+          getIsVisible: () => true,
+          toggleVisibility: toggleVisibilityMock,
+        },
       ]),
     });
     render(<TasksTable data={mockTasks} />);

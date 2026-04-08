@@ -4,14 +4,19 @@ import { z } from 'zod';
 import {
   formTemplates,
   createReportSchema,
-} from '../report-schemas';
+} from '@lib/validators/report-schemas';
 import { TaskCategory } from '@field-service/shared-types';
 
 describe('formTemplates', () => {
   it('should have all task categories', () => {
-    const categories: Array<TaskCategory> = ['repair', 'installation', 'maintenance', 'inspection'];
+    const categories: Array<TaskCategory> = [
+      'repair',
+      'installation',
+      'maintenance',
+      'inspection',
+    ];
 
-    categories.forEach((category) => {
+    categories.forEach(category => {
       expect(formTemplates[category]).toBeDefined();
       expect(formTemplates[category].name).toBeDefined();
       expect(Array.isArray(formTemplates[category].fields)).toBe(true);
@@ -24,7 +29,7 @@ describe('formTemplates', () => {
     expect(template.name).toBe('Repair Report');
     expect(template.fields).toHaveLength(8);
 
-    const requiredFields = template.fields.filter((f) => f.required);
+    const requiredFields = template.fields.filter(f => f.required);
     expect(requiredFields).toHaveLength(3);
   });
 
@@ -34,7 +39,7 @@ describe('formTemplates', () => {
     expect(template.name).toBe('Installation Report');
     expect(template.fields).toHaveLength(8);
 
-    const requiredFields = template.fields.filter((f) => f.required);
+    const requiredFields = template.fields.filter(f => f.required);
     expect(requiredFields).toHaveLength(2);
   });
 
@@ -44,7 +49,7 @@ describe('formTemplates', () => {
     expect(template.name).toBe('Maintenance Report');
     expect(template.fields).toHaveLength(7);
 
-    const requiredFields = template.fields.filter((f) => f.required);
+    const requiredFields = template.fields.filter(f => f.required);
     expect(requiredFields).toHaveLength(3);
   });
 
@@ -54,7 +59,7 @@ describe('formTemplates', () => {
     expect(template.name).toBe('Inspection Report');
     expect(template.fields).toHaveLength(7);
 
-    const requiredFields = template.fields.filter((f) => f.required);
+    const requiredFields = template.fields.filter(f => f.required);
     expect(requiredFields).toHaveLength(3);
   });
 });

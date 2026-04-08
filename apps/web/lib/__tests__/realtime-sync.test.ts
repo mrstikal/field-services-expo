@@ -1,7 +1,7 @@
-import { RealtimeSyncService } from '../realtime-sync';
+import { RealtimeSyncService } from '@lib/realtime-sync';
 import { supabase } from '@/lib/supabase';
 
-vi.mock('../supabase', () => ({
+vi.mock('@lib/supabase', () => ({
   supabase: {
     channel: vi.fn(() => ({
       on: vi.fn().mockReturnThis(),
