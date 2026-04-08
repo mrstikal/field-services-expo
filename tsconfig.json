@@ -28,11 +28,11 @@
       ]
     },
     "types": [
-      "vitest/globals"
+      "vitest/globals",
+      "node"
     ]
   },
   "exclude": [
     "node_modules"
-  ],
-  "extends": "expo/tsconfig.base"
+  ]
 }

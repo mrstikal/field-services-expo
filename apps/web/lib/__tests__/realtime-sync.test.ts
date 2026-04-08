@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RealtimeSyncService } from '../realtime-sync';
 import { supabase } from '@/lib/supabase';
 

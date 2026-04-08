@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
 
 export const mockSupabaseAuth = {
   getUser: vi.fn(),
+  signOut: vi.fn(),
 };
 
 export const mockSupabaseFrom = {
@@ -53,6 +53,7 @@ vi.mock('@/lib/supabase', () => ({
 
 // Mock Drizzle
 vi.mock('@db', () => ({
+  connect: vi.fn().mockResolvedValue(undefined),
   db: {
     select: vi.fn().mockReturnThis(),
     from: vi.fn().mockReturnThis(),
@@ -67,7 +68,6 @@ vi.mock('@db', () => ({
     delete: vi.fn().mockReturnThis(),
     leftJoin: vi.fn().mockReturnThis(),
   },
-  connect: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock Next.js cookies

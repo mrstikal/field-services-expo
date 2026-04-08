@@ -1,5 +1,19 @@
 import { vi } from 'vitest';
 
+// Expo runtime flags expected by some modules in tests
+if (!('__DEV__' in globalThis)) {
+  Object.defineProperty(globalThis, '__DEV__', {
+    value: false,
+    writable: true,
+    configurable: true,
+  });
+}
+
+// Test-safe defaults for modules reading env at import time
+process.env.EXPO_PUBLIC_SUPABASE_URL ??= 'http://localhost:54321';
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??= 'test-anon-key';
+process.env.EXPO_PUBLIC_API_URL ??= 'http://localhost:3000';
+
 // Mock React Native modules
 vi.mock('react-native', () => ({
   Platform: {

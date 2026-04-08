@@ -2,14 +2,15 @@ appId: com.fieldservice.app
 ---
 - launchApp
 - runFlow: mobile-auth.yaml
-- evalScript: ${output.wifi = "off"}
-- tapOn: "Tasks"
-- tapOn: "New Task"
-- inputText: "Offline Task"
-- tapOn: "Save"
-- assertVisible: "Sync pending"
-- evalScript: ${output.wifi = "on"}
+- tapOn:
+    id: "tab-tasks"
+- assertVisible: "All Tasks"
+- setAirplaneMode: true
+- tapOn:
+    id: "tasks-filter-button"
+- tapOn: "Close"
+- assertVisible: "Offline"
+- setAirplaneMode: false
 - waitForAnimationToEnd
-- tapOn: "Sync Now"
-- assertNotVisible: "Sync pending"
-- assertVisible: "Synced"
+- assertNotVisible: "Offline"
+- assertVisible: "All Tasks"

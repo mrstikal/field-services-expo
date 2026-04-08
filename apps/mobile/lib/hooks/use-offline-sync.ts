@@ -3,7 +3,7 @@ import { SyncEngine, SyncNetworkUnavailableError } from '@/lib/sync/sync-engine'
 import { useNetworkStatus, useIsOnline } from '@/lib/hooks/use-network-status';
 import { useAuth } from '@/lib/auth-context';
 
-interface SyncState {
+export interface SyncState {
   isSyncing: boolean;
   lastSync: string | null;
   pendingItems: number;
@@ -17,6 +17,7 @@ interface SyncState {
     failed: number;
     errors: string[];
   } | null;
+  error?: string | null;
 }
 
 // Global sync engine instance
@@ -76,11 +77,15 @@ export function useOfflineSync() {
           lastPush: (result as Record<string, unknown>).pushed as typeof prev.lastPush,
           isSyncing: false,
         }));
-     } catch (error) {
+     } catch (err) {
        // Record error time for cooldown so we don't hammer a down server
        lastSyncErrorAtRef.current = Date.now();
-       logSyncFailure('full', error);
-       setSyncState((prev) => ({ ...prev, isSyncing: false }));
+       logSyncFailure('full', err);
+       setSyncState((prev) => ({
+         ...prev,
+         isSyncing: false,
+         error: err instanceof Error ? err.message : 'Sync failed',
+       }));
      } finally {
        globalSyncEngine.endSync();
      }

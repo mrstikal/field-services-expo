@@ -62,32 +62,35 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="tasks/index"
           options={{
-            title: 'Tasks',
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons color={color} name="list-outline" size={size} />
-            ),
-          }}
+             title: 'Tasks',
+             headerShown: false,
+             tabBarButtonTestID: 'tab-tasks',
+             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+               <Ionicons color={color} name="list-outline" size={size} />
+             ),
+           } as any}
         />
         <Tabs.Screen
           name="reports/index"
           options={{
-            title: 'Reports',
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons color={color} name="document-text-outline" size={size} />
-            ),
-          }}
+             title: 'Reports',
+             headerShown: false,
+             tabBarButtonTestID: 'tab-reports',
+             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+               <Ionicons color={color} name="document-text-outline" size={size} />
+             ),
+           } as any}
         />
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons color={color} name="person-outline" size={size} />
-            ),
-          }}
+             title: 'Profile',
+             headerShown: false,
+             tabBarButtonTestID: 'tab-profile',
+             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+               <Ionicons color={color} name="person-outline" size={size} />
+             ),
+           } as any}
         />
         {/* Hide scanner and nested report screens from tab bar */}
         <Tabs.Screen

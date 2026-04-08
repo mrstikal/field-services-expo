@@ -137,8 +137,9 @@ export default function TasksListScreen() {
         <View className="flex-row items-center gap-3">
           <Text className="text-sm text-gray-500">{filteredTasks.length} tasks</Text>
           <TouchableOpacity
-            className="p-1" 
+            className="p-1"
             onPress={handleOpenFilters}
+            testID="tasks-filter-button"
           >
             <Ionicons color="#1e40af" name="filter" size={20} />
           </TouchableOpacity>

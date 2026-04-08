@@ -68,6 +68,7 @@ export default function LoginScreen() {
             onBlur={onBlur}
             onChangeText={onChange}
             placeholder="Email"
+            testID="login-email-input"
             style={{
               marginBottom: 12,
               borderRadius: 12,
@@ -92,6 +93,7 @@ export default function LoginScreen() {
             onChangeText={onChange}
             placeholder="Password"
             secureTextEntry
+            testID="login-password-input"
             style={{
               marginBottom: 12,
               borderRadius: 12,
@@ -110,6 +112,7 @@ export default function LoginScreen() {
       <TouchableOpacity
         disabled={isSubmitting}
         onPress={handleSubmit(onSubmit)}
+        testID="login-submit-button"
         style={{
           alignItems: 'center',
           borderRadius: 12,

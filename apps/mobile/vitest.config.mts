@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 
+const isNativeTests = process.env.EXPO_NATIVE_TESTS === '1';
+
 export default defineConfig({
+  define: {
+    __DEV__: 'false',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
@@ -17,6 +22,14 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
+      // Native runtime-dependent suites are excluded from default jsdom run.
+      ...(!isNativeTests
+        ? [
+            '**/lib/db/__tests__/db-integration.test.ts',
+            '**/__tests__/integration/sync-flow.test.ts',
+            '**/__tests__/integration/sync-resilience.test.ts',
+          ]
+        : []),
     ],
     setupFiles: ['./vitest.setup.ts'],
     pool: 'forks',

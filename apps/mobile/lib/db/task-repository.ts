@@ -9,6 +9,10 @@ import { SQLiteDatabase } from 'expo-sqlite';
 export class TaskRepository {
   private db: SQLiteDatabase | null = null;
 
+  constructor(db?: SQLiteDatabase) {
+    this.db = db || null;
+  }
+
   private getDb(): SQLiteDatabase {
     if (!this.db) {
       this.db = getDatabase();

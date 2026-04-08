@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  globalSetup: './e2e/playwright/global-setup.ts',
   testDir: './e2e/playwright',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -11,6 +12,12 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+  },
+  webServer: {
+    command: 'pnpm run dev:all',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
   },
   projects: [
     {

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 
-// 1. Definuj Mocky nejdříve
+// 1. Define mocks first
 vi.mock('../../sync/sync-engine', () => {
   const mockEngine = {
     beginSync: vi.fn(() => true),
@@ -16,6 +16,12 @@ vi.mock('../../sync/sync-engine', () => {
     retryFailedSyncItems: vi.fn(),
   };
   return {
+    SyncNetworkUnavailableError: class SyncNetworkUnavailableError extends Error {
+      constructor(apiUrl: string) {
+        super(`Sync backend is unreachable at ${apiUrl}`);
+        this.name = 'SyncNetworkUnavailableError';
+      }
+    },
     SyncEngine: {
       getInstance: vi.fn(() => mockEngine),
     },
@@ -31,7 +37,7 @@ vi.mock('../../auth-context', () => ({
   useAuth: vi.fn(() => ({ user: { id: 'user-1', email: 'test@example.com' } })),
 }));
 
-// 2. Importy hooků
+// 2. Hook imports
 import { useOfflineSync } from '../use-offline-sync';
 import { SyncEngine } from '../../sync/sync-engine';
 import { useNetworkStatus } from '../use-network-status';
@@ -105,19 +111,44 @@ describe('useOfflineSync', () => {
       expect(mockSyncEngine.beginSync).not.toHaveBeenCalled();
     });
 
-    it('should handle sync timeout', async () => {
+    it('should handle sync timeout and update syncState correctly', async () => {
+      vi.useFakeTimers();
       const mockSyncEngine = getMockSyncEngine();
-      mockSyncEngine.fullSync.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve({}), 100))
-      );
+      mockSyncEngine.fullSync.mockImplementation(() => new Promise(() => {}));
+
+      const { result } = renderHook(() => useOfflineSync());
+      try {
+        const syncPromise = result.current.sync();
+
+        await act(async () => {
+          vi.advanceTimersByTime(30_001);
+          await Promise.resolve();
+        });
+
+        await syncPromise;
+
+        expect(result.current.isSyncing).toBe(false);
+        expect(result.current.syncState.error).toContain('Sync timeout');
+        expect(result.current.sync).toBeDefined();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should handle sync failure', async () => {
+      const mockSyncEngine = getMockSyncEngine();
+      mockSyncEngine.fullSync.mockRejectedValue(new Error('Network error'));
 
       const { result } = renderHook(() => useOfflineSync());
 
-      try {
-          await result.current.sync();
-      } catch {
-        // Ignored in test
-      }
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSyncing).toBe(false);
+        expect(result.current.syncState.error).toContain('Network error');
+      });
     });
   });
 
