@@ -67,6 +67,10 @@ pnpm mobile:metro:usb # Start mobile Metro for USB Android workflow
 pnpm build            # Build all apps
 pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript type checking
+pnpm run test:unit    # Run all unit tests (shared + mobile + web)
+pnpm run test:integration # Run integration tests (mobile + web)
+pnpm run test:e2e     # Run Maestro + Playwright E2E
+pnpm run test:all     # Run unit + integration + E2E
 pnpm format           # Format code with Prettier
 pnpm db:seed          # Seed database with demo data
 pnpm demo:reset       # Reset Supabase database with demo data
@@ -87,6 +91,7 @@ For daily development on Windows + Android USB, see [DAILY_RUN.md](./docs/DAILY_
 | **[Environment Variables](./docs/ENVIRONMENT.md)** | Complete reference for all env variables |
 | **[Deployment Guide](./docs/DEPLOYMENT.md)** | EAS Build, Vercel, OTA updates, CI/CD |
 | **[Daily Run](./docs/DAILY_RUN.md)** | Daily startup flow for Windows + Android USB |
+| **[Testing Guide](./docs/TESTING.md)** | Test commands, native-only suites, and E2E prerequisites |
 | **[Implementation Plan](./PLAN.md)** | Detailed roadmap for all 8 development stages (in Czech) |
 
 ## 🏗️ Project Structure
@@ -191,6 +196,22 @@ DATABASE_URL=postgresql://...                # local Docker PostgreSQL
 ```
 
 See [ENVIRONMENT.md](./docs/ENVIRONMENT.md) for the complete reference.
+
+## 🧪 Testing
+
+Use root grouped commands:
+
+```bash
+pnpm run test:shared
+pnpm run test:unit
+pnpm run test:integration
+pnpm run test:e2e
+pnpm run test:all
+```
+
+Some Expo-native mobile suites are excluded from default jsdom runs and must be run explicitly with `EXPO_NATIVE_TESTS=1`.
+
+See [TESTING.md](./docs/TESTING.md) for full details and PowerShell examples.
 
 ## 🚀 Deployment
 

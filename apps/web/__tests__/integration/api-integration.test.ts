@@ -1,13 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST as pullPOST } from '../../app/api/sync/pull/route';
 import { POST as pushPOST } from '../../app/api/sync/push/route';
 import { NextRequest } from 'next/server';
-import { db } from '@db';
-import { mockSupabaseAuth } from '@/vitest.setup';
+import { mockSupabaseAuth, mockSupabaseClient } from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
-    json: vi.fn((data, options) => ({
+    json: vi.fn((data: any, options?: any) => ({
       json: async () => data,
       status: options?.status || 200,
     })),
@@ -34,39 +32,46 @@ describe('Web Sync API Integration', () => {
   describe('Pull Sync API Workflow', () => {
     it('should sync tasks and reports for a technician since last timestamp', async () => {
       const techId = 'tech-1';
-      mockSupabaseAuth.getUser.mockResolvedValue({ 
+      const mockTasks = [{ id: 'task-1', technician_id: techId, updated_at: '2023-01-01T10:00:00Z' }];
+
+      mockSupabaseAuth.getUser.mockResolvedValue({
         data: { user: { id: techId, email: 'tech@test.com' } }, 
         error: null 
       } as never);
-      
-      // 1. Mock user role check
-      vi.mocked(db.select).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ id: techId, role: 'technician' }]),
-      } as never);
 
-      // 2. Mock tasks retrieval
-      const mockTasks = [{ id: 'task-1', technician_id: techId, updated_at: '2023-01-01T10:00:00Z' }];
-      vi.mocked(db.select).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue(mockTasks),
-      } as never);
-      
-      // 3. Mock reports retrieval
-      vi.mocked(db.select).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue([]), // No reports for simplicity
-      } as never);
+      const usersQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: [{ id: techId, role: 'technician' }], error: null }),
+      };
 
-      // 4. Mock locations retrieval
-      vi.mocked(db.select).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        orderBy: vi.fn().mockResolvedValue([]),
-      } as never);
+      const tasksQuery = {
+        select: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: mockTasks, error: null }),
+      };
+
+      const reportsQuery = {
+        select: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+
+      const locationsQuery = {
+        select: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+
+      mockSupabaseClient.from.mockImplementation((((table: string) => {
+        if (table === 'users') return usersQuery as never;
+        if (table === 'tasks') return tasksQuery as never;
+        if (table === 'reports') return reportsQuery as never;
+        if (table === 'locations') return locationsQuery as never;
+        throw new Error(`Unexpected table ${table}`);
+      }) as unknown) as never);
 
       const req = createRequest({ lastSyncTimestamp: '2023-01-01T00:00:00Z' });
       const response = await pullPOST(req);
@@ -87,42 +92,43 @@ describe('Web Sync API Integration', () => {
         error: null 
       } as never);
 
-      // 1. Mock user role check
-      vi.mocked(db.select).mockReturnValueOnce({
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ id: techId, role: 'technician' }]),
-      } as never);
-      
-      // Support nested calls in push (e.g. checkAuthorization, getLocalVersion, etc.)
-      const mockSelect = {
-          from: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnThis(),
-          limit: vi.fn().mockReturnThis(),
-          leftJoin: vi.fn().mockReturnThis(),
-          execute: vi.fn().mockResolvedValue([]),
-          then: vi.fn((cb) => Promise.resolve([]).then(cb)), // Simple mock for promise-like
+      const usersQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: [{ id: techId, role: 'technician' }], error: null }),
       };
-      
-      // technician check for reports
-      vi.mocked(db.select).mockReturnValue(mockSelect as any);
-      // Ensure we return data for auth check when querying tasks for technician
-      mockSelect.then = vi.fn((cb) => {
-          // If we are in checkAuthorization for technician + report create
-          // it checks tasks for ownership
-          return Promise.resolve([{ technician_id: techId }]).then(cb);
-      });
 
-      // Mock DB interactions for push
-      vi.mocked(db.insert).mockReturnValue({
-        values: vi.fn().mockReturnThis(),
-        onConflictDoUpdate: vi.fn().mockResolvedValue({}),
-      } as never);
-      
-      vi.mocked(db.update).mockReturnValue({
-          set: vi.fn().mockReturnThis(),
-          where: vi.fn().mockResolvedValue({}),
-      } as never);
+      const taskLimitResults = [
+        { data: [], error: null },
+        { data: [{ technician_id: techId }], error: null },
+      ];
+
+      const tasksQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockImplementation(() => Promise.resolve(taskLimitResults.shift() ?? { data: [], error: null })),
+        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+
+      const reportsQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+
+      const syncQueueQuery = {
+        update: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+
+      mockSupabaseClient.from.mockImplementation((((table: string) => {
+        if (table === 'users') return usersQuery as never;
+        if (table === 'tasks') return tasksQuery as never;
+        if (table === 'reports') return reportsQuery as never;
+        if (table === 'sync_queue') return syncQueueQuery as never;
+        throw new Error(`Unexpected table ${table}`);
+      }) as unknown) as never);
 
       const pushData = {
         changes: [

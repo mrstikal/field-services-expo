@@ -26,7 +26,7 @@ export async function initDatabase() {
     db = await openDatabaseAsync(DATABASE_NAME);
 
     // Run migrations
-    await runMigrations();
+    await runMigrations(db);
 
     return db;
   } catch (error) {
@@ -36,15 +36,13 @@ export async function initDatabase() {
 }
 
 // Run schema migrations
-async function runMigrations() {
-  if (!db) return;
-
+async function runMigrations(database: SQLiteDatabase) {
   // Get current version
-  const version = await getCurrentVersion();
+  const version = await getCurrentVersion(database);
 
   if (version < DATABASE_VERSION) {
     // Apply migrations
-    await db.execAsync(`
+    await database.execAsync(`
       -- Migration 1: Initial schema
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
@@ -140,16 +138,14 @@ async function runMigrations() {
     `);
 
     // Update version
-    await db.runAsync('INSERT OR REPLACE INTO sync_metadata (key, value) VALUES (?, ?)', ['schema_version', DATABASE_VERSION.toString()]);
+    await database.runAsync('INSERT OR REPLACE INTO sync_metadata (key, value) VALUES (?, ?)', ['schema_version', DATABASE_VERSION.toString()]);
   }
 }
 
 // Get current schema version
-async function getCurrentVersion(): Promise<number> {
-  if (!db) return 0;
-
+async function getCurrentVersion(database: SQLiteDatabase): Promise<number> {
   try {
-    const result = await db.getFirstAsync<{ value: string }>(
+    const result = await database.getFirstAsync<{ value: string }>(
       'SELECT value FROM sync_metadata WHERE key = ?',
       ['schema_version']
     );
@@ -176,10 +172,8 @@ export async function closeDatabase() {
 }
 
 // Reset database (for testing/debugging)
-export async function resetDatabase() {
-  if (!db) return;
-
-  await db.execAsync(`
+export async function resetDatabase(database: SQLiteDatabase) {
+  await database.execAsync(`
     DROP TABLE IF EXISTS tasks;
     DROP TABLE IF EXISTS reports;
     DROP TABLE IF EXISTS sync_queue;
@@ -190,5 +184,12 @@ export async function resetDatabase() {
   `);
 
   // Re-run migrations
-  await runMigrations();
+  await runMigrations(database);
+}
+
+// Get test database instance (in-memory)
+export async function getTestDatabase(): Promise<SQLiteDatabase> {
+  const testDb = await openDatabaseAsync(':memory:');
+  await resetDatabase(testDb);
+  return testDb;
 }

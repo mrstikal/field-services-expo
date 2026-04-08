@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { mockSupabaseAuth, mockSupabaseClient } from '@/vitest.setup';
+import { mockSupabaseAuth, mockSupabaseClient, mockSupabaseFrom } from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
-    json: vi.fn((data, options) => ({
+    json: vi.fn((data: any, options?: any) => ({
       json: async () => data,
       status: options?.status || 200,
     })),

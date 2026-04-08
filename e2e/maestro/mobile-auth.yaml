@@ -1,13 +1,18 @@
 appId: com.fieldservice.app
 ---
 - launchApp
-- tapOn: "Email"
+- tapOn:
+    id: "login-email-input"
 - inputText: "technik1@demo.cz"
-- tapOn: "Password"
+- tapOn:
+    id: "login-password-input"
 - inputText: "demo123"
-- tapOn: "Login"
+- tapOn:
+    id: "login-submit-button"
 - assertVisible: "Dashboard"
 - assertVisible: "Today's Tasks"
-- tapOn: "Settings"
-- tapOn: "Logout"
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-sign-out-button"
 - assertVisible: "Login"

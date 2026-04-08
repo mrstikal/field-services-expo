@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useRealtimeTasks, useRealtimeTask } from '../hooks/use-realtime-tasks';
 import { supabase } from '@/lib/supabase';
@@ -55,7 +54,7 @@ describe('Realtime Hooks', () => {
       let eventCallback: (payload: { new: { id: string; title: string } }) => void = () => {};
 
       vi.mocked(supabase.channel).mockReturnValue({
-        on: vi.fn().mockImplementation((_event, _filter, callback) => {
+        on: vi.fn().mockImplementation((_event: any, _filter: any, callback: any) => {
           eventCallback = callback;
           return {
             subscribe: vi.fn().mockReturnValue({

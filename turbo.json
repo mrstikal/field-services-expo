@@ -15,7 +15,7 @@
       "outputs": [".eslintcache"]
     },
     "typecheck": {
-      "outputs": ["node_modules/.cache/tsbuildinfo.json"]
+      "outputs": []
     },
     "guard:stylesheet": {
       "outputs": []
