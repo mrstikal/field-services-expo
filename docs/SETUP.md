@@ -65,6 +65,7 @@ pnpm build
 1. Go to https://supabase.com and create a new project
 2. Copy the URL and API keys
 3. Add to `env.local`:
+
    ```
    SUPABASE_URL=https://your-project.supabase.co
    SUPABASE_ANON_KEY=your-anon-key
@@ -72,6 +73,7 @@ pnpm build
    ```
 
 4. Apply RLS policies:
+
    ```bash
    psql -U postgres -d field_service -f packages/db/rls-policies.sql
    ```
@@ -138,6 +140,7 @@ pnpm --filter field-service-mobile web
 App opens at `http://localhost:8081`
 
 **Demo Credentials:**
+
 - Email: `technik1@demo.cz`
 - Password: `demo123`
 
@@ -155,6 +158,7 @@ pnpm --filter field-service-web start
 App opens at `http://localhost:3000`
 
 **Demo Credentials:**
+
 - Email: `dispatcher1@demo.cz`
 - Password: `demo123`
 

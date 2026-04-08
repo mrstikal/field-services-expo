@@ -12,8 +12,10 @@
     "db:migrate": "pnpm --filter @field-service/db migrate",
     "db:seed": "pnpm --filter @field-service/db db:seed",
     "approve-builds": "pnpm approve-builds --global sharp sqlite3 better-sqlite3 esbuild supabase unrs-resolver",
-    "demo:reset": "tsx scripts/reset-supabase.ts",
+    "demo:reset": "node ./scripts/reset-supabase.mjs",
     "mobile:metro:usb": "node ./scripts/start-mobile-metro-usb.mjs",
+    "imports:shorten": "node ./scripts/shorten-imports.mjs",
+    "imports:shorten:check": "node ./scripts/shorten-imports.mjs --check",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "setup": "pnpm approve-builds && pnpm install && pnpm demo:reset",
     "guard:stylesheet": "turbo guard:stylesheet",
@@ -21,7 +23,12 @@
     "test:shared": "pnpm --filter @field-service/shared-types test && pnpm --filter @field-service/db test",
     "test:unit": "pnpm run test:shared && pnpm --filter field-service-mobile vitest run lib/validators/__tests__ lib/db/__tests__ lib/sync/__tests__ lib/hooks/__tests__ lib/utils/__tests__ && pnpm --filter field-service-web vitest run lib/__tests__ app/api/__tests__",
     "test:integration": "pnpm --filter field-service-mobile vitest run __tests__/integration && pnpm --filter field-service-web vitest run __tests__/integration",
-    "test:e2e": "pnpm run dev:all & node ./scripts/run-maestro-tests.mjs && pnpm run dev:all & playwright test",
+    "test:e2e": "pnpm run test:e2e:web",
+    "test:e2e:web": "playwright test",
+    "test:e2e:web:reset": "node ./scripts/run-playwright-with-reset.mjs",
+    "test:e2e:mobile": "node ./scripts/run-maestro-tests.mjs",
+    "test:e2e:mobile:emulator": "node ./scripts/run-maestro-tests-emulator.mjs",
+    "test:e2e:full": "pnpm run test:e2e:mobile && pnpm run test:e2e:web",
     "test:all": "pnpm run test:unit && pnpm run test:integration && pnpm run test:e2e"
   },
   "devDependencies": {
@@ -57,6 +64,7 @@
     "@supabase/ssr": "^0.10.0",
     "class-variance-authority": "^0.7.1",
     "lucide-react": "^1.7.0",
-    "next": "^16.2.2"
+    "next": "^16.2.2",
+    "whatwg-fetch": "^3.0.0"
   }
 }

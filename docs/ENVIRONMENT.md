@@ -20,15 +20,16 @@ These variables must be set for the application to function.
 
 ### Supabase
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SUPABASE_URL` | Supabase project URL | `https://abcdef.supabase.co` |
-| `SUPABASE_ANON_KEY` | Public anon key (safe for client) | `eyJhbGci...` |
-| `SUPABASE_SERVICE_KEY` | Service role key (server-side only!) | `eyJhbGci...` |
+| Variable               | Description                          | Example                      |
+| ---------------------- | ------------------------------------ | ---------------------------- |
+| `SUPABASE_URL`         | Supabase project URL                 | `https://abcdef.supabase.co` |
+| `SUPABASE_ANON_KEY`    | Public anon key (safe for client)    | `eyJhbGci...`                |
+| `SUPABASE_SERVICE_KEY` | Service role key (server-side only!) | `eyJhbGci...`                |
 
 > ⚠️ **Security:** Never expose `SUPABASE_SERVICE_KEY` to the client. It bypasses Row Level Security.
 
 Where to find these values:
+
 1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
 2. Select your project
 3. Go to **Settings → API**
@@ -40,8 +41,8 @@ Where to find these values:
 
 ### Mapbox (Dispatcher Map)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable       | Description                | Example          |
+| -------------- | -------------------------- | ---------------- |
 | `MAPBOX_TOKEN` | Mapbox public access token | `pk.eyJ1Ijoi...` |
 
 Required for the technician map view in the web dashboard. Without it, the map will not render.
@@ -50,8 +51,8 @@ Get your token at [account.mapbox.com/access-tokens](https://account.mapbox.com/
 
 ### Sentry (Error Tracking)
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable     | Description             | Example                                 |
+| ------------ | ----------------------- | --------------------------------------- |
 | `SENTRY_DSN` | Sentry Data Source Name | `https://abc@o123.ingest.sentry.io/456` |
 
 Required for crash reporting and error tracking in both mobile and web apps.
@@ -64,10 +65,10 @@ Get your DSN at [sentry.io](https://sentry.io) → Project → Settings → Clie
 
 These variables are used by the Expo mobile app. Variables prefixed with `EXPO_PUBLIC_` are bundled into the app and visible to the client.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `EXPO_PUBLIC_APP_NAME` | Display name of the app | `Field Service` |
-| `EXPO_PUBLIC_API_URL` | Base URL of the web API | `http://localhost:3000` |
+| Variable               | Description             | Default                 |
+| ---------------------- | ----------------------- | ----------------------- |
+| `EXPO_PUBLIC_APP_NAME` | Display name of the app | `Field Service`         |
+| `EXPO_PUBLIC_API_URL`  | Base URL of the web API | `http://localhost:3000` |
 
 > **Note:** For USB development on Android, `EXPO_PUBLIC_API_URL` must point to your local machine's IP or use `http://localhost:3000` with ADB reverse port forwarding. See [DAILY_RUN.md](./DAILY_RUN.md).
 
@@ -77,13 +78,14 @@ The mobile app also reads `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the root `
 
 ## 🗄️ Database Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
+| Variable       | Description                  | Example                                                       |
+| -------------- | ---------------------------- | ------------------------------------------------------------- |
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/field_service` |
 
 Used by Drizzle ORM for local development with Docker PostgreSQL. Not needed when using Supabase directly.
 
 For local Docker setup:
+
 ```bash
 # Start PostgreSQL
 docker-compose up -d

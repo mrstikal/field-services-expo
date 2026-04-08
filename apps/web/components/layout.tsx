@@ -6,7 +6,11 @@ import { LayoutDashboard, ClipboardList, Users, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 
-export default function DashboardLayout({ children }: { readonly children: ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
   };
@@ -42,7 +46,11 @@ export default function DashboardLayout({ children }: { readonly children: React
         </nav>
 
         <div className="p-4 border-t border-gray-200">
-          <Button className="w-full justify-start" onClick={handleSignOut} variant="outline">
+          <Button
+            className="w-full justify-start"
+            onClick={handleSignOut}
+            variant="outline"
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
           </Button>

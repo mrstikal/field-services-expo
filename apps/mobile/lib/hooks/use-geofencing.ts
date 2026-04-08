@@ -42,7 +42,10 @@ function calculateDistance(
 
   const a =
     Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    Math.cos(phi1) *
+      Math.cos(phi2) *
+      Math.sin(deltaLambda / 2) *
+      Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return R * c;
@@ -53,7 +56,8 @@ function calculateDistance(
  * Automatically checks if user is near a task location
  */
 export function useGeofencing(): UseGeofencingReturn {
-  const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
+  const [currentLocation, setCurrentLocation] =
+    useState<Location.LocationObject | null>(null);
   const [nearbyTasks, setNearbyTasks] = useState<TaskLocation[]>([]);
   const [trackedTasks, setTrackedTasks] = useState<TaskLocation[]>([]);
   const [isNearTask, setIsNearTask] = useState<boolean>(false);
@@ -70,7 +74,7 @@ export function useGeofencing(): UseGeofencingReturn {
 
   const handleSetTrackedTasks = useCallback((tasks: TaskLocation[]) => {
     trackedTasksRef.current = tasks;
-    setTrackedTasks((prev) => {
+    setTrackedTasks(prev => {
       if (
         prev.length === tasks.length &&
         prev.every((task, index) => task.id === tasks[index]?.id)
@@ -82,68 +86,71 @@ export function useGeofencing(): UseGeofencingReturn {
   }, []);
 
   // Check geofence around tasks
-  const checkGeofence = useCallback(async (tasks?: TaskLocation[]) => {
-    if (!currentLocation) {
-      return;
-    }
+  const checkGeofence = useCallback(
+    async (tasks?: TaskLocation[]) => {
+      if (!currentLocation) {
+        return;
+      }
 
-    const tasksToCheck = tasks ?? trackedTasksRef.current;
-    if (!tasksToCheck.length) {
-      setNearbyTasks([]);
-      setCurrentTask(null);
-      setIsNearTask(false);
-      return;
-    }
+      const tasksToCheck = tasks ?? trackedTasksRef.current;
+      if (!tasksToCheck.length) {
+        setNearbyTasks([]);
+        setCurrentTask(null);
+        setIsNearTask(false);
+        return;
+      }
 
-    const nearby: TaskLocation[] = [];
-    let nearestTask: TaskLocation | null = null;
-    let nearestDistance = Infinity;
+      const nearby: TaskLocation[] = [];
+      let nearestTask: TaskLocation | null = null;
+      let nearestDistance = Infinity;
 
-    for (const task of tasksToCheck) {
-      const distance = calculateDistance(
-        currentLocation.coords.latitude,
-        currentLocation.coords.longitude,
-        task.latitude,
-        task.longitude
-      );
+      for (const task of tasksToCheck) {
+        const distance = calculateDistance(
+          currentLocation.coords.latitude,
+          currentLocation.coords.longitude,
+          task.latitude,
+          task.longitude
+        );
 
-      if (distance <= GEOFENCE_RADIUS) {
-        nearby.push(task);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nearestTask = task;
+        if (distance <= GEOFENCE_RADIUS) {
+          nearby.push(task);
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestTask = task;
+          }
         }
       }
-    }
 
-    setNearbyTasks(nearby);
-    setCurrentTask(nearestTask);
-    setIsNearTask(nearby.length > 0);
+      setNearbyTasks(nearby);
+      setCurrentTask(nearestTask);
+      setIsNearTask(nearby.length > 0);
 
-    // Alert when entering geofence
-    if (nearby.length > 0 && !isNearTask) {
-      Alert.alert(
-        'Arrived at Task',
-        `You have arrived at: ${nearestTask?.title}\nAddress: ${nearestTask?.address}`,
-        [
-          {
-            text: 'Check In',
-            onPress: () => {
-              console.log('Task checked in:', nearestTask?.id);
-              // Here you would call your API to update task status
+      // Alert when entering geofence
+      if (nearby.length > 0 && !isNearTask) {
+        Alert.alert(
+          'Arrived at Task',
+          `You have arrived at: ${nearestTask?.title}\nAddress: ${nearestTask?.address}`,
+          [
+            {
+              text: 'Check In',
+              onPress: () => {
+                console.log('Task checked in:', nearestTask?.id);
+                // Here you would call your API to update task status
+              },
             },
-          },
-          {
-            text: 'Later',
-            style: 'cancel',
-            onPress: () => {
-              setIsNearTask(false);
+            {
+              text: 'Later',
+              style: 'cancel',
+              onPress: () => {
+                setIsNearTask(false);
+              },
             },
-          },
-        ]
-      );
-    }
-  }, [currentLocation, isNearTask]);
+          ]
+        );
+      }
+    },
+    [currentLocation, isNearTask]
+  );
 
   // Debounced geofence check (to avoid too many alerts)
   useEffect(() => {
@@ -167,18 +174,21 @@ export function useGeofencing(): UseGeofencingReturn {
   }, [currentLocation, checkGeofence]);
 
   // Calculate distance to a specific task
-  const distanceToTask = useCallback((task: TaskLocation): number => {
-    if (!currentLocation) {
-      return Infinity;
-    }
+  const distanceToTask = useCallback(
+    (task: TaskLocation): number => {
+      if (!currentLocation) {
+        return Infinity;
+      }
 
-    return calculateDistance(
-      currentLocation.coords.latitude,
-      currentLocation.coords.longitude,
-      task.latitude,
-      task.longitude
-    );
-  }, [currentLocation]);
+      return calculateDistance(
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+        task.latitude,
+        task.longitude
+      );
+    },
+    [currentLocation]
+  );
 
   return {
     currentLocation,

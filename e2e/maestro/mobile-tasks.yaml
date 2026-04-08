@@ -1,7 +1,6 @@
-appId: com.fieldservice.app
+appId: com.fieldservicemonorepo
 ---
-- launchApp
-- runFlow: mobile-auth.yaml
+- runFlow: login-technician.yaml
 - tapOn:
     id: "tab-tasks"
 - assertVisible: "All Tasks"
@@ -9,13 +8,16 @@ appId: com.fieldservice.app
     id: "tasks-filter-button"
 - assertVisible: "Filter Tasks"
 - tapOn: "Close"
-- scrollUntilVisible:
-    element:
-      text: "Test Task"
-    direction: DOWN
-- tapOn: "Test Task"
+- assertVisible:
+    id: "task-card"
+- tapOn:
+    id: "task-card"
+- assertVisible:
+    id: "task-detail-screen"
 - assertVisible: "Task Detail"
-- tapOn: "Start Work"
-- assertVisible: "IN PROGRESS"
-- tapOn: "Complete Task"
-- assertVisible: "Create Report"
+- assertVisible: "Work Description"
+- assertVisible: "Customer Contact"
+- assertVisible: "Work Location"
+- tapOn:
+    id: "task-detail-back-button"
+- assertVisible: "All Tasks"

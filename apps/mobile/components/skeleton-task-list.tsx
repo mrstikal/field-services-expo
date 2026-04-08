@@ -28,7 +28,7 @@ const SkeletonTaskCard: React.FC = () => {
   }, [opacity]);
 
   return (
-    <Animated.View 
+    <Animated.View
       className="mb-3 rounded-lg border-l-4 border-l-gray-200 bg-white p-3"
       style={{ opacity }}
     >
@@ -53,6 +53,5 @@ const SkeletonTaskList: React.FC = () => {
     </View>
   );
 };
-
 
 export default SkeletonTaskList;

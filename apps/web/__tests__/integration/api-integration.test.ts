@@ -1,5 +1,5 @@
-import { POST as pullPOST } from '../../app/api/sync/pull/route';
-import { POST as pushPOST } from '../../app/api/sync/push/route';
+import { POST as pullPOST } from '@/app/api/sync/pull/route';
+import { POST as pushPOST } from '@/app/api/sync/push/route';
 import { NextRequest } from 'next/server';
 import { mockSupabaseAuth, mockSupabaseClient } from '@/vitest.setup';
 
@@ -20,7 +20,7 @@ describe('Web Sync API Integration', () => {
   const createRequest = (body: unknown, token = 'test-token') => {
     const headers = new Map();
     headers.set('authorization', `Bearer ${token}`);
-    
+
     return {
       headers: {
         get: (name: string) => headers.get(name.toLowerCase()) || null,
@@ -31,25 +31,24 @@ describe('Web Sync API Integration', () => {
 
   describe('Pull Sync API Workflow', () => {
     it('should sync tasks and reports for a technician since last timestamp', async () => {
-      const techId = 'tech-1';
-      const mockTasks = [{ id: 'task-1', technician_id: techId, updated_at: '2023-01-01T10:00:00Z' }];
+      const techId = '550e8400-e29b-41d4-a716-446655440003';
+      const mockTasks = [
+        {
+          id: '650e8400-e29b-41d4-a716-446655440001',
+          technician_id: techId,
+          updated_at: '2023-01-01T10:00:00Z',
+        },
+      ];
 
       mockSupabaseAuth.getUser.mockResolvedValue({
-        data: { user: { id: techId, email: 'tech@test.com' } }, 
-        error: null 
+        data: { user: { id: techId, email: 'tech@test.com' } },
+        error: null,
       } as never);
-
-      const usersQuery = {
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: [{ id: techId, role: 'technician' }], error: null }),
-      };
 
       const tasksQuery = {
         select: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({ data: mockTasks, error: null }),
+        order: vi.fn().mockResolvedValue({ data: mockTasks, error: null }),
       };
 
       const reportsQuery = {
@@ -65,13 +64,12 @@ describe('Web Sync API Integration', () => {
         eq: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
 
-      mockSupabaseClient.from.mockImplementation((((table: string) => {
-        if (table === 'users') return usersQuery as never;
+      mockSupabaseClient.from.mockImplementation(((table: string) => {
         if (table === 'tasks') return tasksQuery as never;
         if (table === 'reports') return reportsQuery as never;
         if (table === 'locations') return locationsQuery as never;
         throw new Error(`Unexpected table ${table}`);
-      }) as unknown) as never);
+      }) as unknown as never);
 
       const req = createRequest({ lastSyncTimestamp: '2023-01-01T00:00:00Z' });
       const response = await pullPOST(req);
@@ -80,73 +78,131 @@ describe('Web Sync API Integration', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.data.tasks).toHaveLength(1);
-      expect(data.data.tasks[0].id).toBe('task-1');
+      expect(data.data.tasks[0].id).toBe(
+        '650e8400-e29b-41d4-a716-446655440001'
+      );
     });
   });
 
   describe('Push Sync API Workflow', () => {
     it('should process creates and updates from mobile client', async () => {
-      const techId = 'tech-1';
-      mockSupabaseAuth.getUser.mockResolvedValue({ 
-        data: { user: { id: techId, email: 'tech@test.com' } }, 
-        error: null 
+      const techId = '550e8400-e29b-41d4-a716-446655440003';
+      mockSupabaseAuth.getUser.mockResolvedValue({
+        data: { user: { id: techId, email: 'tech@test.com' } },
+        error: null,
       } as never);
 
-      const usersQuery = {
+      const tasksExistingQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: [{ id: techId, role: 'technician' }], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
 
-      const taskLimitResults = [
-        { data: [], error: null },
-        { data: [{ technician_id: techId }], error: null },
-      ];
+      const tasksUpsertQuery = {
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: '650e8400-e29b-41d4-a716-446655440099',
+            title: 'Local Task',
+            description: 'desc',
+          },
+          error: null,
+        }),
+      };
 
-      const tasksQuery = {
+      const tasksMutationQuery = {
+        upsert: vi.fn().mockReturnValue(tasksUpsertQuery),
+      };
+
+      const reportsExistingQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockImplementation(() => Promise.resolve(taskLimitResults.shift() ?? { data: [], error: null })),
-        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
 
-      const reportsQuery = {
+      const reportsUpsertQuery = {
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: '750e8400-e29b-41d4-a716-446655440099',
+            task_id: '650e8400-e29b-41d4-a716-446655440001',
+            status: 'completed',
+          },
+          error: null,
+        }),
       };
 
-      const syncQueueQuery = {
-        update: vi.fn().mockReturnThis(),
-        in: vi.fn().mockResolvedValue({ data: null, error: null }),
+      const reportsMutationQuery = {
+        upsert: vi.fn().mockReturnValue(reportsUpsertQuery),
       };
 
-      mockSupabaseClient.from.mockImplementation((((table: string) => {
-        if (table === 'users') return usersQuery as never;
-        if (table === 'tasks') return tasksQuery as never;
-        if (table === 'reports') return reportsQuery as never;
-        if (table === 'sync_queue') return syncQueueQuery as never;
+      mockSupabaseClient.from.mockImplementation(((table: string) => {
+        if (table === 'tasks') {
+          return {
+            ...tasksExistingQuery,
+            ...tasksMutationQuery,
+          } as never;
+        }
+        if (table === 'reports') {
+          return {
+            ...reportsExistingQuery,
+            ...reportsMutationQuery,
+          } as never;
+        }
         throw new Error(`Unexpected table ${table}`);
-      }) as unknown) as never);
+      }) as unknown as never);
 
+      const now = new Date().toISOString();
       const pushData = {
         changes: [
           {
-            id: 'client-uuid-1',
+            id: '850e8400-e29b-41d4-a716-446655440001',
             type: 'task',
             action: 'create',
-            data: { id: 'task-uuid', title: 'Local Task', description: 'desc', technician_id: techId, due_date: new Date().toISOString(), updated_at: new Date().toISOString() },
-            version: 1
+            entityId: '650e8400-e29b-41d4-a716-446655440099',
+            data: {
+              id: '650e8400-e29b-41d4-a716-446655440099',
+              title: 'Local Task',
+              description: 'desc',
+              address: 'Local Address',
+              latitude: null,
+              longitude: null,
+              status: 'assigned',
+              priority: 'medium',
+              category: 'repair',
+              due_date: now,
+              customer_name: 'Customer',
+              customer_phone: '+420123456789',
+              estimated_time: 60,
+              technician_id: techId,
+              created_at: now,
+              updated_at: now,
+              deleted_at: null,
+              version: 1,
+            },
+            version: 1,
           },
           {
-            id: 'client-uuid-2',
+            id: '850e8400-e29b-41d4-a716-446655440002',
             type: 'report',
             action: 'create',
-            data: { id: 'report-uuid', task_id: 'task-1', status: 'completed', updated_at: new Date().toISOString() },
-            version: 1
-          }
-        ]
+            entityId: '750e8400-e29b-41d4-a716-446655440099',
+            data: {
+              id: '750e8400-e29b-41d4-a716-446655440099',
+              task_id: '650e8400-e29b-41d4-a716-446655440001',
+              status: 'completed',
+              photos: ['photo-1.jpg'],
+              form_data: { summary: 'Done' },
+              signature: null,
+              pdf_url: null,
+              created_at: now,
+              updated_at: now,
+              deleted_at: null,
+              version: 1,
+            },
+            version: 1,
+          },
+        ],
       };
 
       const req = createRequest(pushData);
@@ -161,7 +217,10 @@ describe('Web Sync API Integration', () => {
     });
 
     it('should handle unauthorized push requests', async () => {
-      mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: null }, error: null } as never);
+      mockSupabaseAuth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: null,
+      } as never);
       const req = createRequest({ changes: [] });
       const response = await pushPOST(req);
       expect(response.status).toBe(401);

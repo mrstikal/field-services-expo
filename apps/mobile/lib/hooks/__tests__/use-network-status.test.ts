@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import type { Mock } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useNetworkStatus, useIsOnline, useIsOffline, useOnOnline, useOnOffline } from '../use-network-status';
+import {
+  useNetworkStatus,
+  useIsOnline,
+  useIsOffline,
+  useOnOnline,
+  useOnOffline,
+} from '@lib/hooks/use-network-status';
 
 const netInfoMock = vi.hoisted(() => ({
   fetch: vi.fn(),

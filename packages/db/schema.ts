@@ -1,10 +1,30 @@
-import { pgTable, text, timestamp, uuid, boolean, numeric, integer, jsonb, doublePrecision } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  boolean,
+  numeric,
+  integer,
+  jsonb,
+  doublePrecision,
+} from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-// Users table
+const businessRoleSchema = z.enum(['technician', 'dispatcher']);
+const taskStatusSchema = z.enum(['assigned', 'in_progress', 'completed']);
+const taskPrioritySchema = z.enum(['low', 'medium', 'high', 'urgent']);
+const taskCategorySchema = z.enum([
+  'repair',
+  'installation',
+  'maintenance',
+  'inspection',
+]);
+const reportStatusSchema = z.enum(['draft', 'completed', 'synced']);
+
 export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   email: text('email').notNull().unique(),
   role: text('role', { enum: ['technician', 'dispatcher'] }).notNull(),
   name: text('name'),
@@ -19,15 +39,14 @@ export const users = pgTable('users', {
 
 export const usersSchema = createSelectSchema(users, {
   email: z.string().email(),
-  role: z.enum(['technician', 'dispatcher']),
+  role: businessRoleSchema,
 });
 
 export const insertUsersSchema = createInsertSchema(users, {
   email: z.string().email(),
-  role: z.enum(['technician', 'dispatcher']).optional(),
+  role: businessRoleSchema.optional(),
 });
 
-// Tasks table
 export const tasks = pgTable('tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: text('title').notNull(),
@@ -35,9 +54,15 @@ export const tasks = pgTable('tasks', {
   address: text('address').notNull(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
-  status: text('status', { enum: ['assigned', 'in_progress', 'completed'] }).notNull().default('assigned'),
-  priority: text('priority', { enum: ['low', 'medium', 'high', 'urgent'] }).notNull().default('medium'),
-  category: text('category', { enum: ['repair', 'installation', 'maintenance', 'inspection'] }).notNull(),
+  status: text('status', { enum: ['assigned', 'in_progress', 'completed'] })
+    .notNull()
+    .default('assigned'),
+  priority: text('priority', { enum: ['low', 'medium', 'high', 'urgent'] })
+    .notNull()
+    .default('medium'),
+  category: text('category', {
+    enum: ['repair', 'installation', 'maintenance', 'inspection'],
+  }).notNull(),
   due_date: timestamp('due_date').notNull(),
   customer_name: text('customer_name').notNull(),
   customer_phone: text('customer_phone').notNull(),
@@ -45,31 +70,43 @@ export const tasks = pgTable('tasks', {
   technician_id: uuid('technician_id').references(() => users.id),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+  deleted_at: timestamp('deleted_at'),
   version: integer('version').notNull().default(1),
 });
 
-export const tasksSchema = createSelectSchema(tasks);
+export const tasksSchema = createSelectSchema(tasks, {
+  status: taskStatusSchema,
+  priority: taskPrioritySchema,
+  category: taskCategorySchema,
+});
 
-// Reports table
 export const reports = pgTable('reports', {
   id: uuid('id').primaryKey().defaultRandom(),
-  task_id: uuid('task_id').notNull().references(() => tasks.id),
-  status: text('status', { enum: ['draft', 'completed', 'synced'] }).notNull().default('draft'),
+  task_id: uuid('task_id')
+    .notNull()
+    .references(() => tasks.id),
+  status: text('status', { enum: ['draft', 'completed', 'synced'] })
+    .notNull()
+    .default('draft'),
   photos: text('photos').array().notNull().default([]),
   form_data: jsonb('form_data').notNull().default({}),
   signature: text('signature'),
   pdf_url: text('pdf_url'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull(),
+  deleted_at: timestamp('deleted_at'),
   version: integer('version').notNull().default(1),
 });
 
-export const reportsSchema = createSelectSchema(reports);
+export const reportsSchema = createSelectSchema(reports, {
+  status: reportStatusSchema,
+});
 
-// Locations table
 export const locations = pgTable('locations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  technician_id: uuid('technician_id').notNull().references(() => users.id),
+  technician_id: uuid('technician_id')
+    .notNull()
+    .references(() => users.id),
   latitude: doublePrecision('latitude').notNull(),
   longitude: doublePrecision('longitude').notNull(),
   accuracy: doublePrecision('accuracy').notNull(),
@@ -79,7 +116,6 @@ export const locations = pgTable('locations', {
 
 export const locationsSchema = createSelectSchema(locations);
 
-// Parts/Inventory table
 export const parts = pgTable('parts', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -93,19 +129,3 @@ export const parts = pgTable('parts', {
 });
 
 export const partsSchema = createSelectSchema(parts);
-
-// Sync queue table
-export const syncQueue = pgTable('sync_queue', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  user_id: uuid('user_id').notNull(),
-  type: text('type', { enum: ['task', 'report', 'location'] }).notNull(),
-  action: text('action', { enum: ['create', 'update', 'delete'] }).notNull(),
-  data: jsonb('data').notNull(),
-  version: integer('version').notNull().default(1),
-  status: text('status', { enum: ['pending', 'synced', 'failed'] }).notNull().default('pending'),
-  error: text('error'),
-  created_at: timestamp('created_at').defaultNow().notNull(),
-  updated_at: timestamp('updated_at').defaultNow().notNull(),
-});
-
-export const syncQueueSchema = createSelectSchema(syncQueue);

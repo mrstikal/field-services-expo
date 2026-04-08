@@ -1,4 +1,4 @@
-import { GET, PUT, PATCH, DELETE } from '../route';
+import { GET, PUT, PATCH, DELETE } from '@/app/api/tasks/[id]/route';
 import { NextRequest } from 'next/server';
 
 // Mock cookies for SSR client
@@ -36,12 +36,19 @@ describe('Task Detail API', () => {
       mockFrom.mockReturnValue({
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: { id: 'task-1', title: 'Found Task' }, error: null }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id: 'task-1', title: 'Found Task' },
+            error: null,
+          }),
       });
 
       const req = createRequest('task-1');
       const response = await GET(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ id: string; title: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ id: string; title: string }> }
+      ).json();
 
       expect(response.status).toBe(200);
       expect(data.id).toBe('task-1');
@@ -60,7 +67,9 @@ describe('Task Detail API', () => {
 
       const req = createRequest('nonexistent-id');
       const response = await GET(req, { params: { id: 'nonexistent-id' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(404);
       expect(data.error).toBe('Row not found');
@@ -69,7 +78,9 @@ describe('Task Detail API', () => {
     it('should return 400 when id is empty', async () => {
       const req = createRequest('');
       const response = await GET(req, { params: { id: '' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('required');
@@ -100,12 +111,19 @@ describe('Task Detail API', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: { id: 'task-1', title: 'Updated Task' }, error: null }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id: 'task-1', title: 'Updated Task' },
+            error: null,
+          }),
       });
 
       const req = createRequest('task-1', { title: 'Updated Task' });
       const response = await PUT(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ id: string; title: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ id: string; title: string }> }
+      ).json();
 
       expect(response.status).toBe(200);
       expect(data.id).toBe('task-1');
@@ -115,7 +133,9 @@ describe('Task Detail API', () => {
     it('should return 400 when id is empty', async () => {
       const req = createRequest('', { title: 'Updated Task' });
       const response = await PUT(req, { params: { id: '' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('required');
@@ -131,7 +151,9 @@ describe('Task Detail API', () => {
 
       const req = createRequest('task-1', { title: 'Updated Task' });
       const response = await PUT(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(404);
       expect(data.error).toContain('not found');
@@ -142,12 +164,19 @@ describe('Task Detail API', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: null, error: { message: 'Update failed' } }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: null,
+            error: { message: 'Update failed' },
+          }),
       });
 
       const req = createRequest('task-1', { title: 'Updated Task' });
       const response = await PUT(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toBe('Update failed');
@@ -162,12 +191,19 @@ describe('Task Detail API', () => {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: { id: 'task-1', title: 'Updated Task' }, error: null }),
+        single: vi
+          .fn()
+          .mockResolvedValue({
+            data: { id: 'task-1', title: 'Updated Task' },
+            error: null,
+          }),
       });
 
       const req = createRequest('task-1', { title: 'Updated Task' });
       const response = await PATCH(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ id: string; title: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ id: string; title: string }> }
+      ).json();
 
       expect(response.status).toBe(200);
       expect(data.id).toBe('task-1');
@@ -199,7 +235,9 @@ describe('Task Detail API', () => {
     it('should return 400 when id is empty', async () => {
       const req = createRequest('');
       const response = await DELETE(req, { params: { id: '' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toContain('required');
@@ -213,7 +251,9 @@ describe('Task Detail API', () => {
 
       const req = createRequest('task-1');
       const response = await DELETE(req, { params: { id: 'task-1' } });
-      const data = await (response as { json: () => Promise<{ error: string }> }).json();
+      const data = await (
+        response as { json: () => Promise<{ error: string }> }
+      ).json();
 
       expect(response.status).toBe(400);
       expect(data.error).toBe('Delete failed');

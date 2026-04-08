@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '@lib/supabase';
 
-vi.mock('../../lib/supabase', () => ({
+vi.mock('@lib/supabase', () => ({
   supabase: {
     auth: {
       getUser: vi.fn(),
@@ -58,7 +58,9 @@ describe('Mobile Security Tests – Auth token edge cases', () => {
       error: { message: 'invalid JWT: unable to parse', status: 400 } as any,
     });
 
-    const { data, error } = await supabase.auth.getUser('not.a.valid.jwt.token.at.all');
+    const { data, error } = await supabase.auth.getUser(
+      'not.a.valid.jwt.token.at.all'
+    );
 
     expect(data.user).toBeNull();
     expect(error?.message).toContain('invalid JWT');
@@ -70,7 +72,9 @@ describe('Mobile Security Tests – Auth token edge cases', () => {
       error: { message: 'JWT signature mismatch', status: 401 } as any,
     });
 
-    const { data, error } = await supabase.auth.getUser('header.payload.wrong-signature');
+    const { data, error } = await supabase.auth.getUser(
+      'header.payload.wrong-signature'
+    );
 
     expect(data.user).toBeNull();
     expect(error?.message).toContain('signature');
@@ -89,7 +93,9 @@ describe('Mobile Security Tests – Role-based access control', () => {
       error: null,
     } as any);
 
-    const { data: { user } } = await supabase.auth.getUser('valid-token');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser('valid-token');
 
     // User exists in auth but has no business role – should be denied
     expect(user).not.toBeNull();
@@ -99,26 +105,38 @@ describe('Mobile Security Tests – Role-based access control', () => {
   });
 
   it('should allow technician role to access own tasks only', async () => {
-    const technicianUser = { id: 'tech-1', email: 'tech@test.com', role: 'technician' };
+    const technicianUser = {
+      id: 'tech-1',
+      email: 'tech@test.com',
+      role: 'technician',
+    };
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
       data: { user: technicianUser },
       error: null,
     } as any);
 
-    const { data: { user } } = await supabase.auth.getUser('tech-token');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser('tech-token');
 
     expect(user?.id).toBe('tech-1');
     // Technician should only see their own tasks (enforced by sync pull filter)
   });
 
   it('should allow dispatcher role to access all tasks', async () => {
-    const dispatcherUser = { id: 'dispatcher-1', email: 'dispatcher@test.com', role: 'dispatcher' };
+    const dispatcherUser = {
+      id: 'dispatcher-1',
+      email: 'dispatcher@test.com',
+      role: 'dispatcher',
+    };
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
       data: { user: dispatcherUser },
       error: null,
     } as any);
 
-    const { data: { user } } = await supabase.auth.getUser('dispatcher-token');
+    const {
+      data: { user },
+    } = await supabase.auth.getUser('dispatcher-token');
 
     expect(user?.id).toBe('dispatcher-1');
     // Dispatcher should see all tasks (no technician_id filter in sync pull)

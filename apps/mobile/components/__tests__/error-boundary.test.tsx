@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
-import { ErrorBoundary } from '../error-boundary';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 // Mock sentry
 vi.mock('@/lib/monitoring/sentry', () => ({

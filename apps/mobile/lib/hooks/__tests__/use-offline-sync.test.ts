@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 
 // 1. Define mocks first
-vi.mock('../../sync/sync-engine', () => {
+vi.mock('@/lib/sync/sync-engine', () => {
   const mockEngine = {
     beginSync: vi.fn(() => true),
     endSync: vi.fn(),
@@ -11,11 +11,19 @@ vi.mock('../../sync/sync-engine', () => {
     fullSync: vi.fn(),
     pullSync: vi.fn(),
     pushSync: vi.fn(),
-    getStatus: vi.fn(() => Promise.resolve({ lastSync: null, pendingItems: 0 })),
+    getStatus: vi.fn(() =>
+      Promise.resolve({ lastSync: null, pendingItems: 0 })
+    ),
     cleanupSyncQueue: vi.fn(),
     retryFailedSyncItems: vi.fn(),
   };
   return {
+    SyncAuthUnavailableError: class SyncAuthUnavailableError extends Error {
+      constructor() {
+        super('No auth token available');
+        this.name = 'SyncAuthUnavailableError';
+      }
+    },
     SyncNetworkUnavailableError: class SyncNetworkUnavailableError extends Error {
       constructor(apiUrl: string) {
         super(`Sync backend is unreachable at ${apiUrl}`);
@@ -28,20 +36,24 @@ vi.mock('../../sync/sync-engine', () => {
   };
 });
 
-vi.mock('../use-network-status', () => ({
+vi.mock('@/lib/hooks/use-network-status', () => ({
   useNetworkStatus: vi.fn(() => ({ status: 'online' })),
   useIsOnline: vi.fn(() => true),
 }));
 
-vi.mock('../../auth-context', () => ({
+vi.mock('@/lib/auth-context', () => ({
   useAuth: vi.fn(() => ({ user: { id: 'user-1', email: 'test@example.com' } })),
 }));
 
+vi.mock('@/lib/sync/sync-events', () => ({
+  subscribeToSyncEvents: vi.fn(() => () => undefined),
+}));
+
 // 2. Hook imports
-import { useOfflineSync } from '../use-offline-sync';
-import { SyncEngine } from '../../sync/sync-engine';
-import { useNetworkStatus } from '../use-network-status';
-import { useAuth } from '../../auth-context';
+import { useOfflineSync } from '@lib/hooks/use-offline-sync';
+import { SyncAuthUnavailableError, SyncEngine } from '@lib/sync/sync-engine';
+import { useNetworkStatus } from '@lib/hooks/use-network-status';
+import { useAuth } from '@lib/auth-context';
 
 interface MockSyncEngine {
   beginSync: Mock;
@@ -56,17 +68,24 @@ interface MockSyncEngine {
 }
 
 describe('useOfflineSync', () => {
-  const getMockSyncEngine = () => SyncEngine.getInstance() as unknown as MockSyncEngine;
+  const getMockSyncEngine = () =>
+    SyncEngine.getInstance() as unknown as MockSyncEngine;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     const mockSyncEngine = getMockSyncEngine();
     mockSyncEngine.beginSync.mockReturnValue(true);
-    mockSyncEngine.getStatus.mockResolvedValue({ lastSync: null, pendingItems: 0 });
-    
+    mockSyncEngine.initialize.mockResolvedValue(undefined);
+    mockSyncEngine.getStatus.mockResolvedValue({
+      lastSync: null,
+      pendingItems: 0,
+    });
+
     (useNetworkStatus as Mock).mockReturnValue({ status: 'online' });
-    (useAuth as Mock).mockReturnValue({ user: { id: 'user-1', email: 'test@example.com' } });
+    (useAuth as Mock).mockReturnValue({
+      user: { id: 'user-1', email: 'test@example.com' },
+    });
   });
 
   afterEach(() => {
@@ -150,6 +169,22 @@ describe('useOfflineSync', () => {
         expect(result.current.syncState.error).toContain('Network error');
       });
     });
+
+    it('should ignore missing auth token without setting sync error', async () => {
+      const mockSyncEngine = getMockSyncEngine();
+      mockSyncEngine.fullSync.mockRejectedValue(new SyncAuthUnavailableError());
+
+      const { result } = renderHook(() => useOfflineSync());
+
+      await act(async () => {
+        await result.current.sync();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isSyncing).toBe(false);
+        expect(result.current.syncState.error ?? null).toBeNull();
+      });
+    });
   });
 
   describe('pull', () => {
@@ -163,6 +198,23 @@ describe('useOfflineSync', () => {
       await result.current.pull();
 
       expect(mockSyncEngine.pullSync).toHaveBeenCalled();
+    });
+
+    it('should handle network errors by returning null instead of throwing', async () => {
+      const mockSyncEngine = getMockSyncEngine();
+      mockSyncEngine.pullSync.mockRejectedValue(
+        new Error('Network request failed')
+      );
+
+      const { result } = renderHook(() => useOfflineSync());
+
+      let pullResult;
+      await act(async () => {
+        pullResult = await result.current.pull();
+      });
+
+      expect(pullResult).toBeNull();
+      expect(result.current.isSyncing).toBe(false);
     });
   });
 
@@ -178,12 +230,32 @@ describe('useOfflineSync', () => {
 
       expect(mockSyncEngine.pushSync).toHaveBeenCalled();
     });
+
+    it('should handle network errors by returning null instead of throwing', async () => {
+      const mockSyncEngine = getMockSyncEngine();
+      mockSyncEngine.pushSync.mockRejectedValue(
+        new Error('Network request failed')
+      );
+
+      const { result } = renderHook(() => useOfflineSync());
+
+      let pushResult;
+      await act(async () => {
+        pushResult = await result.current.push();
+      });
+
+      expect(pushResult).toBeNull();
+      expect(result.current.isSyncing).toBe(false);
+    });
   });
 
   describe('getSyncStatus', () => {
     it('should get sync status', async () => {
       const mockSyncEngine = getMockSyncEngine();
-      const mockStatus = { lastSync: '2025-01-01T00:00:00.000Z', pendingItems: 5 };
+      const mockStatus = {
+        lastSync: '2025-01-01T00:00:00.000Z',
+        pendingItems: 5,
+      };
       mockSyncEngine.getStatus.mockResolvedValue(mockStatus);
 
       const { result } = renderHook(() => useOfflineSync());

@@ -4,7 +4,16 @@ import { useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Linking } from 'react-native';
 
-export type BarcodeType = 'ean-13' | 'qr' | 'code-128' | 'code-39' | 'upc_e' | 'upc_a' | 'data_MATRIX' | 'pdf417' | 'aztec';
+export type BarcodeType =
+  | 'ean-13'
+  | 'qr'
+  | 'code-128'
+  | 'code-39'
+  | 'upc_e'
+  | 'upc_a'
+  | 'data_MATRIX'
+  | 'pdf417'
+  | 'aztec';
 
 export interface BarcodeResult {
   data: string;
@@ -33,10 +42,13 @@ interface UseBarcodeScannerReturn {
 export function useBarcodeScanner(): UseBarcodeScannerReturn {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [scannedBarcode, setScannedBarcode] = useState<BarcodeResult | null>(null);
+  const [scannedBarcode, setScannedBarcode] = useState<BarcodeResult | null>(
+    null
+  );
   const cameraRef = React.useRef<Camera.CameraView>(null);
-  const scanResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+  const lastScanRef = useRef<{ data: string; timestamp: number } | null>(null);
+  const DUPLICATE_SCAN_COOLDOWN_MS = 2000;
+
   // Use the useCameraPermissions hook from expo-camera
   const [permissionResponse, requestPermission] = useCameraPermissions();
 
@@ -45,14 +57,6 @@ export function useBarcodeScanner(): UseBarcodeScannerReturn {
     requestPermission();
   }, [requestPermission]);
 
-  useEffect(() => {
-    return () => {
-      if (scanResetTimeoutRef.current) {
-        clearTimeout(scanResetTimeoutRef.current);
-      }
-    };
-  }, []);
-
   // Update hasPermission state based on permission response
   useEffect(() => {
     if (permissionResponse) {
@@ -60,32 +64,34 @@ export function useBarcodeScanner(): UseBarcodeScannerReturn {
     }
   }, [permissionResponse]);
 
-   // Handle barcode scan
-   const handleBarCodeScanned: BarCodeScannedCallback = useCallback(
-     (result: { type: string; data: string }) => {
-       // Prevent multiple scans of the same barcode
-       if (scannedBarcode?.data === result.data) {
-         return;
-       }
+  // Handle barcode scan
+  const handleBarCodeScanned: BarCodeScannedCallback = useCallback(
+    (result: { type: string; data: string }) => {
+      if (!isScanning) {
+        return;
+      }
 
-       // Haptic feedback for successful scan
-       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const now = Date.now();
+      // Ignore rapid duplicate scans of the same barcode.
+      if (
+        lastScanRef.current?.data === result.data &&
+        now - lastScanRef.current.timestamp < DUPLICATE_SCAN_COOLDOWN_MS
+      ) {
+        return;
+      }
 
-       setScannedBarcode({ data: result.data, type: result.type as BarcodeType });
-       setIsScanning(false);
+      // Haptic feedback for successful scan
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-       if (scanResetTimeoutRef.current) {
-         clearTimeout(scanResetTimeoutRef.current);
-       }
-
-       // Auto-reset after 1 second to allow fast repeated scans
-       scanResetTimeoutRef.current = setTimeout(() => {
-         setScannedBarcode(null);
-         setIsScanning(true);
-       }, 1000);
-     },
-     [scannedBarcode?.data]
-   );
+      lastScanRef.current = { data: result.data, timestamp: now };
+      setScannedBarcode({
+        data: result.data,
+        type: result.type as BarcodeType,
+      });
+      setIsScanning(false);
+    },
+    [isScanning]
+  );
 
   // Start scanning
   const startScanning = useCallback(() => {

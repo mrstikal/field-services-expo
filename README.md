@@ -4,16 +4,17 @@ A modern, full-stack field service management application built with Expo (React
 
 ## 🎯 Features
 
-- **Mobile App (Technician):** Task management, offline-first sync, GPS tracking, photo documentation, digital signatures
-- **Web Dashboard (Dispatcher):** Real-time task assignment, technician tracking, team management, analytics
-- **Offline-First:** Works seamlessly without internet, syncs automatically when online
-- **Real-Time Updates:** Live status updates using Supabase Realtime
-- **Type-Safe:** Full TypeScript with Zod validation
+- **Mobile App (Technician):** Task management, offline-first local storage, GPS capture, photo documentation, digital signatures
+- **Web Dashboard (Dispatcher):** Task assignment, technician lookup, team management, dashboard analytics
+- **Offline Sync:** Local queue, push-before-pull sync, tombstones for deletions, local conflict recording
+- **Auth:** Real Supabase sessions on web and mobile, with role checks backed by the `users` table
+- **Type-Safe:** Full TypeScript with shared Zod validation at the API boundary
 - **Modern Stack:** Expo, Next.js, Turborepo, Drizzle ORM, TanStack Query
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 20+
 - pnpm 10+
 - Supabase project with PostgreSQL database
@@ -45,17 +46,17 @@ pnpm dev:all
 
 **Demo Credentials:**
 
-| Role       | Email                  | Password |
-|------------|------------------------|----------|
-| Dispatcher | dispatcher1@demo.cz    | demo123  |
-| Dispatcher | dispatcher2@demo.cz    | demo123  |
-| Technician | technik1@demo.cz       | demo123  |
-| Technician | technik2@demo.cz       | demo123  |
-| Technician | technik3@demo.cz       | demo123  |
-| Technician | technik4@demo.cz       | demo123  |
-| Technician | technik5@demo.cz       | demo123  |
+| Role       | Email               | Password |
+| ---------- | ------------------- | -------- |
+| Dispatcher | dispatcher1@demo.cz | demo123  |
+| Dispatcher | dispatcher2@demo.cz | demo123  |
+| Technician | technik1@demo.cz    | demo123  |
+| Technician | technik2@demo.cz    | demo123  |
+| Technician | technik3@demo.cz    | demo123  |
+| Technician | technik4@demo.cz    | demo123  |
+| Technician | technik5@demo.cz    | demo123  |
 
-> **Note:** Auth users must also be created in Supabase Auth. See [Database Setup](./docs/DATABASE_SETUP.md).
+> **Note:** `pnpm demo:reset` creates or updates the Supabase Auth demo users and aligns `public.users.id` with `auth.users.id`.
 
 ### Available Commands
 
@@ -69,8 +70,12 @@ pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript type checking
 pnpm run test:unit    # Run all unit tests (shared + mobile + web)
 pnpm run test:integration # Run integration tests (mobile + web)
-pnpm run test:e2e     # Run Maestro + Playwright E2E
-pnpm run test:all     # Run unit + integration + E2E
+pnpm run test:e2e     # Run default portable E2E (web Playwright)
+pnpm run test:e2e:web # Run Playwright web E2E explicitly
+pnpm run test:e2e:web:reset # Destructive demo reset + Playwright web baseline run
+pnpm run test:e2e:mobile # Run Maestro mobile E2E
+pnpm run test:e2e:full # Run mobile Maestro + web Playwright E2E
+pnpm run test:all     # Run unit + integration + default E2E
 pnpm format           # Format code with Prettier
 pnpm db:seed          # Seed database with demo data
 pnpm demo:reset       # Reset Supabase database with demo data
@@ -82,17 +87,17 @@ For daily development on Windows + Android USB, see [DAILY_RUN.md](./docs/DAILY_
 
 ## 📚 Documentation
 
-| Document | Description |
-|----------|-------------|
-| **[Setup Guide](./docs/SETUP.md)** | Installation, configuration, and running the apps |
-| **[Architecture Guide](./docs/ARCHITECTURE.md)** | System design, data flow, and technical decisions |
-| **[Features](./docs/FEATURES.md)** | Detailed description of all app features |
-| **[Database Setup](./docs/DATABASE_SETUP.md)** | RLS policies, seeding, and database management |
-| **[Environment Variables](./docs/ENVIRONMENT.md)** | Complete reference for all env variables |
-| **[Deployment Guide](./docs/DEPLOYMENT.md)** | EAS Build, Vercel, OTA updates, CI/CD |
-| **[Daily Run](./docs/DAILY_RUN.md)** | Daily startup flow for Windows + Android USB |
-| **[Testing Guide](./docs/TESTING.md)** | Test commands, native-only suites, and E2E prerequisites |
-| **[Implementation Plan](./PLAN.md)** | Detailed roadmap for all 8 development stages (in Czech) |
+| Document                                           | Description                                              |
+| -------------------------------------------------- | -------------------------------------------------------- |
+| **[Setup Guide](./docs/SETUP.md)**                 | Installation, configuration, and running the apps        |
+| **[Architecture Guide](./docs/ARCHITECTURE.md)**   | System design, data flow, and technical decisions        |
+| **[Features](./docs/FEATURES.md)**                 | Detailed description of all app features                 |
+| **[Database Setup](./docs/DATABASE_SETUP.md)**     | RLS policies, seeding, and database management           |
+| **[Environment Variables](./docs/ENVIRONMENT.md)** | Complete reference for all env variables                 |
+| **[Deployment Guide](./docs/DEPLOYMENT.md)**       | EAS Build, Vercel, OTA updates, CI/CD                    |
+| **[Daily Run](./docs/DAILY_RUN.md)**               | Daily startup flow for Windows + Android USB             |
+| **[Testing Guide](./docs/TESTING.md)**             | Test commands, native-only suites, and E2E prerequisites |
+| **[Implementation Plan](./PLAN.md)**               | Detailed roadmap for all 8 development stages (in Czech) |
 
 ## 🏗️ Project Structure
 
@@ -105,7 +110,7 @@ field-service/
 │   ├── shared-types/        # TypeScript interfaces
 │   └── db/                  # Database & ORM (Drizzle, schema, seed, RLS)
 ├── docs/                    # Documentation
-├── scripts/                 # Utility scripts (reset-supabase.ts)
+├── scripts/                 # Utility scripts (reset-supabase.mjs)
 ├── android/                 # Android native build files
 ├── .github/workflows/       # CI/CD pipelines (ci.yml, dev-build.yml)
 ├── docker-compose.yml       # PostgreSQL for local development
@@ -116,16 +121,18 @@ field-service/
 ## 🛠️ Tech Stack
 
 ### Mobile (Expo)
+
 - **Framework:** Expo SDK 52, React Native 0.76
 - **Navigation:** Expo Router (file-based)
 - **State:** TanStack Query, Zustand
 - **Forms:** React Hook Form + Zod
-- **Offline:** expo-sqlite, sync queue
+- **Offline:** expo-sqlite, local sync queue, local conflict table
 - **Animations:** React Native Reanimated, Gesture Handler
 - **Native:** Camera, Location, FileSystem, Secure Store, Print, Sharing
 - **Styling:** NativeWind + Tailwind CSS
 
 ### Web (Next.js)
+
 - **Framework:** Next.js 16 with App Router
 - **Styling:** Tailwind CSS
 - **State:** TanStack Query
@@ -134,6 +141,7 @@ field-service/
 - **Auth:** Supabase Auth
 
 ### Backend
+
 - **Database:** PostgreSQL (Supabase)
 - **ORM:** Drizzle ORM
 - **Auth:** Supabase Auth with RLS
@@ -141,6 +149,7 @@ field-service/
 - **Storage:** Supabase Storage
 
 ### DevOps
+
 - **Monorepo:** Turborepo + pnpm
 - **CI/CD:** GitHub Actions
 - **Mobile Deploy:** EAS Build + EAS Update (OTA)
@@ -151,8 +160,8 @@ field-service/
 ## 📱 Mobile App Features
 
 - **Task Management:** View assigned tasks, filter by status/priority
-- **Offline-First:** Work without internet, auto-sync when online
-- **GPS Tracking:** Background location tracking with geofencing
+- **Offline-First:** Work without internet, sync local changes when online
+- **GPS Tracking:** Background location capture persisted into local storage and sync queue
 - **Photo Documentation:** Capture and attach photos to tasks
 - **Digital Signatures:** Collect customer signatures on reports
 - **PDF Reports:** Generate and share task reports
@@ -162,7 +171,7 @@ See [FEATURES.md](./docs/FEATURES.md) for full details.
 
 ## 💻 Web Dashboard Features
 
-- **Real-Time Dashboard:** Live statistics and technician status
+- **Dashboard:** Task statistics and technician status
 - **Task Management:** Create, assign, and track tasks
 - **Technician Tracking:** See technician locations on map
 - **Team Management:** Manage technician profiles and availability
@@ -173,8 +182,8 @@ See [FEATURES.md](./docs/FEATURES.md) for full details.
 
 ## 🔐 Security
 
-- **Row Level Security (RLS):** Database-level access control
-- **Secure Auth:** JWT tokens with secure storage
+- **Row Level Security (RLS):** Database-level access control tied to `users.role`
+- **Secure Auth:** Supabase session tokens with secure storage on mobile
 - **Type Safety:** TypeScript strict mode + Zod validation
 - **Protected Routes:** Middleware-based route protection
 - **Encrypted Storage:** Secure token storage on mobile
@@ -206,8 +215,12 @@ pnpm run test:shared
 pnpm run test:unit
 pnpm run test:integration
 pnpm run test:e2e
+pnpm run test:e2e:mobile
+pnpm run test:e2e:full
 pnpm run test:all
 ```
+
+`pnpm run test:e2e` is the portable default and runs only web Playwright. Mobile E2E is available separately via `pnpm run test:e2e:mobile`.
 
 Some Expo-native mobile suites are excluded from default jsdom runs and must be run explicitly with `EXPO_NATIVE_TESTS=1`.
 
@@ -216,6 +229,7 @@ See [TESTING.md](./docs/TESTING.md) for full details and PowerShell examples.
 ## 🚀 Deployment
 
 ### Mobile (EAS Build)
+
 ```bash
 cd apps/mobile
 eas build --platform all --profile production
@@ -223,6 +237,7 @@ eas update --branch production               # OTA update (no App Store review)
 ```
 
 ### Web (Vercel)
+
 ```bash
 cd apps/web
 vercel deploy --prod
@@ -236,16 +251,16 @@ See [DEPLOYMENT.md](./docs/DEPLOYMENT.md) for the complete deployment guide.
 
 The project is organized into 8 development stages:
 
-| Stage | Description | Status |
-|-------|-------------|--------|
-| 1 | **Monorepo & Infrastructure** – Turborepo, Expo, Next.js setup | ✅ Done |
-| 2 | **Authentication & Navigation** – Auth flows, protected routes | ✅ Done |
-| 3 | **Offline-First Engine** – SQLite, sync queue, conflict resolution | 🔄 Planned |
-| 4 | **Task Management** – CRUD operations, UI components | 🔄 Planned |
-| 5 | **Native Capabilities** – Camera, location, PDF generation | 🔄 Planned |
-| 6 | **Smart Report Builder** – Dynamic forms, digital signatures | 🔄 Planned |
-| 7 | **Polish & Performance** – Error handling, optimization | 🔄 Planned |
-| 8 | **Build & Deployment** – EAS Build, OTA updates, documentation | ✅ Done |
+| Stage | Description                                                                   | Status                   |
+| ----- | ----------------------------------------------------------------------------- | ------------------------ |
+| 1     | **Monorepo & Infrastructure** – Turborepo, Expo, Next.js setup                | ✅ Implemented           |
+| 2     | **Authentication & Navigation** – Auth flows, protected routes                | ✅ Implemented           |
+| 3     | **Offline-First Engine** – SQLite, sync queue, tombstones, conflict recording | 🟡 Implemented core flow |
+| 4     | **Task Management** – CRUD operations, UI components                          | 🟡 Implemented core flow |
+| 5     | **Native Capabilities** – Camera, location, PDF generation                    | 🟡 Partial / prototype   |
+| 6     | **Smart Report Builder** – Dynamic forms, digital signatures                  | 🟡 Partial / prototype   |
+| 7     | **Polish & Performance** – Error handling, optimization                       | 🟡 Ongoing               |
+| 8     | **Build & Deployment** – EAS Build, OTA updates, documentation                | 🟡 In progress           |
 
 See [PLAN.md](./PLAN.md) for the detailed implementation plan (in Czech).
 
@@ -263,6 +278,7 @@ MIT
 ## 🙋 Support
 
 For questions or issues:
+
 - Check the [Setup Guide](./docs/SETUP.md) for common problems
 - Review the [Architecture Guide](./docs/ARCHITECTURE.md) for system design
 - See [DAILY_RUN.md](./docs/DAILY_RUN.md) for Windows + Android USB workflow
@@ -283,4 +299,4 @@ For questions or issues:
 
 ---
 
-Built with ❤️ for field service teams
+Built for field service teams

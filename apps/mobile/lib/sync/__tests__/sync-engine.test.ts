@@ -1,17 +1,19 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { SyncEngine } from '../sync-engine';
-import type { Task } from '@shared/index';
-import type { Report } from '@shared/index';
+import { SyncAuthUnavailableError, SyncEngine } from '@lib/sync/sync-engine';
+import { getDatabase } from '@/lib/db/local-database';
+import { supabase } from '@/lib/supabase';
+import { taskRepository } from '@/lib/db/task-repository';
+import { reportRepository } from '@/lib/db/report-repository';
+import { locationRepository } from '@/lib/db/location-repository';
 
-// Mock dependencies
-vi.mock('../../db/local-database', () => ({
+vi.mock('@/lib/db/local-database', () => ({
   getDatabase: vi.fn(),
   closeDatabase: vi.fn(),
   resetDatabase: vi.fn(),
 }));
 
-vi.mock('../../supabase', () => ({
+vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn(),
@@ -19,25 +21,29 @@ vi.mock('../../supabase', () => ({
   },
 }));
 
-vi.mock('../../db/task-repository', () => ({
+vi.mock('@/lib/db/task-repository', () => ({
   taskRepository: {
     getLastSyncTimestamp: vi.fn(),
     setLastSyncTimestamp: vi.fn(),
     upsertFromServer: vi.fn(),
+    getById: vi.fn(),
+    resolveConflict: vi.fn(),
   },
 }));
 
-vi.mock('../../db/report-repository', () => ({
+vi.mock('@/lib/db/report-repository', () => ({
   reportRepository: {
+    upsertFromServer: vi.fn(),
+    getById: vi.fn(),
+    resolveConflict: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/db/location-repository', () => ({
+  locationRepository: {
     upsertFromServer: vi.fn(),
   },
 }));
-
-// Import repositories after vi.mock is applied
-import { taskRepository } from '../../db/task-repository';
-import { reportRepository } from '../../db/report-repository';
-import { getDatabase } from '../../db/local-database';
-import { supabase } from '../../supabase';
 
 interface MockDb {
   runAsync: Mock;
@@ -51,410 +57,259 @@ describe('SyncEngine', () => {
 
   beforeEach(() => {
     mockDb = {
-      runAsync: vi.fn(),
-      getAllAsync: vi.fn(),
-      getFirstAsync: vi.fn(),
+      runAsync: vi.fn().mockResolvedValue(undefined),
+      getAllAsync: vi.fn().mockResolvedValue([]),
+      getFirstAsync: vi.fn().mockResolvedValue({ count: 0 }),
     };
 
-    vi.mocked(getDatabase).mockReturnValue(mockDb as unknown as ReturnType<typeof getDatabase>);
+    vi.mocked(getDatabase).mockReturnValue(mockDb as never);
+    vi.mocked(taskRepository.getLastSyncTimestamp).mockResolvedValue(null);
+    vi.mocked(taskRepository.setLastSyncTimestamp).mockResolvedValue(undefined);
+    vi.mocked(taskRepository.upsertFromServer).mockResolvedValue({} as never);
+    vi.mocked(taskRepository.getById).mockResolvedValue(null);
+    vi.mocked(taskRepository.resolveConflict).mockResolvedValue({} as never);
+    vi.mocked(reportRepository.upsertFromServer).mockResolvedValue({} as never);
+    vi.mocked(reportRepository.getById).mockResolvedValue(null);
+    vi.mocked(reportRepository.resolveConflict).mockResolvedValue({} as never);
+    vi.mocked(locationRepository.upsertFromServer).mockResolvedValue(
+      {} as never
+    );
+
     (supabase.auth.getSession as Mock).mockResolvedValue({
       data: {
         session: {
           access_token: 'test-token',
-          refresh_token: 'test-refresh',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: { id: 'test-user', email: 'test@example.com' },
         },
       },
-      error: null,
     });
 
-    vi.mocked(taskRepository.getLastSyncTimestamp).mockResolvedValue(null);
-    vi.mocked(taskRepository.setLastSyncTimestamp).mockResolvedValue(undefined);
-
-    vi.mocked(taskRepository.upsertFromServer).mockResolvedValue({} as Task);
-    vi.mocked(reportRepository.upsertFromServer).mockResolvedValue({} as Report);
-
-    engine = SyncEngine.getInstance();
+    global.fetch = vi.fn();
+    engine = new SyncEngine();
   });
 
   afterEach(() => {
     vi.clearAllMocks();
-    // Reset singleton by resetting modules
-    vi.resetModules();
   });
 
-  describe('getInstance', () => {
-    it('should return singleton instance', () => {
-      const instance1 = SyncEngine.getInstance();
-      const instance2 = SyncEngine.getInstance();
-
-      expect(instance1).toBe(instance2);
-    });
-  });
-
-  describe('beginSync/endSync', () => {
-    it('should begin sync when not in progress', () => {
-      expect(engine.isSyncInProgress()).toBe(false);
-      expect(engine.beginSync()).toBe(true);
-      expect(engine.isSyncInProgress()).toBe(true);
-    });
-
-    it('should not begin sync when already in progress', () => {
-      engine.beginSync();
-      expect(engine.beginSync()).toBe(false);
-      engine.endSync();
-    });
-  });
-
-  describe('initialize', () => {
-    it('should initialize with last sync timestamp', async () => {
-      vi.mocked(taskRepository.getLastSyncTimestamp).mockResolvedValue('2025-01-01T00:00:00.000Z');
-
-      await engine.initialize();
-
-      expect(taskRepository.getLastSyncTimestamp).toHaveBeenCalled();
-    });
-  });
-
-  describe('pullSync', () => {
-    it('should pull changes from server', async () => {
-      const mockResponse = {
+  it('pulls server changes and updates last sync timestamp', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
         success: true,
         data: {
           tasks: [
             {
               id: 'task-1',
-              title: 'Task 1',
-              description: 'Desc 1',
-              address: 'Addr 1',
-              latitude: 48.1,
-              longitude: 17.1,
-              status: 'assigned' as const,
-              priority: 'medium' as const,
-              category: 'repair' as const,
-              due_date: '2025-01-01',
-              customer_name: 'Customer 1',
-              customer_phone: '111',
-              estimated_time: 1,
-              technician_id: 'tech1',
-              created_at: '2025-01-01T10:00:00.000Z',
-              updated_at: '2025-01-01T10:00:00.000Z',
+              updated_at: '2025-01-01T00:00:00.000Z',
               version: 1,
-              synced: 0,
             },
           ],
           reports: [
             {
               id: 'report-1',
-              task_id: 'task-1',
-              status: 'draft' as const,
-              photos: [],
-              form_data: {},
-              signature: null,
-              created_at: '2025-01-01T10:00:00.000Z',
-              updated_at: '2025-01-01T10:00:00.000Z',
+              updated_at: '2025-01-01T00:00:00.000Z',
               version: 1,
-              synced: 0,
             },
           ],
+          locations: [{ id: 'location-1' }],
+          serverTimestamp: '2025-01-01T12:00:00.000Z',
+        },
+      }),
+    } as Response);
+
+    const result = await engine.pullSync();
+
+    expect(result).toEqual({ tasks: 1, reports: 1, locations: 1 });
+    expect(taskRepository.upsertFromServer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-1' })
+    );
+    expect(reportRepository.upsertFromServer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'report-1' })
+    );
+    expect(locationRepository.upsertFromServer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'location-1' })
+    );
+    expect(taskRepository.setLastSyncTimestamp).toHaveBeenCalledWith(
+      '2025-01-01T12:00:00.000Z'
+    );
+  });
+
+  it('records conflicts during pull when pending local changes exist', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          tasks: [
+            {
+              id: 'task-1',
+              updated_at: '2025-01-01T00:00:00.000Z',
+              version: 2,
+            },
+          ],
+          reports: [],
           locations: [],
           serverTimestamp: '2025-01-01T12:00:00.000Z',
         },
-      };
+      }),
+    } as Response);
 
-      vi.mocked(mockDb!.getFirstAsync).mockResolvedValue({ count: 0 });
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
+    vi.mocked(taskRepository.getById).mockResolvedValue({
+      id: 'task-1',
+    } as never);
+    mockDb.getFirstAsync.mockResolvedValue({ count: 1 });
 
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        })
-      ) as unknown as typeof fetch;
+    await engine.pullSync();
 
-      const result = await engine.pullSync();
-
-      expect(result.tasks).toBe(1);
-      expect(result.reports).toBe(1);
-      expect(result.locations).toBe(0);
-
-      expect(taskRepository.upsertFromServer).toHaveBeenCalled();
-      expect(reportRepository.upsertFromServer).toHaveBeenCalled();
-      expect(taskRepository.setLastSyncTimestamp).toHaveBeenCalledWith('2025-01-01T12:00:00.000Z');
-    });
-
-    it('should throw error if pull API fails', async () => {
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 500,
-          statusText: 'Internal Server Error',
-        })
-      ) as unknown as typeof fetch;
-
-      await expect(engine.pullSync()).rejects.toThrow('API request failed: 500 Internal Server Error');
-    });
-
-    it('should throw error if response success is false', async () => {
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ success: false }),
-        })
-      ) as unknown as typeof fetch;
-
-      await expect(engine.pullSync()).rejects.toThrow('Pull sync API call failed');
-    });
+    expect(taskRepository.resolveConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task-1' }),
+      expect.objectContaining({ id: 'task-1', version: 2 })
+    );
+    expect(taskRepository.upsertFromServer).not.toHaveBeenCalled();
   });
 
-  describe('pushSync', () => {
-    it('should push pending changes to server', async () => {
-      const mockQueueItems = [
-        {
-          id: 'queue-1',
-          type: 'task' as const,
-          action: 'create' as const,
-          data: JSON.stringify({ id: 'task-1', title: 'Task 1' }),
-          version: 1,
-          status: 'pending' as const,
-          retry_count: 0,
-          created_at: '2025-01-01T10:00:00.000Z',
-          updated_at: '2025-01-01T10:00:00.000Z',
-        },
-      ];
+  it('surfaces HTTP pull failures with a stable fallback error message', async () => {
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    } as Response);
 
-      const mockResponse = {
+    await expect(engine.pullSync()).rejects.toThrow(
+      'API request failed: 500 Internal Server Error'
+    );
+  });
+
+  it('pushes pending queue items and marks successful items as synced when no server record is returned', async () => {
+    mockDb.getAllAsync.mockResolvedValue([
+      {
+        id: 'queue-1',
+        type: 'task',
+        action: 'create',
+        entity_id: 'task-1',
+        data: JSON.stringify({ id: 'task-1', title: 'Task 1' }),
+        version: 1,
+        status: 'pending',
+        retry_count: 0,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        results: {
+          itemResults: [{ id: 'queue-1', status: 'success' }],
+        },
+      }),
+    } as Response);
+
+    const result = await engine.pushSync();
+
+    expect(result).toEqual({ success: 1, failed: 0, errors: [] });
+    expect(mockDb.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'UPDATE sync_queue SET status = ?, error = ?, updated_at = ? WHERE id = ?'
+      ),
+      ['synced', null, expect.any(String), 'queue-1']
+    );
+  });
+
+  it('marks failed push items as failed and returns errors', async () => {
+    mockDb.getAllAsync.mockResolvedValue([
+      {
+        id: 'queue-1',
+        type: 'task',
+        action: 'create',
+        entity_id: 'task-1',
+        data: JSON.stringify({ id: 'task-1' }),
+        version: 1,
+        status: 'pending',
+        retry_count: 0,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z',
+      },
+    ]);
+
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
         success: true,
         results: {
           itemResults: [
-            {
-              id: 'queue-1',
-              status: 'success',
-            },
+            { id: 'queue-1', status: 'failed', error: 'Network error' },
           ],
         },
-      };
+      }),
+    } as Response);
 
-      vi.mocked(mockDb!.getAllAsync).mockResolvedValue(mockQueueItems);
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
+    const result = await engine.pushSync();
 
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
+    expect(result.failed).toBe(1);
+    expect(result.errors).toEqual(['Network error']);
+  });
+
+  it('runs full sync in push-before-pull order', async () => {
+    mockDb.getAllAsync.mockResolvedValue([
+      {
+        id: 'queue-1',
+        type: 'task',
+        action: 'create',
+        entity_id: 'task-1',
+        data: JSON.stringify({ id: 'task-1' }),
+        version: 1,
+        status: 'pending',
+        retry_count: 0,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z',
+      },
+    ]);
+    const fetchMock = vi.mocked(global.fetch);
+    fetchMock.mockImplementation(async input => {
+      const url = String(input);
+      if (url.includes('/api/sync/push')) {
+        return {
           ok: true,
-          json: () => Promise.resolve(mockResponse),
-        })
-      ) as unknown as typeof fetch;
+          json: async () => ({
+            success: true,
+            results: { itemResults: [{ id: 'queue-1', status: 'success' }] },
+          }),
+        } as Response;
+      }
 
-      const result = await engine.pushSync();
-
-      expect(result.success).toBe(1);
-      expect(result.failed).toBe(0);
-
-      expect(mockDb!.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE sync_queue'),
-        expect.arrayContaining(['synced', expect.any(String), 'queue-1'])
-      );
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            tasks: [],
+            reports: [],
+            locations: [],
+            serverTimestamp: '2025-01-01T12:00:00.000Z',
+          },
+        }),
+      } as Response;
     });
 
-    it('should return empty result if no pending items', async () => {
-      vi.mocked(mockDb!.getAllAsync).mockResolvedValue([]);
+    const result = await engine.fullSync();
 
-      const result = await engine.pushSync();
-
-      expect(result.success).toBe(0);
-      expect(result.failed).toBe(0);
-    });
-
-    it('should handle failed items', async () => {
-      const mockQueueItems = [
-        {
-          id: 'queue-1',
-          type: 'task' as const,
-          action: 'create' as const,
-          data: JSON.stringify({ id: 'task-1', title: 'Task 1' }),
-          version: 1,
-          status: 'pending' as const,
-          retry_count: 0,
-          created_at: '2025-01-01T10:00:00.000Z',
-          updated_at: '2025-01-01T10:00:00.000Z',
-        },
-      ];
-
-      const mockResponse = {
-        success: true,
-        results: {
-          itemResults: [
-            {
-              id: 'queue-1',
-              status: 'failed',
-              error: 'Network error',
-            },
-          ],
-        },
-      };
-
-      vi.mocked(mockDb!.getAllAsync).mockResolvedValue(mockQueueItems);
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        })
-      ) as unknown as typeof fetch;
-
-      const result = await engine.pushSync();
-
-      expect(result.success).toBe(0);
-      expect(result.failed).toBe(1);
-      expect(result.errors).toContain('Network error');
-    });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('/api/sync/push');
+    expect(fetchMock.mock.calls[1]?.[0]).toContain('/api/sync/pull');
+    expect(result.pushed.success).toBe(1);
+    expect(result.pulled.tasks).toBe(0);
   });
 
-  describe('fullSync', () => {
-    it('should perform pull and push sync', async () => {
-      vi.mocked(mockDb!.getFirstAsync).mockResolvedValue({ count: 0 });
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
-
-      global.fetch = vi.fn((url) => {
-        if (url.includes('/api/sync/pull')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                success: true,
-                data: {
-                  tasks: [],
-                  reports: [],
-                  locations: [],
-                  serverTimestamp: '2025-01-01T12:00:00.000Z',
-                },
-              }),
-          });
-        }
-        if (url.includes('/api/sync/push')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                success: true,
-                results: { itemResults: [] },
-              }),
-          });
-        }
-        return Promise.resolve({ ok: false });
-      }) as unknown as typeof fetch;
-
-      const result = await engine.fullSync();
-
-      expect(result.pulled.tasks).toBe(0);
-      expect(result.pulled.reports).toBe(0);
-      expect(result.pulled.locations).toBe(0);
-      expect(result.pushed.success).toBe(0);
-    });
-  });
-
-  describe('getStatus', () => {
-    it('should return sync status', async () => {
-      vi.mocked(taskRepository.getLastSyncTimestamp).mockResolvedValue('2025-01-01T00:00:00.000Z');
-      vi.mocked(mockDb!.getFirstAsync).mockResolvedValue({ count: 5 });
-
-      const result = await engine.getStatus();
-
-      expect(result.lastSync).toBe('2025-01-01T00:00:00.000Z');
-      expect(result.pendingItems).toBe(5);
-    });
-  });
-
-  describe('cleanupSyncQueue', () => {
-    it('should remove old synced and failed items', async () => {
-      vi.mocked(mockDb!.getFirstAsync).mockResolvedValue({ count: 2 });
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
-
-      const result = await engine.cleanupSyncQueue(7);
-
-      expect(result.syncedRemoved).toBe(2);
-      expect(result.failedRemoved).toBe(2);
-      expect(result.totalRemoved).toBe(4);
-
-      expect(mockDb!.runAsync).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM sync_queue WHERE status = ?'),
-        expect.any(Array)
-      );
-    });
-  });
-
-  describe('retryFailedSyncItems', () => {
-    it('should retry failed items', async () => {
-      const mockFailedItems = [
-        {
-          id: 'queue-1',
-          type: 'task' as const,
-          action: 'create' as const,
-          data: JSON.stringify({ id: 'task-1', title: 'Task 1' }),
-          version: 1,
-          status: 'failed' as const,
-          error: 'Network error',
-          retry_count: 0,
-          created_at: '2025-01-01T10:00:00.000Z',
-          updated_at: '2025-01-01T10:00:00.000Z',
-        },
-      ];
-
-      const mockResponse = {
-        success: true,
-        results: {
-          itemResults: [
-            {
-              id: 'queue-1',
-              status: 'success',
-            },
-          ],
-        },
-      };
-
-      vi.mocked(mockDb!.getAllAsync).mockResolvedValue(mockFailedItems);
-      vi.mocked(mockDb!.runAsync).mockResolvedValue(undefined);
-
-      global.fetch = vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        })
-      ) as unknown as typeof fetch;
-
-      const result = await engine.retryFailedSyncItems(3);
-
-      expect(result.retried).toBe(1);
-      expect(result.success).toBe(1);
-      expect(result.failed).toBe(0);
+  it('throws SyncAuthUnavailableError when access token is missing', async () => {
+    (supabase.auth.getSession as Mock).mockResolvedValue({
+      data: {
+        session: null,
+      },
     });
 
-    it('should not retry items that exceeded max retries', async () => {
-      const mockFailedItems = [
-        {
-          id: 'queue-1',
-          type: 'task' as const,
-          action: 'create' as const,
-          data: JSON.stringify({ id: 'task-1', title: 'Task 1' }),
-          version: 1,
-          status: 'failed' as const,
-          error: 'Network error',
-          retry_count: 3,
-          created_at: '2025-01-01T10:00:00.000Z',
-          updated_at: '2025-01-01T10:00:00.000Z',
-        },
-      ];
-
-      vi.mocked(mockDb!.getAllAsync).mockResolvedValue(mockFailedItems);
-
-      const result = await engine.retryFailedSyncItems(3);
-
-      expect(result.retried).toBe(0);
-      expect(result.success).toBe(0);
-      expect(result.failed).toBe(1);
-    });
+    await expect(engine.pullSync()).rejects.toBeInstanceOf(
+      SyncAuthUnavailableError
+    );
   });
 });

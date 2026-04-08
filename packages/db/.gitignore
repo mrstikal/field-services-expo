@@ -1,5 +1,8 @@
 # migrations
-migrations/
+migrations/*
+!migrations/*.sql
+!migrations/meta/
+!migrations/meta/*.json
 
 # env
 .env

@@ -57,7 +57,8 @@ vi.mock('react-native', () => ({
 if (!global.crypto.randomUUID) {
   global.crypto.randomUUID = (() => {
     let count = 0;
-    return () => `00000000-0000-0000-0000-${(count++).toString().padStart(12, '0')}`;
+    return () =>
+      `00000000-0000-0000-0000-${(count++).toString().padStart(12, '0')}`;
   })();
 }
 

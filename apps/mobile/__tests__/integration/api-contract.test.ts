@@ -113,7 +113,9 @@ describe('API Contract Tests – Pull Sync response schema', () => {
     const pullResponse = {
       success: true,
       data: {
-        tasks: [{ id: 'task-1', title: 'Task', updated_at: '2024-01-01T00:00:00Z' }],
+        tasks: [
+          { id: 'task-1', title: 'Task', updated_at: '2024-01-01T00:00:00Z' },
+        ],
         reports: [],
         locations: [],
         serverTimestamp: new Date().toISOString(),
@@ -145,9 +147,7 @@ describe('API Contract Tests – Push Sync response schema', () => {
     const pushResponse = {
       success: true,
       results: {
-        itemResults: [
-          { id: 'queue-item-1', status: 'success' },
-        ],
+        itemResults: [{ id: 'queue-item-1', status: 'success' }],
         success: 1,
         failed: 0,
         conflicts: [],
@@ -166,7 +166,11 @@ describe('API Contract Tests – Push Sync response schema', () => {
       success: true,
       results: {
         itemResults: [
-          { id: 'queue-item-1', status: 'failed', error: 'Database constraint failed' },
+          {
+            id: 'queue-item-1',
+            status: 'failed',
+            error: 'Database constraint failed',
+          },
         ],
         success: 0,
         failed: 1,

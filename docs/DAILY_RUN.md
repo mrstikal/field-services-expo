@@ -2,6 +2,8 @@
 
 Quick daily startup flow for Windows, Linux, and macOS with an Android phone connected over USB.
 
+For stable Android mobile E2E on an emulator, prefer `pnpm run test:e2e:mobile:emulator` from the repo root. That workflow boots or reuses an emulator, ensures the app is installed, and then runs Maestro against the emulator explicitly.
+
 ## 1) Prerequisites
 
 - Expo Go installed on the phone is compatible with the project's Expo SDK.
@@ -111,7 +113,6 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
 & $adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
 ```
 
-
 ### Expo prompt `Log in / Proceed anonymously`
 
 - If terminal 2 shows:
@@ -119,7 +120,7 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
   - `Log in` / `Proceed anonymously`
 - this project uses `EXPO_OFFLINE=1` in:
   - `scripts/start-mobile-metro-usb.mjs`
-  so the prompt should not appear.
+    so the prompt should not appear.
 - `EXPO_OFFLINE=1` is an environment variable, not the `--offline` CLI flag. Keep `--localhost` for USB + `adb reverse`.
 - Until this prompt is resolved, Metro is not fully started and Expo Go can stay on loader and end with `Something went wrong`.
 

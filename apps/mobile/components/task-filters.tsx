@@ -19,7 +19,7 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
   filters,
   onFilterChange,
   onApplyFilters,
-  onResetFilters
+  onResetFilters,
 }) => {
   const statusOptions = [
     { label: 'All', value: null },
@@ -54,7 +54,9 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
         <View className="mt-auto flex-1 rounded-t-2xl bg-white">
           <View className="border-b border-gray-200 px-4 py-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-lg font-semibold text-gray-800">Filter Tasks</Text>
+              <Text className="text-lg font-semibold text-gray-800">
+                Filter Tasks
+              </Text>
               <TouchableOpacity onPress={onResetFilters}>
                 <Ionicons color="#1e40af" name="refresh" size={24} />
               </TouchableOpacity>
@@ -64,18 +66,24 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
           <ScrollView className="flex-1 p-4">
             {/* Status Filter */}
             <View className="mb-5">
-              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Status</Text>
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">
+                Status
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View className="flex-row gap-2">
-                  {statusOptions.map((option) => (
+                  {statusOptions.map(option => (
                     <TouchableOpacity
                       className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                        filters.status === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                        filters.status === option.value
+                          ? 'bg-blue-800'
+                          : 'bg-gray-100'
                       }`}
                       key={option.value || 'all'}
                       onPress={() => onFilterChange('status', option.value)}
                     >
-                      <Text className={`text-xs ${filters.status === option.value ? 'text-white' : 'text-gray-500'}`}>
+                      <Text
+                        className={`text-xs ${filters.status === option.value ? 'text-white' : 'text-gray-500'}`}
+                      >
                         {option.label}
                       </Text>
                     </TouchableOpacity>
@@ -86,18 +94,24 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
 
             {/* Priority Filter */}
             <View className="mb-5">
-              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Priority</Text>
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">
+                Priority
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View className="flex-row gap-2">
-                  {priorityOptions.map((option) => (
+                  {priorityOptions.map(option => (
                     <TouchableOpacity
                       className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                        filters.priority === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                        filters.priority === option.value
+                          ? 'bg-blue-800'
+                          : 'bg-gray-100'
                       }`}
                       key={option.value || 'all'}
                       onPress={() => onFilterChange('priority', option.value)}
                     >
-                      <Text className={`text-xs ${filters.priority === option.value ? 'text-white' : 'text-gray-500'}`}>
+                      <Text
+                        className={`text-xs ${filters.priority === option.value ? 'text-white' : 'text-gray-500'}`}
+                      >
                         {option.label}
                       </Text>
                     </TouchableOpacity>
@@ -108,18 +122,24 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
 
             {/* Date Range Filter */}
             <View className="mb-5">
-              <Text className="mb-2.5 text-sm font-semibold text-gray-800">Date</Text>
+              <Text className="mb-2.5 text-sm font-semibold text-gray-800">
+                Date
+              </Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View className="flex-row gap-2">
-                  {dateRangeOptions.map((option) => (
+                  {dateRangeOptions.map(option => (
                     <TouchableOpacity
                       className={`min-w-20 items-center rounded-full px-3 py-2 ${
-                        filters.dateRange === option.value ? 'bg-blue-800' : 'bg-gray-100'
+                        filters.dateRange === option.value
+                          ? 'bg-blue-800'
+                          : 'bg-gray-100'
                       }`}
                       key={option.value || 'all'}
                       onPress={() => onFilterChange('dateRange', option.value)}
                     >
-                      <Text className={`text-xs ${filters.dateRange === option.value ? 'text-white' : 'text-gray-500'}`}>
+                      <Text
+                        className={`text-xs ${filters.dateRange === option.value ? 'text-white' : 'text-gray-500'}`}
+                      >
                         {option.label}
                       </Text>
                     </TouchableOpacity>
@@ -131,7 +151,10 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
 
           {/* Close Button */}
           <View className="border-t border-gray-200 p-4">
-            <TouchableOpacity className="items-center rounded-lg bg-blue-800 p-4" onPress={onApplyFilters}>
+            <TouchableOpacity
+              className="items-center rounded-lg bg-blue-800 p-4"
+              onPress={onApplyFilters}
+            >
               <Text className="text-base font-semibold text-white">Close</Text>
             </TouchableOpacity>
           </View>

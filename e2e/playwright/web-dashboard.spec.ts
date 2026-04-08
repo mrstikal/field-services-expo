@@ -1,30 +1,41 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+
+async function signInAsDispatcher(page: Page) {
+  await page.goto('/login');
+  await page.getByLabel('Email').fill('dispatcher1@demo.cz');
+  await page.getByLabel('Password').fill('demo123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(
+    page.getByRole('heading', { name: 'Dashboard Overview' })
+  ).toBeVisible();
+}
 
 test.describe('Web Dashboard E2E', () => {
   test.beforeEach(async ({ page }) => {
-    // In a real E2E environment, we would seed the database or use a test account
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'dispatcher1@demo.cz');
-    await page.fill('input[name="password"]', 'demo123');
-    await page.click('button[type="submit"]');
+    await signInAsDispatcher(page);
   });
 
   test('should login and display the dashboard', async ({ page }) => {
-    await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.locator('h1')).toContainText('Dashboard');
-    await expect(page.locator('text=Active Tasks')).toBeVisible();
-    await expect(page.locator('text=Available Technicians')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Dashboard Overview' })
+    ).toBeVisible();
+    await expect(page.getByText('Assigned Tasks')).toBeVisible();
+    await expect(page.getByText('Online Technicians')).toBeVisible();
   });
 
   test('should navigate to tasks page from dashboard', async ({ page }) => {
-    await page.click('nav >> text=Tasks');
+    await page.getByRole('link', { name: 'Tasks' }).click();
     await expect(page).toHaveURL(/\/dashboard\/tasks/);
-    await expect(page.locator('h1')).toContainText('Tasks');
+    await expect(
+      page.getByRole('heading', { name: 'Tasks Management' })
+    ).toBeVisible();
   });
 
   test('should logout successfully', async ({ page }) => {
-    await page.click('button:has-text("User Profile")'); // Adjust selector as needed
-    await page.click('text=Logout');
+    await page.getByRole('button', { name: 'Sign Out' }).click();
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
   });
 });

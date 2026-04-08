@@ -12,4 +12,3 @@ declare module '@react-native-community/netinfo' {
 
   export default NetInfo;
 }
-

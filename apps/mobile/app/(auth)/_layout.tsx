@@ -17,7 +17,9 @@ export default function AuthLayout() {
         }}
       >
         <ActivityIndicator color="#1e40af" size="large" />
-        <Text style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>Loading app...</Text>
+        <Text style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
+          Loading app...
+        </Text>
       </View>
     );
   }

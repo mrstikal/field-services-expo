@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useAuth } from '../../lib/auth-context';
-import { supabase } from '../../lib/supabase';
+import { useAuth } from '@lib/auth-context';
+import { supabase } from '@lib/supabase';
 import { renderHook, act } from '@testing-library/react-native';
 
 // Mock supabase
-vi.mock('../../lib/supabase', () => ({
+vi.mock('@lib/supabase', () => ({
   supabase: {
     auth: {
       signInWithPassword: vi.fn(),
@@ -61,7 +61,9 @@ describe('Mobile Auth Integration', () => {
       error: null,
     } as any);
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
     expect(session).toEqual(mockSession);
     expect(supabase.auth.getSession).toHaveBeenCalled();

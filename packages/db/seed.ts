@@ -1,34 +1,45 @@
 import { db } from './index';
-import { users, tasks, reports, parts, locations } from './schema';
-import { randomUUID } from 'crypto';
+import { locations, parts, reports, tasks, users } from './schema';
 
-// Generate UUIDs for references
-const dispatcher1Id = randomUUID();
-const dispatcher2Id = randomUUID();
-const technik1Id = randomUUID();
-const technik2Id = randomUUID();
-const technik3Id = randomUUID();
-const technik4Id = randomUUID();
-const technik5Id = randomUUID();
-const task1Id = randomUUID();
-const task2Id = randomUUID();
-const task3Id = randomUUID();
-const task4Id = randomUUID();
-const task5Id = randomUUID();
-const report1Id = randomUUID();
-const report2Id = randomUUID();
-const part1Id = randomUUID();
-const part2Id = randomUUID();
-const part3Id = randomUUID();
-const part4Id = randomUUID();
-const part5Id = randomUUID();
-const location1Id = randomUUID();
-const location2Id = randomUUID();
+const USER_IDS = {
+  dispatcher1: '550e8400-e29b-41d4-a716-446655440001',
+  dispatcher2: '550e8400-e29b-41d4-a716-446655440002',
+  technik1: '550e8400-e29b-41d4-a716-446655440003',
+  technik2: '550e8400-e29b-41d4-a716-446655440004',
+  technik3: '550e8400-e29b-41d4-a716-446655440005',
+  technik4: '550e8400-e29b-41d4-a716-446655440006',
+  technik5: '550e8400-e29b-41d4-a716-446655440007',
+} as const;
 
-// Demo users
+const TASK_IDS = {
+  task1: '650e8400-e29b-41d4-a716-446655440001',
+  task2: '650e8400-e29b-41d4-a716-446655440002',
+  task3: '650e8400-e29b-41d4-a716-446655440003',
+  task4: '650e8400-e29b-41d4-a716-446655440005',
+  task5: '650e8400-e29b-41d4-a716-446655440010',
+} as const;
+
+const REPORT_IDS = {
+  report1: '750e8400-e29b-41d4-a716-446655440001',
+  report2: '750e8400-e29b-41d4-a716-446655440002',
+} as const;
+
+const PART_IDS = {
+  part1: '850e8400-e29b-41d4-a716-446655440001',
+  part2: '850e8400-e29b-41d4-a716-446655440002',
+  part3: '850e8400-e29b-41d4-a716-446655440003',
+  part4: '850e8400-e29b-41d4-a716-446655440004',
+  part5: '850e8400-e29b-41d4-a716-446655440005',
+} as const;
+
+const LOCATION_IDS = {
+  location1: '950e8400-e29b-41d4-a716-446655440001',
+  location2: '950e8400-e29b-41d4-a716-446655440002',
+} as const;
+
 const demoUsers = [
   {
-    id: dispatcher1Id,
+    id: USER_IDS.dispatcher1,
     email: 'dispatcher1@demo.cz',
     role: 'dispatcher' as const,
     name: 'John Smith',
@@ -39,7 +50,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: dispatcher2Id,
+    id: USER_IDS.dispatcher2,
     email: 'dispatcher2@demo.cz',
     role: 'dispatcher' as const,
     name: 'Jane Doe',
@@ -50,7 +61,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: technik1Id,
+    id: USER_IDS.technik1,
     email: 'technik1@demo.cz',
     role: 'technician' as const,
     name: 'Peter Johnson',
@@ -61,7 +72,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: technik2Id,
+    id: USER_IDS.technik2,
     email: 'technik2@demo.cz',
     role: 'technician' as const,
     name: 'Anna Williams',
@@ -72,7 +83,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: technik3Id,
+    id: USER_IDS.technik3,
     email: 'technik3@demo.cz',
     role: 'technician' as const,
     name: 'Thomas Brown',
@@ -83,7 +94,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: technik4Id,
+    id: USER_IDS.technik4,
     email: 'technik4@demo.cz',
     role: 'technician' as const,
     name: 'Michael Davis',
@@ -94,7 +105,7 @@ const demoUsers = [
     last_location_lng: null,
   },
   {
-    id: technik5Id,
+    id: USER_IDS.technik5,
     email: 'technik5@demo.cz',
     role: 'technician' as const,
     name: 'David Miller',
@@ -106,15 +117,14 @@ const demoUsers = [
   },
 ];
 
-// Demo tasks
 const demoTasks = [
-   {
-     id: task1Id,
-     title: 'Switchboard repair',
-     description: 'Urgent switchboard malfunction requiring immediate repair',
-     address: 'Václavské nám. 1, Praha 1',
-     latitude: 50.0755,
-     longitude: 14.4378,
+  {
+    id: TASK_IDS.task5,
+    title: 'Switchboard repair',
+    description: 'Urgent switchboard malfunction requiring immediate repair',
+    address: 'Václavské nám. 1, Praha 1',
+    latitude: 50.0755,
+    longitude: 14.4378,
     status: 'assigned' as const,
     priority: 'urgent' as const,
     category: 'repair' as const,
@@ -123,9 +133,11 @@ const demoTasks = [
     customer_phone: '+420 123 456 789',
     estimated_time: 120,
     technician_id: null,
+    deleted_at: null,
+    version: 1,
   },
   {
-    id: task2Id,
+    id: TASK_IDS.task2,
     title: 'Circuit breaker installation',
     description: 'Replacement of old circuit breakers in residential building',
     address: 'Nám. Svobody 5, Brno',
@@ -139,9 +151,11 @@ const demoTasks = [
     customer_phone: '+420 123 456 790',
     estimated_time: 180,
     technician_id: null,
+    deleted_at: null,
+    version: 1,
   },
   {
-    id: task3Id,
+    id: TASK_IDS.task3,
     title: 'Electrical installation inspection',
     description: 'Regular electrical installation inspection',
     address: 'Milady Horákové 10, Praha 7',
@@ -155,9 +169,11 @@ const demoTasks = [
     customer_phone: '+420 123 456 791',
     estimated_time: 90,
     technician_id: null,
+    deleted_at: null,
+    version: 1,
   },
   {
-    id: task4Id,
+    id: TASK_IDS.task1,
     title: 'Switchboard maintenance',
     description: 'Switchboard inspection and maintenance',
     address: 'Vinohrady, Praha 2',
@@ -170,15 +186,17 @@ const demoTasks = [
     customer_name: 'Peter Brown',
     customer_phone: '+420 123 456 792',
     estimated_time: 120,
-    technician_id: technik1Id,
+    technician_id: USER_IDS.technik1,
+    deleted_at: null,
+    version: 1,
   },
   {
-    id: task5Id,
+    id: TASK_IDS.task4,
     title: 'Cable replacement',
     description: 'Replacement of old cables in switchboard',
     address: 'Králova Pole, Brno',
     latitude: 49.1833,
-    longitude: 16.6000,
+    longitude: 16.6,
     status: 'in_progress' as const,
     priority: 'high' as const,
     category: 'repair' as const,
@@ -186,34 +204,46 @@ const demoTasks = [
     customer_name: 'Charles Wilson',
     customer_phone: '+420 123 456 793',
     estimated_time: 240,
-    technician_id: technik2Id,
+    technician_id: USER_IDS.technik2,
+    deleted_at: null,
+    version: 1,
   },
 ];
 
-// Demo reports
 const demoReports = [
   {
-    id: report1Id,
-    task_id: task4Id,
+    id: REPORT_IDS.report1,
+    task_id: TASK_IDS.task1,
     status: 'completed' as const,
-    photos: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
-    form_data: { description: 'Repair completed', parts_used: '3x circuit breaker' },
-    signature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+    photos: [
+      'https://example.com/photo1.jpg',
+      'https://example.com/photo2.jpg',
+    ],
+    form_data: {
+      description: 'Repair completed',
+      parts_used: '3x circuit breaker',
+    },
+    signature:
+      'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+    deleted_at: null,
+    version: 1,
   },
   {
-    id: report2Id,
-    task_id: task5Id,
+    id: REPORT_IDS.report2,
+    task_id: TASK_IDS.task4,
     status: 'completed' as const,
     photos: ['https://example.com/photo3.jpg'],
     form_data: { description: 'Replacement completed', parts_used: '5x cable' },
-    signature: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+    signature:
+      'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
+    deleted_at: null,
+    version: 1,
   },
 ];
 
-// Demo parts
 const demoParts = [
   {
-    id: part1Id,
+    id: PART_IDS.part1,
     name: 'Circuit breaker 16A',
     description: 'Circuit breaker 16A, 2-pole',
     barcode: '5901234123457',
@@ -222,7 +252,7 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: part2Id,
+    id: PART_IDS.part2,
     name: 'Circuit breaker 25A',
     description: 'Circuit breaker 25A, 2-pole',
     barcode: '5901234123458',
@@ -231,7 +261,7 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: part3Id,
+    id: PART_IDS.part3,
     name: 'Circuit breaker 32A',
     description: 'Circuit breaker 32A, 2-pole',
     barcode: '5901234123459',
@@ -240,18 +270,18 @@ const demoParts = [
     category: 'circuit_breakers',
   },
   {
-    id: part4Id,
-    name: 'Cable 2.5mm²',
-    description: 'Cable 2.5mm², 100m',
+    id: PART_IDS.part4,
+    name: 'Cable 2.5mm2',
+    description: 'Cable 2.5mm2, 100m',
     barcode: '5901234123460',
     price: '500',
     stock: 10,
     category: 'cables',
   },
   {
-    id: part5Id,
-    name: 'Cable 1.5mm²',
-    description: 'Cable 1.5mm², 100m',
+    id: PART_IDS.part5,
+    name: 'Cable 1.5mm2',
+    description: 'Cable 1.5mm2, 100m',
     barcode: '5901234123461',
     price: '400',
     stock: 15,
@@ -259,19 +289,18 @@ const demoParts = [
   },
 ];
 
-// Demo locations
 const demoLocations = [
   {
-    id: location1Id,
-    technician_id: technik1Id,
+    id: LOCATION_IDS.location1,
+    technician_id: USER_IDS.technik1,
     latitude: 50.0755,
     longitude: 14.4378,
     accuracy: 10,
     timestamp: new Date(),
   },
   {
-    id: location2Id,
-    technician_id: technik2Id,
+    id: LOCATION_IDS.location2,
+    technician_id: USER_IDS.technik2,
     latitude: 49.1955,
     longitude: 16.6081,
     accuracy: 10,
@@ -280,39 +309,32 @@ const demoLocations = [
 ];
 
 export async function seed() {
-  console.log('🌱 Seeding database...');
+  console.log('Seeding database...');
 
-  // Clear tables
   await db.delete(locations);
   await db.delete(reports);
   await db.delete(tasks);
   await db.delete(parts);
   await db.delete(users);
 
-  // Insert users
   await db.insert(users).values(demoUsers);
-  console.log('✓ Users inserted');
+  console.log('Users inserted');
 
-  // Insert tasks
   await db.insert(tasks).values(demoTasks);
-  console.log('✓ Tasks inserted');
+  console.log('Tasks inserted');
 
-  // Insert reports
   await db.insert(reports).values(demoReports);
-  console.log('✓ Reports inserted');
+  console.log('Reports inserted');
 
-  // Insert parts
   await db.insert(parts).values(demoParts);
-  console.log('✓ Parts inserted');
+  console.log('Parts inserted');
 
-  // Insert locations
   await db.insert(locations).values(demoLocations);
-  console.log('✓ Locations inserted');
+  console.log('Locations inserted');
 
-  console.log('🌱 Seed completed!');
+  console.log('Seed completed');
 }
 
-// Run seed if executed directly
 if (require.main === module) {
   (async () => {
     try {

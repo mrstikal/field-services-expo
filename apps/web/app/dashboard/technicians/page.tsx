@@ -29,7 +29,7 @@ export default function TechniciansPage() {
   });
 
   const filteredTechnicians = technicians as Technician[];
-  const onlineTechnicians = filteredTechnicians.filter((t) => t.is_online).length;
+  const onlineTechnicians = filteredTechnicians.filter(t => t.is_online).length;
 
   return (
     <div className="p-8">
@@ -87,30 +87,53 @@ export default function TechniciansPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading technicians...</div>
+            <div className="text-center py-8 text-gray-500">
+              Loading technicians...
+            </div>
           ) : filteredTechnicians.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No technicians found</div>
+            <div className="text-center py-8 text-gray-500">
+              No technicians found
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Phone</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Location</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Joined</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Name
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Email
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Phone
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Status
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Location
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      Joined
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTechnicians.map((tech) => (
-                    <tr className="border-b border-gray-100 hover:bg-gray-50" key={tech.id}>
+                  {filteredTechnicians.map(tech => (
+                    <tr
+                      className="border-b border-gray-100 hover:bg-gray-50"
+                      key={tech.id}
+                    >
                       <td className="py-3 px-4">
                         <p className="font-medium text-gray-900">{tech.name}</p>
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{tech.email}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{tech.phone}</td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {tech.email}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-600">
+                        {tech.phone}
+                      </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <div

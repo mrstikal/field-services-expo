@@ -17,7 +17,9 @@ export default function AppIndex() {
         }}
       >
         <ActivityIndicator color="#1e40af" size="large" />
-        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 14 }}>Loading app...</Text>
+        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 14 }}>
+          Loading app...
+        </Text>
       </View>
     );
   }
@@ -28,4 +30,3 @@ export default function AppIndex() {
 
   return <Redirect href="/(auth)/login" />;
 }
-

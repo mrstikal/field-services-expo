@@ -1,50 +1,64 @@
 # Database Setup Guide
 
-This guide covers how to set up the Supabase database with RLS policies and seed data.
+This project uses Supabase PostgreSQL with RLS enforced from `public.users.role`.
 
 ## Prerequisites
 
-- Supabase project created at [supabase.com](https://supabase.com)
-- Environment variables configured (see `env.local.example`)
+- Supabase project
+- `env.local` created from `env.local.example`
 - `pnpm` installed
 
 ## 1. Configure Environment Variables
 
-Copy `env.local.example` to `env.local` and fill in your Supabase credentials:
+Copy the template and fill in the Supabase values:
 
 ```bash
 cp env.local.example env.local
 ```
 
-Required variables:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+Required variables used by the current scripts:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-role-key
 DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
 ```
 
-## 2. Apply Row Level Security (RLS) Policies
+For Next.js client usage, expose the matching public variables if your local setup requires them.
 
-RLS policies ensure users can only access data they are authorized to see.
+## 2. Apply Schema Changes
 
-### Option A: Supabase Dashboard (recommended)
+Apply the Drizzle schema/migrations first:
 
-1. Open your Supabase project dashboard
-2. Go to **SQL Editor**
-3. Open the file `packages/db/rls-policies.sql`
-4. Paste the contents into the SQL editor
-5. Click **Run**
+```bash
+pnpm db:migrate
+```
 
-### Option B: psql CLI
+The current schema includes:
+
+- `users.id` aligned to Supabase Auth user IDs
+- `tasks.deleted_at` and `reports.deleted_at` tombstones for sync deletions
+- `reports.pdf_url`
+
+## 3. Apply Row Level Security
+
+RLS policies live in `packages/db/rls-policies.sql`.
+
+### Option A: Supabase Dashboard
+
+1. Open Supabase Dashboard.
+2. Go to **SQL Editor**.
+3. Paste `packages/db/rls-policies.sql`.
+4. Run it.
+
+### Option B: psql
 
 ```bash
 psql -U postgres -d postgres -h db.your-project.supabase.co -p 5432 -f packages/db/rls-policies.sql
 ```
 
-### Verify RLS is active
-
-Run this query in the SQL editor to confirm RLS is enabled:
+### Verify RLS
 
 ```sql
 SELECT tablename, rowsecurity
@@ -52,53 +66,57 @@ FROM pg_tables
 WHERE schemaname = 'public';
 ```
 
-All tables should show `rowsecurity = true`.
-
-## 3. Seed Demo Data
-
-The seed script inserts demo users, tasks, reports, parts, and locations.
-
-### Run the seed script
-
-```bash
-pnpm db:seed
-```
-
-### Demo credentials
-
-After seeding, you can log in with:
-
-| Role       | Email                  | Password |
-|------------|------------------------|----------|
-| Dispatcher | dispatcher1@demo.cz    | demo123  |
-| Dispatcher | dispatcher2@demo.cz    | demo123  |
-| Technician | technik1@demo.cz       | demo123  |
-| Technician | technik2@demo.cz       | demo123  |
-| Technician | technik3@demo.cz       | demo123  |
-| Technician | technik4@demo.cz       | demo123  |
-| Technician | technik5@demo.cz       | demo123  |
-
-> **Note:** The seed script creates users in the `users` table (application data).
-> You must also create matching auth users in Supabase Auth with the same emails and passwords.
-> Do this via the Supabase Dashboard → Authentication → Users → Add user.
-
-### Verify seed data
-
-Run in SQL editor:
-
-```sql
-SELECT COUNT(*) FROM users;   -- should be 7
-SELECT COUNT(*) FROM tasks;   -- should be 5
-SELECT COUNT(*) FROM reports; -- should be 2
-SELECT COUNT(*) FROM parts;   -- should be 5
-```
+All application tables should report `rowsecurity = true`.
 
 ## 4. Reset Demo Data
 
-To reset the database to a clean demo state:
+For a clean demo environment, use:
 
 ```bash
 pnpm demo:reset
 ```
 
-This runs `scripts/reset-supabase.ts` which clears and re-seeds all tables.
+This script:
+
+- creates or updates demo users in Supabase Auth
+- recreates matching rows in `public.users`
+- seeds demo tasks, reports, parts, and locations
+- ensures `pdf_url` and tombstone columns exist
+
+`pnpm demo:reset` is the recommended path for Supabase-backed development because it keeps `auth.users.id` and `public.users.id` aligned.
+
+## 5. Local Seed Only
+
+If you only want to seed through Drizzle without touching Supabase Auth:
+
+```bash
+pnpm db:seed
+```
+
+This inserts the same deterministic demo IDs into the database, but it does not create Auth users. Use it only in environments where auth is managed separately.
+
+## 6. Demo Credentials
+
+After `pnpm demo:reset`, these accounts are ready:
+
+| Role       | Email               | Password |
+| ---------- | ------------------- | -------- |
+| Dispatcher | dispatcher1@demo.cz | demo123  |
+| Dispatcher | dispatcher2@demo.cz | demo123  |
+| Technician | technik1@demo.cz    | demo123  |
+| Technician | technik2@demo.cz    | demo123  |
+| Technician | technik3@demo.cz    | demo123  |
+| Technician | technik4@demo.cz    | demo123  |
+| Technician | technik5@demo.cz    | demo123  |
+
+## 7. Verify Demo Data
+
+Run in Supabase SQL editor:
+
+```sql
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM tasks WHERE deleted_at IS NULL;
+SELECT COUNT(*) FROM reports WHERE deleted_at IS NULL;
+SELECT COUNT(*) FROM parts;
+SELECT COUNT(*) FROM locations;
+```

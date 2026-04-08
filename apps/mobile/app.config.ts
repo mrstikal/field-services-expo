@@ -7,7 +7,8 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.EXPO_PUBLIC_ENV || 'development';
-  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'YOUR_EAS_PROJECT_ID';
+  const easProjectId =
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'YOUR_EAS_PROJECT_ID';
 
   return {
     ...config,

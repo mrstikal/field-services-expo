@@ -1,9 +1,5 @@
 import React, { memo } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity
-} from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Task } from '@field-service/shared-types';
 
@@ -54,31 +50,40 @@ const TaskCard: React.FC<TaskCardProps> = ({ item, onPress }) => {
     >
       <View className="mb-2 flex-row items-start justify-between">
         <View className="flex-1">
-          <Text className="text-sm font-semibold text-gray-800">{item.title}</Text>
+          <Text className="text-sm font-semibold text-gray-800">
+            {item.title}
+          </Text>
           <View className="mt-1.5 flex-row items-center">
             <Ionicons color="#6b7280" name="location-outline" size={12} />
-            <Text className="ml-1 flex-1 text-xs text-gray-500">{item.address}</Text>
+            <Text className="ml-1 flex-1 text-xs text-gray-500">
+              {item.address}
+            </Text>
           </View>
         </View>
         <View
           className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
         >
-          <Text className="text-[10px] font-semibold capitalize text-white">{item.priority}</Text>
+          <Text className="text-[10px] font-semibold capitalize text-white">
+            {item.priority}
+          </Text>
         </View>
       </View>
       <View className="flex-row items-center justify-between">
         <View className="rounded bg-gray-100 px-2 py-1">
-          <Text className="text-[11px] font-medium text-gray-500">{getStatusLabel(item.status)}</Text>
+          <Text className="text-[11px] font-medium text-gray-500">
+            {getStatusLabel(item.status)}
+          </Text>
         </View>
         <View className="flex-row items-center">
           <Ionicons color="#6b7280" name="time-outline" size={12} />
-          <Text className="ml-1 text-[11px] text-gray-500">{item.estimated_time} min</Text>
+          <Text className="ml-1 text-[11px] text-gray-500">
+            {item.estimated_time} min
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
   );
 };
-
 
 const MemoizedTaskCard = memo(TaskCard);
 export default MemoizedTaskCard;

@@ -2,29 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
+import { initDatabase } from '@/lib/db/local-database';
+import { locationRepository } from '@/lib/db/location-repository';
+import { supabase } from '@/lib/supabase';
 
-// Task name for background location tracking
 const LOCATION_TASK_NAME = 'background-location-task';
 
-function registerLocationTask() {
-  if (TaskManager.isTaskDefined(LOCATION_TASK_NAME)) {
-    return;
-  }
-
-  TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
-    if (error) {
-      console.error('Location task error:', error);
-      return;
-    }
-    if (data) {
-      const { locations } = data as { locations: LocationUpdate[] };
-      // TODO: Persist/send to sync queue when backend contract is finalized.
-      console.log('Background location update:', locations);
-    }
-  });
-}
-
-// Define location update callback type
 interface LocationUpdate {
   coords: {
     latitude: number;
@@ -36,7 +19,45 @@ interface LocationUpdate {
   timestamp: number;
 }
 
-// Register background task once at module load.
+async function persistLocationUpdate(update: LocationUpdate) {
+  await initDatabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
+  }
+
+  await locationRepository.saveDeviceLocation({
+    technician_id: user.id,
+    latitude: update.coords.latitude,
+    longitude: update.coords.longitude,
+    accuracy: update.coords.accuracy ?? 0,
+    timestamp: new Date(update.timestamp).toISOString(),
+  });
+}
+
+function registerLocationTask() {
+  if (TaskManager.isTaskDefined(LOCATION_TASK_NAME)) {
+    return;
+  }
+
+  TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }) => {
+    if (error || !data) {
+      if (error) {
+        console.error('Location task error:', error);
+      }
+      return;
+    }
+
+    const { locations } = data as { locations: LocationUpdate[] };
+    await Promise.all(
+      locations.map(location => persistLocationUpdate(location))
+    );
+  });
+}
+
 registerLocationTask();
 
 interface UseLocationTrackingReturn {
@@ -53,46 +74,43 @@ interface UseLocationTrackingReturn {
   requestPermissions: () => Promise<Location.LocationPermissionResponse>;
 }
 
-/**
- * Custom hook for location tracking functionality
- * Handles foreground and background location tracking
- */
 export function useLocationTracking(): UseLocationTrackingReturn {
-  const [hasPermission, setHasPermission] = useState<boolean>(false);
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [lastLocation, setLastLocation] = useState<Location.LocationObject | null>(null);
-  const [isTracking, setIsTracking] = useState<boolean>(false);
-  const [isBackgroundTracking, setIsBackgroundTracking] = useState<boolean>(false);
+  const [hasPermission, setHasPermission] = useState(false);
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null
+  );
+  const [lastLocation, setLastLocation] =
+    useState<Location.LocationObject | null>(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [isBackgroundTracking, setIsBackgroundTracking] = useState(false);
+  const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
+    null
+  );
 
-  // Location subscription reference
-  const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(null);
-
-  // Check permissions
   const checkPermissions = useCallback(async (): Promise<boolean> => {
     const { status } = await Location.getForegroundPermissionsAsync();
     setHasPermission(status === 'granted');
     return status === 'granted';
   }, []);
 
-  // Request permissions
-  const requestPermissions = useCallback(async (): Promise<Location.LocationPermissionResponse> => {
-    const response = await Location.requestForegroundPermissionsAsync();
-    if (response.status === 'granted') {
-      setHasPermission(true);
-    }
-    return response;
-  }, []);
+  const requestPermissions =
+    useCallback(async (): Promise<Location.LocationPermissionResponse> => {
+      const response = await Location.requestForegroundPermissionsAsync();
+      if (response.status === 'granted') {
+        setHasPermission(true);
+      }
+      return response;
+    }, []);
 
-  // Request background permissions
-  const requestBackgroundPermissions = useCallback(async (): Promise<Location.LocationPermissionResponse> => {
-    const response = await Location.requestBackgroundPermissionsAsync();
-    if (response.status === 'granted') {
-      setHasPermission(true);
-    }
-    return response;
-  }, []);
+  const requestBackgroundPermissions =
+    useCallback(async (): Promise<Location.LocationPermissionResponse> => {
+      const response = await Location.requestBackgroundPermissionsAsync();
+      if (response.status === 'granted') {
+        setHasPermission(true);
+      }
+      return response;
+    }, []);
 
-  // Start foreground tracking
   const startTracking = useCallback(async () => {
     if (!hasPermission) {
       const granted = await checkPermissions();
@@ -104,16 +122,25 @@ export function useLocationTracking(): UseLocationTrackingReturn {
 
     try {
       setIsTracking(true);
-
       locationSubscriptionRef.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 1000, // 1 second
-          distanceInterval: 1, // 1 meter
+          timeInterval: 1000,
+          distanceInterval: 1,
         },
-        (newLocation: Location.LocationObject) => {
+        async newLocation => {
           setLocation(newLocation);
           setLastLocation(newLocation);
+          await persistLocationUpdate({
+            coords: {
+              latitude: newLocation.coords.latitude,
+              longitude: newLocation.coords.longitude,
+              accuracy: newLocation.coords.accuracy ?? 0,
+              speed: newLocation.coords.speed ?? undefined,
+              heading: newLocation.coords.heading ?? undefined,
+            },
+            timestamp: newLocation.timestamp,
+          });
         }
       );
     } catch (error) {
@@ -122,7 +149,6 @@ export function useLocationTracking(): UseLocationTrackingReturn {
     }
   }, [hasPermission, checkPermissions]);
 
-  // Stop foreground tracking
   const stopTracking = useCallback(async () => {
     if (locationSubscriptionRef.current) {
       locationSubscriptionRef.current.remove();
@@ -131,7 +157,6 @@ export function useLocationTracking(): UseLocationTrackingReturn {
     setIsTracking(false);
   }, []);
 
-  // Start background tracking
   const startBackgroundTracking = useCallback(async () => {
     if (!hasPermission) {
       const granted = await checkPermissions();
@@ -141,57 +166,59 @@ export function useLocationTracking(): UseLocationTrackingReturn {
       }
     }
 
-    // Request background permissions
     const bgResponse = await requestBackgroundPermissions();
     if (bgResponse.status !== 'granted') {
-      Alert.alert('Background Permission Required', 'Background location permission is required for tracking');
+      Alert.alert(
+        'Background Permission Required',
+        'Background location permission is required for tracking'
+      );
       return;
     }
 
     try {
-      const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (alreadyStarted) {
-        setIsBackgroundTracking(true);
-        return;
+      const alreadyStarted =
+        await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (!alreadyStarted) {
+        await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 10,
+          foregroundService: {
+            notificationTitle: 'Location Tracking',
+            notificationBody: 'Tracking your location in the background',
+          },
+        });
       }
-
-      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-        accuracy: Location.Accuracy.High,
-        distanceInterval: 10, // 10 meters
-        foregroundService: {
-          notificationTitle: 'Location Tracking',
-          notificationBody: 'Tracking your location in the background',
-        },
-      });
       setIsBackgroundTracking(true);
     } catch (error) {
       console.error('Error starting background tracking:', error);
     }
   }, [hasPermission, checkPermissions, requestBackgroundPermissions]);
 
-  // Stop background tracking
   const stopBackgroundTracking = useCallback(async () => {
     try {
-      const alreadyStarted = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
-      if (!alreadyStarted) {
-        setIsBackgroundTracking(false);
-        return;
+      const alreadyStarted =
+        await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+      if (alreadyStarted) {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       }
-
-      await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
       setIsBackgroundTracking(false);
     } catch (error) {
       console.error('Error stopping background tracking:', error);
     }
   }, []);
 
-  // Clean up on unmount
+  useEffect(() => {
+    checkPermissions();
+    Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME)
+      .then(setIsBackgroundTracking)
+      .catch(() => setIsBackgroundTracking(false));
+  }, [checkPermissions]);
+
   useEffect(() => {
     return () => {
       stopTracking();
-      stopBackgroundTracking();
     };
-  }, [stopTracking, stopBackgroundTracking]);
+  }, [stopTracking]);
 
   return {
     hasPermission,

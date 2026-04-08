@@ -39,6 +39,9 @@
         }
       ]
     ],
+    "experiments": {
+      "autolinkingModuleResolution": true
+    },
     "extra": {
       "eas": {
         "projectId": "your-project-id"

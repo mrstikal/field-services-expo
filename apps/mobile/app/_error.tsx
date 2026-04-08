@@ -1,4 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, ViewStyle } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ViewStyle,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorBoundaryProps } from 'expo-router';
@@ -30,7 +36,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         <Ionicons color="#ef4444" name="alert-circle-outline" size={64} />
       </View>
 
-      <Text className="mb-2 text-2xl font-bold text-gray-800">Something went wrong</Text>
+      <Text className="mb-2 text-2xl font-bold text-gray-800">
+        Something went wrong
+      </Text>
       <Text className="mb-4 text-center text-base text-gray-500">
         We apologize, but an unexpected error occurred.
       </Text>
@@ -40,7 +48,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
           <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-red-600">
             Error details
           </Text>
-          <Text className="font-mono text-xs text-red-700">{error.message}</Text>
+          <Text className="font-mono text-xs text-red-700">
+            {error.message}
+          </Text>
         </View>
       ) : null}
 
@@ -51,7 +61,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         >
           <View className="flex-row items-center gap-2">
             <Ionicons color="#ffffff" name="refresh-outline" size={18} />
-            <Text className="text-base font-semibold text-white">Try again</Text>
+            <Text className="text-base font-semibold text-white">
+              Try again
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -61,7 +73,9 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
         >
           <View className="flex-row items-center gap-2">
             <Ionicons color="#374151" name="home-outline" size={18} />
-            <Text className="text-base font-semibold text-gray-700">Back to home</Text>
+            <Text className="text-base font-semibold text-gray-700">
+              Back to home
+            </Text>
           </View>
         </TouchableOpacity>
       </View>

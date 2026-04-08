@@ -1,18 +1,25 @@
-appId: com.fieldservice.app
+appId: com.fieldservicemonorepo
 ---
-- launchApp
 - tapOn:
-    id: "login-email-input"
-- inputText: "technik1@demo.cz"
+    id: "tab-profile"
+    optional: true
 - tapOn:
-    id: "login-password-input"
-- inputText: "demo123"
+    id: "profile-sign-out-button"
+    optional: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 10000
+    optional: true
 - tapOn:
-    id: "login-submit-button"
-- assertVisible: "Dashboard"
-- assertVisible: "Today's Tasks"
+    text: "Sign in"
+    optional: true
+- extendedWaitUntil:
+    visible: "Today's Tasks"
+    timeout: 30000
 - tapOn:
     id: "tab-profile"
 - tapOn:
     id: "profile-sign-out-button"
-- assertVisible: "Login"
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000

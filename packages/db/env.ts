@@ -29,7 +29,13 @@ function collectEnvCandidates() {
 
   for (const startDir of startDirs) {
     for (const dir of collectAncestorDirs(startDir)) {
-      for (const relativePath of ['env.local', '.env.local', '.env', path.join('apps', 'web', '.env.local'), path.join('apps', 'web', '.env')]) {
+      for (const relativePath of [
+        'env.local',
+        '.env.local',
+        '.env',
+        path.join('apps', 'web', '.env.local'),
+        path.join('apps', 'web', '.env'),
+      ]) {
         const candidate = path.resolve(dir, relativePath);
         seen.add(candidate);
       }
@@ -81,9 +87,12 @@ export function getDatabaseUrl(): string {
 export function getSupabaseServerUrl(): string {
   ensureServerEnvLoaded();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   if (!supabaseUrl) {
-    throw new Error('Supabase URL is not set. Expected NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL.');
+    throw new Error(
+      'Supabase URL is not set. Expected NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL.'
+    );
   }
 
   return supabaseUrl;
@@ -92,11 +101,13 @@ export function getSupabaseServerUrl(): string {
 export function getSupabaseServiceRoleKey(): string {
   ensureServerEnvLoaded();
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
   if (!serviceRoleKey) {
-    throw new Error('Supabase service role key is not set. Expected SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY.');
+    throw new Error(
+      'Supabase service role key is not set. Expected SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY.'
+    );
   }
 
   return serviceRoleKey;
 }
-

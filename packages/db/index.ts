@@ -13,7 +13,9 @@ const globalForDb = globalThis as typeof globalThis & {
   __fieldServiceDbState__?: DbState;
 };
 
-const dbState = globalForDb.__fieldServiceDbState__ ?? (globalForDb.__fieldServiceDbState__ = {});
+const dbState =
+  globalForDb.__fieldServiceDbState__ ??
+  (globalForDb.__fieldServiceDbState__ = {});
 
 ensureServerEnvLoaded();
 
@@ -33,7 +35,7 @@ export async function connect() {
       .then(() => {
         console.log('Connected to PostgreSQL database');
       })
-      .catch((error) => {
+      .catch(error => {
         dbState.connectPromise = undefined;
         throw error;
       });

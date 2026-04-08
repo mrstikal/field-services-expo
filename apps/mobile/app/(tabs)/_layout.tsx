@@ -4,6 +4,26 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth-context';
 import { OfflineBanner } from '@/components/offline-banner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { ComponentProps } from 'react';
+
+type TabScreenOptions = NonNullable<
+  ComponentProps<typeof Tabs.Screen>['options']
+>;
+
+function createTabOptions(
+  title: string,
+  testID: string,
+  iconName: ComponentProps<typeof Ionicons>['name']
+): TabScreenOptions {
+  return {
+    title,
+    headerShown: false,
+    tabBarButtonTestID: testID,
+    tabBarIcon: ({ color, size }) => (
+      <Ionicons color={color} name={iconName} size={size} />
+    ),
+  };
+}
 
 export default function TabsLayout() {
   const { user, isLoading } = useAuth();
@@ -21,7 +41,9 @@ export default function TabsLayout() {
         }}
       >
         <ActivityIndicator color="#1e40af" size="large" />
-        <Text style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>Loading app...</Text>
+        <Text style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
+          Loading app...
+        </Text>
       </View>
     );
   }
@@ -51,46 +73,23 @@ export default function TabsLayout() {
       >
         <Tabs.Screen
           name="index"
-          options={{
-            title: 'Home',
-            headerShown: false,
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons color={color} name="home-outline" size={size} />
-            ),
-          }}
+          options={createTabOptions('Home', 'tab-home', 'home-outline')}
         />
         <Tabs.Screen
           name="tasks/index"
-          options={{
-             title: 'Tasks',
-             headerShown: false,
-             tabBarButtonTestID: 'tab-tasks',
-             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-               <Ionicons color={color} name="list-outline" size={size} />
-             ),
-           } as any}
+          options={createTabOptions('Tasks', 'tab-tasks', 'list-outline')}
         />
         <Tabs.Screen
           name="reports/index"
-          options={{
-             title: 'Reports',
-             headerShown: false,
-             tabBarButtonTestID: 'tab-reports',
-             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-               <Ionicons color={color} name="document-text-outline" size={size} />
-             ),
-           } as any}
+          options={createTabOptions(
+            'Reports',
+            'tab-reports',
+            'document-text-outline'
+          )}
         />
         <Tabs.Screen
           name="profile"
-          options={{
-             title: 'Profile',
-             headerShown: false,
-             tabBarButtonTestID: 'tab-profile',
-             tabBarIcon: ({ color, size }: { color: string; size: number }) => (
-               <Ionicons color={color} name="person-outline" size={size} />
-             ),
-           } as any}
+          options={createTabOptions('Profile', 'tab-profile', 'person-outline')}
         />
         {/* Hide scanner and nested report screens from tab bar */}
         <Tabs.Screen

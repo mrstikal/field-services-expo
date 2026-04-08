@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SyncEngine, SyncNetworkUnavailableError } from '@/lib/sync/sync-engine';
+import {
+  SyncAuthUnavailableError,
+  SyncEngine,
+  SyncNetworkUnavailableError,
+} from '@/lib/sync/sync-engine';
+import { subscribeToSyncEvents } from '@/lib/sync/sync-events';
 import { useNetworkStatus, useIsOnline } from '@/lib/hooks/use-network-status';
 import { useAuth } from '@/lib/auth-context';
 
@@ -20,22 +25,47 @@ export interface SyncState {
   error?: string | null;
 }
 
-// Global sync engine instance
 const globalSyncEngine = SyncEngine.getInstance();
 
 function logSyncFailure(scope: 'full' | 'pull' | 'push', error: unknown) {
-  if (error instanceof SyncNetworkUnavailableError) {
-    console.warn(`[sync:${scope}] Backend unavailable: ${error.apiUrl}`);
+  if (
+    error instanceof SyncAuthUnavailableError ||
+    (error instanceof Error &&
+      (error.name === 'SyncAuthUnavailableError' ||
+        error.message === 'No auth token available'))
+  ) {
+    console.warn(`[sync:${scope}] Auth token is not ready yet. Skipping sync.`);
     return;
   }
 
-  console.error(`${scope[0].toUpperCase()}${scope.slice(1)} sync failed:`, error);
+  if (
+    error instanceof SyncNetworkUnavailableError ||
+    (error instanceof Error &&
+      (error.name === 'SyncNetworkUnavailableError' ||
+        error.message.includes('Network request failed')))
+  ) {
+    const apiUrl =
+      error instanceof SyncNetworkUnavailableError ? error.apiUrl : 'unknown';
+    console.warn(
+      `[sync:${scope}] Backend unavailable at ${apiUrl}. Skipping sync.`
+    );
+    return;
+  }
+
+  if (
+    error instanceof TypeError &&
+    error.message.includes('Network request failed')
+  ) {
+    console.warn(`[sync:${scope}] Network request failed during transition.`);
+    return;
+  }
+
+  console.error(
+    `${scope[0].toUpperCase()}${scope.slice(1)} sync failed:`,
+    error
+  );
 }
 
-/**
- * Hook for managing offline-first synchronization
- * Automatically syncs when going online, provides manual sync trigger
- */
 export function useOfflineSync() {
   const { user } = useAuth();
   const { status } = useNetworkStatus();
@@ -49,190 +79,204 @@ export function useOfflineSync() {
     lastPush: null,
   });
 
+  const prevIsOnlineRef = useRef(false);
+  const lastSyncErrorAtRef = useRef(0);
+  const SYNC_ERROR_COOLDOWN_MS = 60_000;
 
-   // Ref to track the previous online state and last sync error time
-   const prevIsOnlineRef = useRef<boolean>(false);
-   const lastSyncErrorAtRef = useRef<number>(0);
-   // Minimum ms to wait before retrying after a network error
-   const SYNC_ERROR_COOLDOWN_MS = 60_000;
+  const refreshStatus = useCallback(async () => {
+    if (!user) return;
+    const currentStatus = await globalSyncEngine.getStatus();
+    setSyncState(prev => ({
+      ...prev,
+      lastSync: currentStatus.lastSync,
+      pendingItems: currentStatus.pendingItems,
+    }));
+  }, [user]);
 
-   // Perform full sync (pull + push)
-   const performFullSync = useCallback(async () => {
-     if (!user) return;
-     if (!globalSyncEngine.beginSync()) return;
+  const performFullSync = useCallback(async () => {
+    if (!user) return;
+    if (!globalSyncEngine.beginSync()) return;
 
-     setSyncState((prev) => ({ ...prev, isSyncing: true }));
+    setSyncState(prev => ({ ...prev, isSyncing: true, error: null }));
 
-     try {
-       const syncPromise = globalSyncEngine.fullSync();
-       const timeoutPromise = new Promise((_, reject) =>
-         setTimeout(() => reject(new Error('Sync timeout')), 30000)
-       );
-       
-        const result = await Promise.race([syncPromise, timeoutPromise]);
+    try {
+      const syncPromise = globalSyncEngine.fullSync();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Sync timeout')), 30000)
+      );
+      const result = (await Promise.race([
+        syncPromise,
+        timeoutPromise,
+      ])) as Awaited<ReturnType<typeof globalSyncEngine.fullSync>>;
 
-        setSyncState((prev) => ({
-          ...prev,
-          lastPull: (result as Record<string, unknown>).pulled as typeof prev.lastPull,
-          lastPush: (result as Record<string, unknown>).pushed as typeof prev.lastPush,
-          isSyncing: false,
-        }));
-     } catch (err) {
-       // Record error time for cooldown so we don't hammer a down server
-       lastSyncErrorAtRef.current = Date.now();
-       logSyncFailure('full', err);
-       setSyncState((prev) => ({
-         ...prev,
-         isSyncing: false,
-         error: err instanceof Error ? err.message : 'Sync failed',
-       }));
-     } finally {
-       globalSyncEngine.endSync();
-     }
-   }, [user]);
+      setSyncState(prev => ({
+        ...prev,
+        lastPull: result.pulled,
+        lastPush: result.pushed,
+        isSyncing: false,
+      }));
+      await refreshStatus();
+    } catch (err) {
+      logSyncFailure('full', err);
+      if (!(err instanceof SyncAuthUnavailableError)) {
+        lastSyncErrorAtRef.current = Date.now();
+      }
+      setSyncState(prev => ({
+        ...prev,
+        isSyncing: false,
+        error:
+          err instanceof SyncAuthUnavailableError
+            ? null
+            : err instanceof Error
+              ? err.message
+              : 'Sync failed',
+      }));
+    } finally {
+      globalSyncEngine.endSync();
+    }
+  }, [refreshStatus, user]);
 
-   // Initialize sync engine when user logs in
-   useEffect(() => {
-     if (user) {
-       globalSyncEngine.initialize();
-     }
-   }, [user]);
-
-   // Auto-sync ONLY when transitioning from offline → online (or on first mount when online).
-   // Using a ref to track previous value avoids re-triggering after every sync completion,
-   // which would cause an infinite retry loop when the server is unreachable.
-   useEffect(() => {
-     const wentOnline = isOnline && !prevIsOnlineRef.current;
-     prevIsOnlineRef.current = isOnline;
-
-     if (!wentOnline || !user) return;
-
-     // Respect cooldown after a recent sync error to avoid hammering a down server
-     const msSinceLastError = Date.now() - lastSyncErrorAtRef.current;
-     const delay = msSinceLastError < SYNC_ERROR_COOLDOWN_MS
-       ? SYNC_ERROR_COOLDOWN_MS - msSinceLastError + 1000
-       : 1000;
-
-     const timeoutId = setTimeout(() => {
-       performFullSync();
-     }, delay);
-
-      return () => clearTimeout(timeoutId);
-    }, [isOnline, user, performFullSync]);
-
-  // Fetch sync status periodically
   useEffect(() => {
     if (!user) return;
 
-    const intervalId = setInterval(async () => {
-      const status = await globalSyncEngine.getStatus();
-      setSyncState((prev) => ({
-        ...prev,
-        lastSync: status.lastSync,
-        pendingItems: status.pendingItems,
-      }));
-    }, 30000); // Update every 30 seconds
+    globalSyncEngine.initialize().then(refreshStatus);
 
-    return () => clearInterval(intervalId);
-  }, [user]);
+    const unsubscribe = subscribeToSyncEvents(() => {
+      refreshStatus();
+    });
 
-  // Manual sync trigger
+    return unsubscribe;
+  }, [refreshStatus, user]);
+
+  useEffect(() => {
+    const wentOnline = isOnline && !prevIsOnlineRef.current;
+    prevIsOnlineRef.current = isOnline;
+
+    if (!wentOnline || !user) return;
+
+    const msSinceLastError = Date.now() - lastSyncErrorAtRef.current;
+    const delay =
+      msSinceLastError < SYNC_ERROR_COOLDOWN_MS
+        ? SYNC_ERROR_COOLDOWN_MS - msSinceLastError + 1000
+        : 1000;
+
+    const timeoutId = setTimeout(() => {
+      performFullSync();
+    }, delay);
+
+    return () => clearTimeout(timeoutId);
+  }, [isOnline, performFullSync, user]);
+
   const sync = useCallback(async () => {
     if (!user) return;
     return performFullSync();
-  }, [user, performFullSync]);
+  }, [performFullSync, user]);
 
-  // Pull only
   const pull = useCallback(async () => {
     if (!user) return;
 
-    setSyncState((prev) => ({ ...prev, isSyncing: true }));
-
+    setSyncState(prev => ({ ...prev, isSyncing: true, error: null }));
     try {
       const result = await globalSyncEngine.pullSync();
-
-      setSyncState((prev) => ({
-        ...prev,
-        lastPull: result,
-        isSyncing: false,
-      }));
-
+      setSyncState(prev => ({ ...prev, isSyncing: false, lastPull: result }));
+      await refreshStatus();
       return result;
     } catch (error) {
       logSyncFailure('pull', error);
-      setSyncState((prev) => ({ ...prev, isSyncing: false }));
+      setSyncState(prev => ({ ...prev, isSyncing: false }));
+      // Do not re-throw network errors to avoid crashing the app during transition
+      if (
+        error instanceof SyncAuthUnavailableError ||
+        (error instanceof Error && error.name === 'SyncAuthUnavailableError') ||
+        error instanceof SyncNetworkUnavailableError ||
+        (error instanceof Error &&
+          (error.name === 'SyncNetworkUnavailableError' ||
+            error.message.includes('Network request failed')))
+      ) {
+        return null;
+      }
       throw error;
     }
-  }, [user]);
+  }, [refreshStatus, user]);
 
-  // Push only
   const push = useCallback(async () => {
     if (!user) return;
 
-    setSyncState((prev) => ({ ...prev, isSyncing: true }));
-
+    setSyncState(prev => ({ ...prev, isSyncing: true, error: null }));
     try {
       const result = await globalSyncEngine.pushSync();
-
-      setSyncState((prev) => ({
-        ...prev,
-        lastPush: result,
-        isSyncing: false,
-      }));
-
+      setSyncState(prev => ({ ...prev, isSyncing: false, lastPush: result }));
+      await refreshStatus();
       return result;
     } catch (error) {
       logSyncFailure('push', error);
-      setSyncState((prev) => ({ ...prev, isSyncing: false }));
+      setSyncState(prev => ({ ...prev, isSyncing: false }));
+      // Do not re-throw network errors to avoid crashing the app during transition
+      if (
+        error instanceof SyncAuthUnavailableError ||
+        (error instanceof Error && error.name === 'SyncAuthUnavailableError') ||
+        error instanceof SyncNetworkUnavailableError ||
+        (error instanceof Error &&
+          (error.name === 'SyncNetworkUnavailableError' ||
+            error.message.includes('Network request failed')))
+      ) {
+        return null;
+      }
       throw error;
     }
-  }, [user]);
+  }, [refreshStatus, user]);
 
-  // Get sync status
   const getSyncStatus = useCallback(async () => {
     if (!user) return null;
     return globalSyncEngine.getStatus();
   }, [user]);
 
-  // Cleanup old sync queue items
-  const cleanupSyncQueue = useCallback(async (olderThanDays?: number) => {
-    if (!user) return null;
-    return globalSyncEngine.cleanupSyncQueue(olderThanDays);
-  }, [user]);
+  const cleanupSyncQueue = useCallback(
+    async (olderThanDays?: number) => {
+      if (!user) return null;
+      const cleanupResult =
+        await globalSyncEngine.cleanupSyncQueue(olderThanDays);
+      await refreshStatus();
+      return cleanupResult;
+    },
+    [refreshStatus, user]
+  );
 
-  // Retry failed sync items
-  const retryFailedSyncItems = useCallback(async (maxRetries?: number) => {
-    if (!user) return null;
-    return globalSyncEngine.retryFailedSyncItems(maxRetries);
-  }, [user]);
+  const retryFailedSyncItems = useCallback(
+    async (maxRetries?: number) => {
+      if (!user) return null;
+      const retryResult =
+        await globalSyncEngine.retryFailedSyncItems(maxRetries);
+      await refreshStatus();
+      return retryResult;
+    },
+    [refreshStatus, user]
+  );
 
   return {
-    // State
     syncState,
     isSyncing: syncState.isSyncing,
     lastSync: syncState.lastSync,
     pendingItems: syncState.pendingItems,
     lastPull: syncState.lastPull,
     lastPush: syncState.lastPush,
-
-    // Actions
     sync,
     pull,
     push,
     getSyncStatus,
     cleanupSyncQueue,
     retryFailedSyncItems,
-
-    // Network status
     isOnline,
     networkStatus: status,
   };
 }
 
-/**
- * Hook that triggers callback when sync completes successfully
- */
-export function useOnSyncComplete(callback: (result: { pull: SyncState['lastPull']; push: SyncState['lastPush'] }) => void) {
+export function useOnSyncComplete(
+  callback: (result: {
+    pull: SyncState['lastPull'];
+    push: SyncState['lastPush'];
+  }) => void
+) {
   const { syncState } = useOfflineSync();
 
   useEffect(() => {

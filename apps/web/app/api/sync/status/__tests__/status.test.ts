@@ -1,6 +1,10 @@
-import { GET } from '../route';
+import { GET } from '@/app/api/sync/status/route';
 import { NextRequest } from 'next/server';
-import { mockSupabaseAuth, mockSupabaseClient, mockSupabaseFrom } from '@/vitest.setup';
+import {
+  mockSupabaseAuth,
+  mockSupabaseClient,
+  mockSupabaseFrom,
+} from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -19,14 +23,18 @@ describe('Sync Status API', () => {
   const createRequest = (token = 'test-token') => {
     return {
       headers: {
-        get: (name: string) => (name === 'authorization' ? `Bearer ${token}` : null),
+        get: (name: string) =>
+          name === 'authorization' ? `Bearer ${token}` : null,
       },
     } as unknown as NextRequest;
   };
 
   it('should return pending items count', async () => {
     const userId = 'user-1';
-    mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
+    mockSupabaseAuth.getUser.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    } as never);
 
     const userQuery = {
       select: vi.fn().mockReturnThis(),
@@ -35,14 +43,25 @@ describe('Sync Status API', () => {
     };
     const syncQueueQuery = {
       select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ data: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }], error: null }),
+      eq: vi
+        .fn()
+        .mockResolvedValue({
+          data: [
+            { id: '1' },
+            { id: '2' },
+            { id: '3' },
+            { id: '4' },
+            { id: '5' },
+          ],
+          error: null,
+        }),
     };
 
-    mockSupabaseClient.from.mockImplementation((((table: string) => {
+    mockSupabaseClient.from.mockImplementation(((table: string) => {
       if (table === 'users') return userQuery as never;
       if (table === 'sync_queue') return syncQueueQuery as never;
       throw new Error(`Unexpected table ${table}`);
-    }) as unknown) as never);
+    }) as unknown as never);
 
     const req = createRequest();
     const response = await GET(req);

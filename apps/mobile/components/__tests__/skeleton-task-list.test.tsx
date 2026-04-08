@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated } from 'react-native';
 import { render } from '@testing-library/react-native';
-import SkeletonTaskList from '../skeleton-task-list';
+import SkeletonTaskList from '@/components/skeleton-task-list';
 
 describe('SkeletonTaskList', () => {
   it('should render without crashing', () => {
@@ -18,7 +18,7 @@ describe('SkeletonTaskList', () => {
   it('should apply opacity animation style to each skeleton card', () => {
     const { UNSAFE_getAllByType } = render(<SkeletonTaskList />);
     const animatedViews = UNSAFE_getAllByType(Animated.View);
-    animatedViews.forEach((view) => {
+    animatedViews.forEach(view => {
       expect(view.props.style).toBeDefined();
     });
   });
