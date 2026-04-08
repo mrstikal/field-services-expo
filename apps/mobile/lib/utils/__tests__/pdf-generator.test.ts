@@ -10,7 +10,7 @@ vi.mock('expo-sharing', () => ({
   shareAsync: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('expo-file-system', () => ({
+vi.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file://documents/',
   copyAsync: vi.fn(() => Promise.resolve()),
   deleteAsync: vi.fn(() => Promise.resolve()),
@@ -21,7 +21,7 @@ import { generateReportHTML, generatePDF, sharePDF, savePDF, deletePDF } from '.
 import type { ReportData } from '../pdf-generator';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 describe('PDF Generator', () => {
 describe('generateReportHTML', () => {

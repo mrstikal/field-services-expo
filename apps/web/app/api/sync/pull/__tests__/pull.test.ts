@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '../route';
 import { NextRequest } from 'next/server';
-import { db } from '@db';
-import { mockSupabaseAuth } from '@/vitest.setup';
+import { mockSupabaseAuth, mockSupabaseClient, mockSupabaseFrom } from '@/vitest.setup';
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -16,6 +15,7 @@ vi.mock('next/server', () => ({
 describe('Pull Sync API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSupabaseClient.from.mockReturnValue(mockSupabaseFrom as never);
   });
 
   const createRequest = (body: unknown, token = 'test-token') => {
@@ -40,11 +40,7 @@ describe('Pull Sync API', () => {
 
   it('should return 400 if lastSyncTimestamp is missing', async () => {
     mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null } as never);
-    vi.mocked(db.select).mockReturnValue({
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([{ id: 'user-1', role: 'dispatcher' }]),
-    } as never);
+    mockSupabaseFrom.limit.mockResolvedValueOnce({ data: [{ id: 'user-1', role: 'dispatcher' }], error: null } as never);
 
     const req = createRequest({});
     const response = await POST(req);
@@ -57,21 +53,16 @@ describe('Pull Sync API', () => {
   it('should fetch changes since last sync for dispatcher', async () => {
     const userId = 'dispatcher-1';
     mockSupabaseAuth.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null } as never);
-    
-    // Mock user role
-    vi.mocked(db.select).mockReturnValueOnce({
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([{ id: userId, role: 'dispatcher' }]),
-    } as never);
 
-    // Mock tasks, reports, locations
     const mockTasks = [{ id: 'task-1', updated_at: '2023-01-01T10:00:00Z' }];
-    vi.mocked(db.select).mockReturnValue({
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue(mockTasks),
-    } as never);
+    const mockReports = [{ id: 'report-1', task_id: 'task-1', updated_at: '2023-01-01T09:00:00Z' }];
+    const mockLocations = [{ id: 'location-1', technician_id: 'tech-1', timestamp: '2023-01-01T08:00:00Z' }];
+
+    mockSupabaseFrom.limit.mockResolvedValueOnce({ data: [{ id: userId, role: 'dispatcher' }], error: null } as never);
+    mockSupabaseFrom.order
+      .mockResolvedValueOnce({ data: mockTasks, error: null } as never)
+      .mockResolvedValueOnce({ data: mockReports, error: null } as never)
+      .mockResolvedValueOnce({ data: mockLocations, error: null } as never);
 
     const req = createRequest({ lastSyncTimestamp: '2023-01-01T00:00:00Z' });
     const response = await POST(req);
@@ -79,8 +70,8 @@ describe('Pull Sync API', () => {
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(data.data.tasks).toBeDefined();
-    expect(data.data.reports).toBeDefined();
-    expect(data.data.locations).toBeDefined();
+    expect(data.data.tasks).toEqual(mockTasks);
+    expect(data.data.reports).toEqual(mockReports);
+    expect(data.data.locations).toEqual(mockLocations);
   });
 });

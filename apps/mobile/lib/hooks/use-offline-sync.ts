@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SyncEngine } from '@/lib/sync/sync-engine';
+import { SyncEngine, SyncNetworkUnavailableError } from '@/lib/sync/sync-engine';
 import { useNetworkStatus, useIsOnline } from '@/lib/hooks/use-network-status';
 import { useAuth } from '@/lib/auth-context';
 
@@ -21,6 +21,15 @@ interface SyncState {
 
 // Global sync engine instance
 const globalSyncEngine = SyncEngine.getInstance();
+
+function logSyncFailure(scope: 'full' | 'pull' | 'push', error: unknown) {
+  if (error instanceof SyncNetworkUnavailableError) {
+    console.warn(`[sync:${scope}] Backend unavailable: ${error.apiUrl}`);
+    return;
+  }
+
+  console.error(`${scope[0].toUpperCase()}${scope.slice(1)} sync failed:`, error);
+}
 
 /**
  * Hook for managing offline-first synchronization
@@ -70,7 +79,7 @@ export function useOfflineSync() {
      } catch (error) {
        // Record error time for cooldown so we don't hammer a down server
        lastSyncErrorAtRef.current = Date.now();
-       console.error('Full sync failed:', error);
+       logSyncFailure('full', error);
        setSyncState((prev) => ({ ...prev, isSyncing: false }));
      } finally {
        globalSyncEngine.endSync();
@@ -145,7 +154,7 @@ export function useOfflineSync() {
 
       return result;
     } catch (error) {
-      console.error('Pull sync failed:', error);
+      logSyncFailure('pull', error);
       setSyncState((prev) => ({ ...prev, isSyncing: false }));
       throw error;
     }
@@ -168,7 +177,7 @@ export function useOfflineSync() {
 
       return result;
     } catch (error) {
-      console.error('Push sync failed:', error);
+      logSyncFailure('push', error);
       setSyncState((prev) => ({ ...prev, isSyncing: false }));
       throw error;
     }

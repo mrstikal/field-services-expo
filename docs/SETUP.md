@@ -30,7 +30,7 @@ pnpm seed
 cd ../..
 
 # 5. Start the applications
-pnpm dev
+pnpm dev:all
 ```
 
 ## 📦 Installing Dependencies

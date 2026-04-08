@@ -40,7 +40,7 @@ pnpm setup
 # - Reset Supabase database with demo data
 
 # 4. Start development
-pnpm dev
+pnpm dev:all
 ```
 
 **Demo Credentials:**
@@ -60,7 +60,10 @@ pnpm dev
 ### Available Commands
 
 ```bash
-pnpm dev              # Start all apps in development mode
+pnpm dev:all          # Start web + mobile Metro from repo root
+pnpm --filter field-service-web dev     # Start only the web app
+pnpm --filter field-service-mobile dev  # Start only the mobile Expo dev server
+pnpm mobile:metro:usb # Start mobile Metro for USB Android workflow
 pnpm build            # Build all apps
 pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript type checking

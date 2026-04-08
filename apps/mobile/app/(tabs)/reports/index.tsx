@@ -1,4 +1,4 @@
- import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -109,8 +109,8 @@ export default function ReportsListScreen() {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center p-8">
-          <View className="mb-4 animate-spin rounded-full border-4 border-blue-100 border-t-blue-800 p-6">
-            <Ionicons color="#1e40af" name="document-text-outline" size={48} />
+          <View className="mb-4 rounded-full bg-blue-50 p-6">
+            <ActivityIndicator color="#1e40af" size="large" />
           </View>
           <Text className="text-base font-medium text-gray-600">Loading reports...</Text>
         </View>

@@ -1,29 +1,45 @@
 export * from './schema';
 
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Client } from 'pg';
+import { Pool } from 'pg';
+import { ensureServerEnvLoaded, getDatabaseUrl } from './env';
 
-let client: Client | null = null;
-let isConnected = false;
+type DbState = {
+  pool?: Pool;
+  connectPromise?: Promise<void>;
+};
 
-export function getClient(): Client {
-  if (!client) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is not set.');
-    }
-    client = new Client({ connectionString });
+const globalForDb = globalThis as typeof globalThis & {
+  __fieldServiceDbState__?: DbState;
+};
+
+const dbState = globalForDb.__fieldServiceDbState__ ?? (globalForDb.__fieldServiceDbState__ = {});
+
+ensureServerEnvLoaded();
+
+export function getClient(): Pool {
+  if (!dbState.pool) {
+    const connectionString = getDatabaseUrl();
+    dbState.pool = new Pool({ connectionString });
   }
-  return client;
+
+  return dbState.pool;
 }
 
 export async function connect() {
-  const c = getClient();
-  if (!isConnected) {
-    await c.connect();
-    isConnected = true;
-    console.log('Connected to PostgreSQL database');
+  if (!dbState.connectPromise) {
+    dbState.connectPromise = getClient()
+      .query('SELECT 1')
+      .then(() => {
+        console.log('Connected to PostgreSQL database');
+      })
+      .catch((error) => {
+        dbState.connectPromise = undefined;
+        throw error;
+      });
   }
+
+  await dbState.connectPromise;
 }
 
 export const db = drizzle(getClient());

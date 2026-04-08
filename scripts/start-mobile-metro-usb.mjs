@@ -189,6 +189,7 @@ const child = spawn(
     shell: isWindows,
     env: {
       ...process.env,
+      CI: process.env.CI ?? "1",
       EXPO_OFFLINE: "1",
     },
   }
@@ -208,5 +209,17 @@ child.on("exit", (code, signal) => {
     }
     return;
   }
+
+  if ((code ?? 0) !== 0) {
+    console.error(
+      [
+        "[mobile:metro:usb] Expo Metro terminated before startup.",
+        "[mobile:metro:usb] If Expo reported dependency compatibility issues, run:",
+        "[mobile:metro:usb]   Set-Location \"F:\\expo\\field-service\\apps\\mobile\"",
+        "[mobile:metro:usb]   pnpm install",
+      ].join("\n")
+    );
+  }
+
   process.exit(code ?? 0);
 });
