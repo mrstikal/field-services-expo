@@ -5,6 +5,8 @@
 
 # testing
 /coverage
+/playwright-report/
+/test-results/
 
 # next.js
 /.next/
@@ -26,6 +28,10 @@ yarn-error.log*
 .env*.local
 /apps/mobile/app.env
 
+# local runtime logs
+/apps/mobile/metro-usb.err.log
+/apps/mobile/metro-usb.out.log
+
 # vercel
 .vercel
 
@@ -37,6 +43,10 @@ next-env.d.ts
 
 /.turbo/preferences/tui.json
 
+# temporary generated artifacts
+/temp_dir/
+
+# packages
 /packages/shared-types/node_modules/
 
 # Sentry Config File
