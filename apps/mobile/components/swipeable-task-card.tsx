@@ -14,12 +14,6 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { getTaskSharedTransitionTag } from '@/lib/task-shared-transition';
 
-type AnimatedSharedViewProps = React.ComponentProps<typeof Animated.View> & {
-  sharedTransitionTag?: string;
-};
-const AnimatedSharedView =
-  Animated.View as unknown as React.ComponentType<AnimatedSharedViewProps>;
-
 interface SwipeableTaskCardProps {
   readonly item: Task;
   readonly taskId: string;
@@ -235,8 +229,10 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
       </View>
 
       <GestureDetector gesture={panGesture}>
-        <AnimatedSharedView
+        <Animated.View
           className="rounded-lg border-l-4 border-l-blue-600 bg-white"
+          // @ts-expect-error Reanimated supports sharedTransitionTag at runtime,
+          // but the published types in this version do not expose the prop.
           sharedTransitionTag={sharedTransitionTag}
           style={animatedCardStyle}
         >
@@ -281,7 +277,7 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
               </View>
             </View>
           </TouchableOpacity>
-        </AnimatedSharedView>
+        </Animated.View>
       </GestureDetector>
     </View>
   );

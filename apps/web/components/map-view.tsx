@@ -113,6 +113,8 @@ export default function MapView({ height }: MapViewProps) {
     return Array.from(grouped.values());
   }, [technicians, clusterPrecision]);
 
+  // The shared supabase client is module-scoped and stable for the lifetime of
+  // the dashboard session, so an empty dependency list here is intentional.
   const loadActiveTasks = useCallback(async () => {
     const tasksResult = await supabase
       .from('tasks')
@@ -315,7 +317,10 @@ export default function MapView({ height }: MapViewProps) {
       });
       setPushSuccess(`Task "${taskToPush.title}" pushed.`);
       setLastPushedTask(taskToPush);
-      void loadActiveTasks();
+      const reloadSucceeded = await loadActiveTasks();
+      if (!reloadSucceeded) {
+        setPushError('Task was pushed, but refreshing map data failed.');
+      }
     } catch (error) {
       console.error('Error pushing task from map popup:', error);
       setPushSuccess(null);

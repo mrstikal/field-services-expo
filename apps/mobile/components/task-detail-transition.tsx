@@ -2,6 +2,7 @@ import React from 'react';
 import Animated, {
   FadeIn,
   FadeOut,
+  runOnJS,
 } from 'react-native-reanimated';
 
 interface TaskDetailTransitionProps {
@@ -15,13 +16,23 @@ const TaskDetailTransition: React.FC<TaskDetailTransitionProps> = ({
   isActive,
   onComplete,
 }) => {
-  React.useEffect(() => {
-    if (isActive && onComplete) {
-      onComplete();
+  const entering = React.useMemo(() => {
+    if (!isActive) {
+      return undefined;
     }
-  }, [isActive, onComplete]);
 
-  const entering = isActive ? FadeIn.duration(180) : undefined;
+    const animation = FadeIn.duration(180);
+    if (!onComplete) {
+      return animation;
+    }
+
+    return animation.withCallback(finished => {
+      'worklet';
+      if (finished) {
+        runOnJS(onComplete)();
+      }
+    });
+  }, [isActive, onComplete]);
   const exiting = FadeOut.duration(120);
 
   return (

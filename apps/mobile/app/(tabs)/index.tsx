@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { taskRepository } from '@/lib/db/task-repository';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
@@ -28,6 +28,13 @@ type HomeTask = Pick<
   | 'priority'
   | 'due_date'
 >;
+
+function filterTodayAssignedTasks(tasks: HomeTask[]) {
+  const today = new Date().toISOString().split('T')[0];
+  return tasks.filter(
+    task => task.status === 'assigned' && task.due_date.startsWith(today)
+  );
+}
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -50,19 +57,46 @@ export default function HomeScreen() {
   const { currentTask, isNearTask, updateLocation, setTrackedTasks } =
     useGeofencing();
 
+  const loadTasksForCurrentUser = useCallback(async () => {
+    if (!user) {
+      return [];
+    }
+
+    if (user?.role === 'technician' && user.id) {
+      return taskRepository.getByTechnician(user.id);
+    }
+
+    return taskRepository.getAll();
+  }, [user?.id, user?.role]);
+
+  const getTodayTaskKey = useCallback((item: HomeTask) => item.id, []);
+
+  const renderTodayTask = useCallback(
+    ({ item }: { readonly item: HomeTask }) => (
+      <TouchableOpacity
+        className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
+        onPress={() => router.push(`/tasks/${item.id}`)}
+        accessibilityLabel={`Task: ${item.title}, Status: ${item.status}`}
+        accessibilityRole="button"
+      >
+        <Text className="text-sm font-medium text-gray-800">{item.title}</Text>
+        <Text className="mt-1 text-xs text-gray-500">{item.status}</Text>
+      </TouchableOpacity>
+    ),
+    [router]
+  );
+
   // Fetch from local database first (offline-first)
   useEffect(() => {
     const fetchLocalTasks = async () => {
-      try {
-        const tasks = await taskRepository.getAll();
-        setLocalTasks(tasks);
+      if (isAuthLoading) {
+        return;
+      }
 
-        // Filter for today's assigned tasks
-        const today = new Date().toISOString().split('T')[0];
-        const filtered = tasks.filter(
-          t => t.status === 'assigned' && t.due_date.startsWith(today)
-        );
-        setTodayTasks(filtered);
+      try {
+        const tasks = await loadTasksForCurrentUser();
+        setLocalTasks(tasks);
+        setTodayTasks(filterTodayAssignedTasks(tasks));
         setIsLoading(false);
       } catch (error) {
         console.error('Error fetching local tasks:', error);
@@ -71,7 +105,7 @@ export default function HomeScreen() {
     };
 
     fetchLocalTasks();
-  }, [user?.id, user?.role]);
+  }, [isAuthLoading, loadTasksForCurrentUser]);
 
   // Sync with server when online
   useEffect(() => {
@@ -128,14 +162,9 @@ export default function HomeScreen() {
       const syncAndReloadLocalTasks = async () => {
         try {
           await sync();
-          const tasks = await taskRepository.getAll();
+          const tasks = await loadTasksForCurrentUser();
           setLocalTasks(tasks);
-
-          const today = new Date().toISOString().split('T')[0];
-          const filtered = tasks.filter(
-            t => t.status === 'assigned' && t.due_date.startsWith(today)
-          );
-          setTodayTasks(filtered);
+          setTodayTasks(filterTodayAssignedTasks(tasks));
         } catch (error) {
           console.error('Error syncing tasks fallback:', error);
         }
@@ -148,6 +177,7 @@ export default function HomeScreen() {
     localTasks.length,
     isLoading,
     isAuthLoading,
+    loadTasksForCurrentUser,
     sync,
   ]);
 
@@ -239,22 +269,8 @@ export default function HomeScreen() {
         ) : (
           <FlatList
             data={todayTasks}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
-                onPress={() => router.push(`/tasks/${item.id}`)}
-                accessibilityLabel={`Task: ${item.title}, Status: ${item.status}`}
-                accessibilityRole="button"
-              >
-                <Text className="text-sm font-medium text-gray-800">
-                  {item.title}
-                </Text>
-                <Text className="mt-1 text-xs text-gray-500">
-                  {item.status}
-                </Text>
-              </TouchableOpacity>
-            )}
+            keyExtractor={getTodayTaskKey}
+            renderItem={renderTodayTask}
             scrollEnabled={false}
           />
         )}

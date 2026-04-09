@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 // Supabase Storage Configuration
 const STORAGE_BUCKET =
   process.env.EXPO_PUBLIC_SUPABASE_S3_BUCKET || 'FieldService';
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
 if (!STORAGE_BUCKET) {
   console.warn('Storage bucket not configured. File uploads will fail.');
@@ -165,6 +166,37 @@ export async function deleteFileFromStorage(remotePath: string): Promise<void> {
   } catch (error) {
     console.error('Error deleting file from Supabase Storage:', error);
   }
+}
+
+function getStoragePathFromPublicUrl(publicUrl: string): string | null {
+  if (!SUPABASE_URL) {
+    return null;
+  }
+
+  try {
+    const resolvedUrl = new URL(publicUrl);
+    const expectedPrefix = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
+    if (!resolvedUrl.pathname.startsWith(expectedPrefix)) {
+      return null;
+    }
+
+    return decodeURIComponent(
+      resolvedUrl.pathname.slice(expectedPrefix.length)
+    );
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteStorageFileByPublicUrl(
+  publicUrl: string
+): Promise<void> {
+  const remotePath = getStoragePathFromPublicUrl(publicUrl);
+  if (!remotePath) {
+    return;
+  }
+
+  await deleteFileFromStorage(remotePath);
 }
 
 /**

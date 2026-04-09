@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logApiError } from '@/lib/api-errors';
+import { requireBearerUser } from '@/lib/server-supabase';
 
 type VisionAction = 'detect' | 'extractText';
 
@@ -95,6 +96,20 @@ function getHttpErrorDetail(
 
 export async function POST(request: NextRequest) {
   try {
+    const authorizationHeader = request.headers.get('authorization');
+    const bearerToken = authorizationHeader?.startsWith('Bearer ')
+      ? authorizationHeader.slice('Bearer '.length).trim()
+      : '';
+
+    if (!bearerToken) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+
+    const { user } = await requireBearerUser(bearerToken);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+    }
+
     const apiKey = getGoogleVisionApiKey();
     if (!apiKey) {
       return NextResponse.json(

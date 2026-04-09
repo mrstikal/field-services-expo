@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabase } from '@/lib/supabase';
 
 interface VisionApiErrorPayload {
   error?: {
@@ -29,13 +30,28 @@ function getErrorDetail(responseText: string, fallback: string) {
   }
 }
 
+async function getVisionAuthorizationHeader(): Promise<string> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const accessToken = session?.access_token;
+  if (!accessToken) {
+    throw new Error('Authentication required to analyze images.');
+  }
+
+  return `Bearer ${accessToken}`;
+}
+
 async function callVisionProxy(
   action: VisionAction,
   imageBase64: string
 ): Promise<Record<string, unknown> | null> {
+  const authorization = await getVisionAuthorizationHeader();
   const response = await fetch(getVisionProxyUrl(), {
     method: 'POST',
     headers: {
+      Authorization: authorization,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

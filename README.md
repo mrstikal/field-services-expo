@@ -97,7 +97,6 @@ For daily development on Windows + Android USB, see [DAILY_RUN.md](./docs/DAILY_
 | **[Deployment Guide](./docs/DEPLOYMENT.md)**       | EAS Build, Vercel, OTA updates, CI/CD                    |
 | **[Daily Run](./docs/DAILY_RUN.md)**               | Daily startup flow for Windows + Android USB             |
 | **[Testing Guide](./docs/TESTING.md)**             | Test commands, native-only suites, and E2E prerequisites |
-| **[Implementation Plan](./PLAN.md)**               | Detailed roadmap for all 8 development stages (in Czech) |
 
 ## 🏗️ Project Structure
 
@@ -115,7 +114,6 @@ field-service/
 ├── .github/workflows/       # CI/CD pipelines (ci.yml, dev-build.yml)
 ├── docker-compose.yml       # PostgreSQL for local development
 ├── env.local.example        # Environment variables template
-└── PLAN.md                  # Implementation plan (Czech)
 ```
 
 ## 🛠️ Tech Stack
@@ -262,8 +260,6 @@ The project is organized into 8 development stages:
 | 7     | **Polish & Performance** – Error handling, optimization                       | 🟡 Ongoing               |
 | 8     | **Build & Deployment** – EAS Build, OTA updates, documentation                | 🟡 In progress           |
 
-See [PLAN.md](./PLAN.md) for the detailed implementation plan (in Czech).
-
 ## 🤝 Contributing
 
 1. Create a feature branch: `git checkout -b feature/my-feature`
@@ -282,7 +278,6 @@ For questions or issues:
 - Check the [Setup Guide](./docs/SETUP.md) for common problems
 - Review the [Architecture Guide](./docs/ARCHITECTURE.md) for system design
 - See [DAILY_RUN.md](./docs/DAILY_RUN.md) for Windows + Android USB workflow
-- See [PLAN.md](./PLAN.md) for implementation details
 
 ## 🎓 Key Technologies
 

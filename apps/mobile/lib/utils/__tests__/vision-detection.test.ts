@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabase } from '@/lib/supabase';
 import {
   detectObjects,
   extractText,
@@ -10,11 +11,26 @@ vi.mock('expo-file-system/legacy', () => ({
   readAsStringAsync: vi.fn(),
 }));
 
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn(),
+    },
+  },
+}));
+
 describe('vision-detection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.EXPO_PUBLIC_API_URL = 'http://localhost:3000';
     vi.mocked(FileSystem.readAsStringAsync).mockResolvedValue('base64-image');
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'mobile-token',
+        },
+      },
+    } as never);
   });
 
   it('calls server proxy instead of direct Google endpoint', async () => {
@@ -34,6 +50,10 @@ describe('vision-detection', () => {
       'http://localhost:3000/api/vision/analyze',
       expect.objectContaining({
         method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer mobile-token',
+          'Content-Type': 'application/json',
+        }),
       })
     );
     expect(result?.labels[0].text).toBe('Wire');
@@ -65,6 +85,16 @@ describe('vision-detection', () => {
     const result = await extractText('file://image.jpg');
 
     expect(result).toBe('Detected OCR text');
+  });
+
+  it('throws when access token is missing', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: null },
+    } as never);
+
+    await expect(detectObjects('file://image.jpg')).rejects.toThrow(
+      'Authentication required to analyze images.'
+    );
   });
 
   it('suggests form fields from detected labels and objects', () => {

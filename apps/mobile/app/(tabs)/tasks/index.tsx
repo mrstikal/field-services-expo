@@ -4,6 +4,7 @@ import {
   FlatList,
   RefreshControl,
   TouchableOpacity,
+  ListRenderItemInfo,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -126,14 +127,18 @@ export default function TasksListScreen() {
     [router]
   );
 
+  const getTaskKey = useCallback((item: Task) => item.id, []);
+
   const renderTaskCard = useCallback(
-    ({ item }: { readonly item: Task }) => (
+    function renderTaskCard({ item }: ListRenderItemInfo<Task>) {
+      return (
       <SwipeableTaskCard
         item={item}
         taskId={item.id}
         onPress={handleTaskPress}
       />
-    ),
+      );
+    },
     [handleTaskPress]
   );
 
@@ -207,7 +212,7 @@ export default function TasksListScreen() {
           contentContainerStyle={paddingStyles.contentContainer}
           data={filteredTasks}
           getItemLayout={getItemLayout}
-          keyExtractor={item => item.id}
+          keyExtractor={getTaskKey}
           maxToRenderPerBatch={10}
           refreshControl={
             <RefreshControl onRefresh={onRefresh} refreshing={isRefreshing} />

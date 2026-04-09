@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 import { taskRepository } from '@/lib/db/task-repository';
 import {
@@ -9,6 +10,9 @@ import {
   type TaskLocation,
 } from './geofencing-regions';
 const GEOFENCE_TASK_NAME = 'task-geofencing-task';
+const locationWithBackgroundAvailability = Location as typeof Location & {
+  isBackgroundLocationAvailableAsync?: () => Promise<boolean>;
+};
 
 interface UseGeofencingReturn {
   currentLocation: Location.LocationObject | null;
@@ -112,6 +116,14 @@ export function useGeofencing(): UseGeofencingReturn {
 
   const updateNativeGeofencing = useCallback(async (tasks: TaskLocation[]) => {
     try {
+      if (Constants.appOwnership === 'expo') {
+        console.info(
+          'Skipping native geofencing because Expo Go does not support it reliably.'
+        );
+        setIsNativeGeofencing(false);
+        return;
+      }
+
       const started = await Location.hasStartedGeofencingAsync(
         GEOFENCE_TASK_NAME
       );
@@ -141,6 +153,19 @@ export function useGeofencing(): UseGeofencingReturn {
           setIsNativeGeofencing(false);
           return;
         }
+      }
+
+      const isBackgroundLocationAvailable =
+        typeof locationWithBackgroundAvailability.isBackgroundLocationAvailableAsync ===
+        'function'
+          ? await locationWithBackgroundAvailability.isBackgroundLocationAvailableAsync()
+          : true;
+      if (!isBackgroundLocationAvailable) {
+        console.warn(
+          'Background location is not available on this device; skipping native geofencing.'
+        );
+        setIsNativeGeofencing(false);
+        return;
       }
 
       await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, regions);
