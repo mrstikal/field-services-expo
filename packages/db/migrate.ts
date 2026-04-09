@@ -16,6 +16,7 @@ async function main() {
       name TEXT,
       phone TEXT,
       avatar_url TEXT,
+      expo_push_token TEXT,
        is_online BOOLEAN DEFAULT false,
        last_location_lat DOUBLE PRECISION,
        last_location_lng DOUBLE PRECISION,
@@ -24,6 +25,11 @@ async function main() {
     )
   `);
   console.log('✓ users table created');
+
+  await db.execute(
+    sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token TEXT`
+  );
+  console.log('✓ users.expo_push_token column ensured');
 
   // Create tasks table
   await db.execute(sql`

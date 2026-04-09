@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   Task,
@@ -77,6 +78,11 @@ export default function TasksPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams?.toString() ?? '';
+  const lastHandledEditTaskIdRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
 
   useRealtimeTasks();
@@ -89,6 +95,61 @@ export default function TasksPage() {
   const tasks = data?.data ?? [];
   const totalCount = data?.totalCount ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+
+  const clearEditTaskQueryParam = useCallback(() => {
+    if (!pathname) {
+      return;
+    }
+    const params = new URLSearchParams(searchParamsString);
+    params.delete('editTaskId');
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [pathname, router, searchParamsString]);
+
+  useEffect(() => {
+    if (!searchParams) {
+      return;
+    }
+
+    const editTaskIdParam = searchParams.get('editTaskId');
+    if (!editTaskIdParam || lastHandledEditTaskIdRef.current === editTaskIdParam) {
+      return;
+    }
+    const editTaskId = editTaskIdParam;
+
+    const existingTask = tasks.find(task => task.id === editTaskId);
+    if (existingTask) {
+      setEditingTask(existingTask);
+      setDialogOpen(true);
+      lastHandledEditTaskIdRef.current = editTaskId;
+      clearEditTaskQueryParam();
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const response = await authenticatedFetch(`/api/tasks/${editTaskId}`, {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        return;
+      }
+
+      const task = (await response.json()) as Task;
+      if (cancelled) {
+        return;
+      }
+
+      setEditingTask(task);
+      setDialogOpen(true);
+      lastHandledEditTaskIdRef.current = editTaskId;
+      clearEditTaskQueryParam();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearEditTaskQueryParam, searchParams, tasks]);
 
   const handleCreateTask = async (payload: TaskCreateInput) => {
     setLoading(true);
@@ -329,6 +390,7 @@ export default function TasksPage() {
         onCancel={() => {
           setDialogOpen(false);
           setEditingTask(undefined);
+          clearEditTaskQueryParam();
         }}
         onOpenChange={setDialogOpen}
         onSubmit={editingTask ? handleEditTask : handleCreateTask}

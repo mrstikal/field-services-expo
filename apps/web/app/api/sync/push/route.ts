@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  businessRoleSchema,
+  type BusinessRole,
   locationRecordSchema,
   reportRecordSchema,
   syncPushRequestSchema,
   taskRecordSchema,
 } from '@field-service/shared-types';
 import { logApiError } from '@/lib/api-errors';
+import { checkRateLimit } from '@/lib/api-rate-limit';
 import { requireBearerUser } from '@/lib/server-supabase';
+import { canMutateReport, canMutateTask } from '@/lib/sync-authorization';
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -56,6 +60,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const rateLimit = checkRateLimit(`sync-push:${user.id}`, {
+      maxRequests: 30,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many sync push requests.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      );
+    }
+
     const parsedBody = syncPushRequestSchema.safeParse(await request.json());
     if (!parsedBody.success) {
       return NextResponse.json(
@@ -66,6 +84,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const { data: userProfile, error: userProfileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (userProfileError) {
+      throw userProfileError;
+    }
+    const parsedRole = businessRoleSchema.safeParse(
+      (userProfile as { role?: string } | null)?.role
+    );
+    const userRole: BusinessRole = parsedRole.success
+      ? parsedRole.data
+      : 'technician';
 
     const results = {
       success: 0,
@@ -107,6 +140,20 @@ export async function POST(request: NextRequest) {
                 serverRecord: existingTask,
               });
               break;
+            }
+            if (
+              !canMutateTask(userRole, user.id, {
+                existingTechnicianId: existingTask
+                  ? ((existingTask as { technician_id?: string | null })
+                      .technician_id ?? null)
+                  : undefined,
+                incomingTechnicianId:
+                  'technician_id' in parsedTask.data
+                    ? (parsedTask.data.technician_id as string | null)
+                    : undefined,
+              })
+            ) {
+              throw new Error('Forbidden: insufficient permissions for task.');
             }
 
             let taskRecord: Record<string, unknown> | null = null;
@@ -170,6 +217,46 @@ export async function POST(request: NextRequest) {
               break;
             }
 
+            const reportTaskId =
+              change.action === 'delete'
+                ? ((existingReport as { task_id?: string | null } | null)
+                    ?.task_id ?? null)
+                : ('task_id' in parsedReport.data
+                    ? parsedReport.data.task_id
+                    : null);
+
+            if (userRole === 'technician') {
+              if (!reportTaskId) {
+                throw new Error(
+                  'Forbidden: report is not linked to an accessible task.'
+                );
+              }
+
+              const { data: taskOwnership, error: taskOwnershipError } =
+                await supabase
+                  .from('tasks')
+                  .select('technician_id')
+                  .eq('id', reportTaskId)
+                  .maybeSingle();
+
+              if (taskOwnershipError) throw taskOwnershipError;
+              if (
+                !canMutateReport(
+                  userRole,
+                  user.id,
+                  (
+                    taskOwnership as {
+                      technician_id?: string | null;
+                    } | null
+                  )?.technician_id
+                )
+              ) {
+                throw new Error(
+                  'Forbidden: insufficient permissions for report.'
+                );
+              }
+            }
+
             let reportRecord: Record<string, unknown> | null = null;
             if (change.action === 'delete') {
               const { data, error } = await supabase
@@ -207,6 +294,14 @@ export async function POST(request: NextRequest) {
             const parsedLocation = parseLocationPayload(change.data);
             if (!parsedLocation.success) {
               throw new Error('Invalid location payload.');
+            }
+            if (
+              userRole === 'technician' &&
+              parsedLocation.data.technician_id !== user.id
+            ) {
+              throw new Error(
+                'Forbidden: insufficient permissions for location.'
+              );
             }
 
             const { data, error } = await supabase

@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Task } from '@field-service/shared-types';
 import { useAuth } from '@/lib/auth-context';
 import RNPickerSelect from 'react-native-picker-select';
+import { taskRepository } from '@/lib/db/task-repository';
+import { reportRepository } from '@/lib/db/report-repository';
+import { filterTasksWithoutReports } from './task-selector.utils';
 
 interface TaskSelectorProps {
   readonly selectedTask: Task | null;
@@ -24,39 +26,22 @@ export function TaskSelector({
         return [];
       }
 
-      // Fetch tasks assigned to current user
-      const { data: userTasks, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('technician_id', user.id)
-        .eq('status', 'assigned')
-        .order('due_date', { ascending: true });
+      const [userTasks, existingReports] = await Promise.all([
+        taskRepository.getByTechnician(user.id),
+        reportRepository.getAll(),
+      ]);
 
-      if (tasksError) {
-        console.error('Error fetching tasks:', tasksError);
-        return [];
-      }
-
-      // Fetch existing reports for filtering
-      const { data: existingReports, error: reportsError } = await supabase
-        .from('reports')
-        .select('task_id');
-
-      if (reportsError) {
-        console.error('Error fetching reports:', reportsError);
-        // If reports fetch fails, return all user tasks
-        return (userTasks || []) as Task[];
-      }
-
-      // Get task IDs that already have reports
+      const assignableTasks = userTasks
+        .filter(task => task.status === 'assigned')
+        .sort((a, b) => a.due_date.localeCompare(b.due_date));
       const taskIdsWithReports = new Set(
-        existingReports?.map((r: { task_id: string }) => r.task_id) || []
+        existingReports.map(report => report.task_id)
       );
 
-      // Return only tasks that don't have a report yet
-      return (userTasks || []).filter(
-        task => !taskIdsWithReports.has(task.id)
-      ) as Task[];
+      return filterTasksWithoutReports(
+        assignableTasks as Task[],
+        taskIdsWithReports
+      );
     },
     enabled: !!user?.id,
   });

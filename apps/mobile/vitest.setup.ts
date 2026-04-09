@@ -53,6 +53,20 @@ vi.mock('react-native', () => ({
   },
 }));
 
+vi.mock('expo-secure-store', () => {
+  const store = new Map<string, string>();
+
+  return {
+    getItemAsync: vi.fn(async (key: string) => store.get(key) ?? null),
+    setItemAsync: vi.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+    deleteItemAsync: vi.fn(async (key: string) => {
+      store.delete(key);
+    }),
+  };
+});
+
 // Mock crypto.randomUUID for testing
 if (!global.crypto.randomUUID) {
   global.crypto.randomUUID = (() => {

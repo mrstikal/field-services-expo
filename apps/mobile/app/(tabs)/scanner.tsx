@@ -11,26 +11,23 @@ import { CameraView } from 'expo-camera';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
+import { SUPPORTED_BARCODE_TYPES } from '@/lib/hooks/barcode-scanner.types';
 
 export default function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { entry } = useLocalSearchParams<{ entry?: string }>();
+  const hasValidEntry = entry === 'scan';
 
   // Guard: if scanner opened without proper entry parameter, redirect to home
   useEffect(() => {
-    if (!entry || entry !== 'scan') {
+    if (!hasValidEntry) {
       console.log(
         '[ScannerScreen] Scanner opened without proper entry parameter, redirecting to home'
       );
       router.replace('/(tabs)');
     }
-  }, [entry, router]);
-
-  // If guard redirected, don't render scanner UI
-  if (!entry || entry !== 'scan') {
-    return null;
-  }
+  }, [hasValidEntry, router]);
   const {
     hasPermission,
     isScanning,
@@ -78,10 +75,7 @@ export default function ScannerScreen() {
 
   const handleCancel = () => {
     stopScanning();
-    // Reset after a short delay to avoid re-triggering
-    setTimeout(() => {
-      reset();
-    }, 100);
+    reset();
     router.back();
   };
 
@@ -93,6 +87,10 @@ export default function ScannerScreen() {
   };
 
   const scannerContent = useMemo(() => {
+    if (!hasValidEntry) {
+      return null;
+    }
+
     if (hasPermission === null) {
       return (
         <View className="flex-1 items-center justify-center bg-black">
@@ -166,17 +164,7 @@ export default function ScannerScreen() {
           <CameraView
             active
             barcodeScannerSettings={{
-              barcodeTypes: [
-                'ean13',
-                'qr',
-                'code128',
-                'code39',
-                'upc_e',
-                'upc_a',
-                'datamatrix',
-                'pdf417',
-                'aztec',
-              ],
+              barcodeTypes: [...SUPPORTED_BARCODE_TYPES],
             }}
             className="flex-1"
             facing="back"
@@ -220,6 +208,7 @@ export default function ScannerScreen() {
       </View>
     );
   }, [
+    hasValidEntry,
     hasPermission,
     handlePermissionRetry,
     openSettings,

@@ -1,8 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { supabase } from '@/lib/supabase';
 import { Task } from '@field-service/shared-types';
 import { useIsOnline } from '@/lib/hooks/use-network-status';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * Hook for real-time task updates using Supabase Realtime
@@ -11,6 +14,8 @@ import { useIsOnline } from '@/lib/hooks/use-network-status';
 export function useRealtimeTasks() {
   const queryClient = useQueryClient();
   const isOnline = useIsOnline();
+  const { user } = useAuth();
+  const notifiedTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isOnline) {
@@ -39,6 +44,40 @@ export function useRealtimeTasks() {
               queryKey: ['task', (payload.new as Task).id],
             });
           }
+
+          const newTask = payload.new as Partial<Task> | null;
+          const oldTask = payload.old as Partial<Task> | null;
+          const isTechnician = user?.role === 'technician';
+          const taskId = typeof newTask?.id === 'string' ? newTask.id : null;
+          const assignedToCurrentUser =
+            typeof newTask?.technician_id === 'string' &&
+            newTask.technician_id === user?.id;
+          const wasAssignedToCurrentUser =
+            typeof oldTask?.technician_id === 'string' &&
+            oldTask.technician_id === user?.id;
+          const isNewAssignmentForCurrentUser =
+            (payload.eventType === 'INSERT' && assignedToCurrentUser) ||
+            (payload.eventType === 'UPDATE' &&
+              assignedToCurrentUser &&
+              !wasAssignedToCurrentUser);
+
+          if (
+            isTechnician &&
+            taskId &&
+            isNewAssignmentForCurrentUser &&
+            !notifiedTaskIdsRef.current.has(taskId)
+          ) {
+            notifiedTaskIdsRef.current.add(taskId);
+            void Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success
+            );
+            Alert.alert(
+              'New task assigned',
+              typeof newTask?.title === 'string'
+                ? newTask.title
+                : 'You have a new assigned task.'
+            );
+          }
         }
       )
       .subscribe();
@@ -47,7 +86,7 @@ export function useRealtimeTasks() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [isOnline, queryClient]);
+  }, [isOnline, queryClient, user?.id, user?.role]);
 }
 
 /**

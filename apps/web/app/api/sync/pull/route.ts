@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncPullRequestSchema } from '@field-service/shared-types';
+import {
+  businessRoleSchema,
+  syncPullRequestSchema,
+} from '@field-service/shared-types';
 import { logApiError } from '@/lib/api-errors';
+import { checkRateLimit } from '@/lib/api-rate-limit';
 import { requireBearerUser } from '@/lib/server-supabase';
 
 function getBearerToken(request: NextRequest) {
@@ -23,6 +27,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const rateLimit = checkRateLimit(`sync-pull:${user.id}`, {
+      maxRequests: 60,
+      windowMs: 60_000,
+    });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many sync pull requests.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      );
+    }
+
     const parsedBody = syncPullRequestSchema.safeParse(await request.json());
     if (!parsedBody.success) {
       return NextResponse.json(
@@ -35,6 +53,68 @@ export async function POST(request: NextRequest) {
     }
 
     const lastSyncTimestamp = parsedBody.data.lastSyncTimestamp;
+    const { data: userProfile, error: userProfileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (userProfileError) {
+      throw userProfileError;
+    }
+
+    const parsedRole = businessRoleSchema.safeParse(
+      (userProfile as { role?: string } | null)?.role
+    );
+    const userRole = parsedRole.success ? parsedRole.data : 'technician';
+
+    if (userRole === 'technician') {
+      const [tasksResult, locationsResult] = await Promise.all([
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('technician_id', user.id)
+          .gte('updated_at', lastSyncTimestamp)
+          .order('updated_at', { ascending: true }),
+        supabase
+          .from('locations')
+          .select('*')
+          .eq('technician_id', user.id)
+          .gte('timestamp', lastSyncTimestamp)
+          .order('timestamp', { ascending: true }),
+      ]);
+
+      if (tasksResult.error || locationsResult.error) {
+        throw tasksResult.error || locationsResult.error;
+      }
+
+      const taskIds = (tasksResult.data ?? [])
+        .map(task => task.id)
+        .filter((id): id is string => typeof id === 'string');
+
+      const reportsResult =
+        taskIds.length > 0
+          ? await supabase
+              .from('reports')
+              .select('*')
+              .in('task_id', taskIds)
+              .gte('updated_at', lastSyncTimestamp)
+              .order('updated_at', { ascending: true })
+          : { data: [], error: null };
+
+      if (reportsResult.error) {
+        throw reportsResult.error;
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          tasks: tasksResult.data ?? [],
+          reports: reportsResult.data ?? [],
+          locations: locationsResult.data ?? [],
+          serverTimestamp: new Date().toISOString(),
+        },
+      });
+    }
 
     const [tasksResult, reportsResult, locationsResult] = await Promise.all([
       supabase

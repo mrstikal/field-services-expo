@@ -9,6 +9,10 @@ import React, {
 } from 'react';
 import type { BusinessRole } from '@field-service/shared-types';
 import { supabase } from './supabase';
+import {
+  clearActiveUserSession,
+  persistActiveUserSession,
+} from './auth-session-cache';
 
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 8000;
 
@@ -143,6 +147,15 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
           setUser(currentUser);
           lastResolvedUserRef.current = currentUser;
         }
+        if (currentUser) {
+          await persistActiveUserSession({
+            id: currentUser.id,
+            role: currentUser.role,
+            email: currentUser.email,
+          });
+        } else {
+          await clearActiveUserSession();
+        }
       } catch (error) {
         console.warn(
           'Auth bootstrap failed, falling back to signed-out state:',
@@ -152,6 +165,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
           setUser(null);
           lastResolvedUserRef.current = null;
         }
+        await clearActiveUserSession();
       } finally {
         if (active) {
           setIsLoading(false);
@@ -170,6 +184,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
             setUser(null);
             lastResolvedUserRef.current = null;
           }
+          await clearActiveUserSession();
           return;
         }
 
@@ -180,6 +195,15 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
         if (active) {
           setUser(currentUser);
           lastResolvedUserRef.current = currentUser;
+        }
+        if (currentUser) {
+          await persistActiveUserSession({
+            id: currentUser.id,
+            role: currentUser.role,
+            email: currentUser.email,
+          });
+        } else {
+          await clearActiveUserSession();
         }
       } catch (error) {
         console.warn('Auth state change user resolution failed:', error);
@@ -210,6 +234,15 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       );
       setUser(currentUser);
       lastResolvedUserRef.current = currentUser;
+      if (currentUser) {
+        await persistActiveUserSession({
+          id: currentUser.id,
+          role: currentUser.role,
+          email: currentUser.email,
+        });
+      } else {
+        await clearActiveUserSession();
+      }
     } finally {
       setIsLoading(false);
     }
@@ -222,6 +255,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
       if (error) throw error;
       setUser(null);
       lastResolvedUserRef.current = null;
+      await clearActiveUserSession();
     } finally {
       setIsLoading(false);
     }

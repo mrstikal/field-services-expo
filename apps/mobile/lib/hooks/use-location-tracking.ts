@@ -5,8 +5,19 @@ import { Alert } from 'react-native';
 import { initDatabase } from '@/lib/db/local-database';
 import { locationRepository } from '@/lib/db/location-repository';
 import { supabase } from '@/lib/supabase';
+import { getCachedActiveUserSession } from '@/lib/auth-session-cache';
+import { shouldPersistLocation } from './location-tracking.utils';
 
 const LOCATION_TASK_NAME = 'background-location-task';
+let dbInitPromise: ReturnType<typeof initDatabase> | null = null;
+const lastPersistAtByTechnician = new Map<string, number>();
+
+async function ensureDatabaseInitialized() {
+  if (!dbInitPromise) {
+    dbInitPromise = initDatabase();
+  }
+  await dbInitPromise;
+}
 
 interface LocationUpdate {
   coords: {
@@ -19,23 +30,54 @@ interface LocationUpdate {
   timestamp: number;
 }
 
-async function persistLocationUpdate(update: LocationUpdate) {
-  await initDatabase();
+async function resolveTrackedTechnicianId() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  if (user?.id) {
+    return user.id;
+  }
 
-  if (!user) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.user?.id) {
+    return session.user.id;
+  }
+
+  const cachedSession = await getCachedActiveUserSession();
+  if (cachedSession?.id && cachedSession.role === 'technician') {
+    return cachedSession.id;
+  }
+
+  return null;
+}
+
+async function persistLocationUpdate(update: LocationUpdate) {
+  await ensureDatabaseInitialized();
+  const technicianId = await resolveTrackedTechnicianId();
+
+  if (!technicianId) {
+    console.warn(
+      'Skipping location persistence because no tracked technician id is available.'
+    );
+    return;
+  }
+
+  const currentTimestamp = update.timestamp || Date.now();
+  const lastPersistTimestamp = lastPersistAtByTechnician.get(technicianId);
+  if (!shouldPersistLocation(lastPersistTimestamp, currentTimestamp)) {
     return;
   }
 
   await locationRepository.saveDeviceLocation({
-    technician_id: user.id,
+    technician_id: technicianId,
     latitude: update.coords.latitude,
     longitude: update.coords.longitude,
     accuracy: update.coords.accuracy ?? 0,
     timestamp: new Date(update.timestamp).toISOString(),
   });
+  lastPersistAtByTechnician.set(technicianId, currentTimestamp);
 }
 
 function registerLocationTask() {

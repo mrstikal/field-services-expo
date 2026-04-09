@@ -65,14 +65,23 @@ Get your DSN at [sentry.io](https://sentry.io) → Project → Settings → Clie
 
 These variables are used by the Expo mobile app. Variables prefixed with `EXPO_PUBLIC_` are bundled into the app and visible to the client.
 
-| Variable               | Description             | Default                 |
-| ---------------------- | ----------------------- | ----------------------- |
-| `EXPO_PUBLIC_APP_NAME` | Display name of the app | `Field Service`         |
-| `EXPO_PUBLIC_API_URL`  | Base URL of the web API | `http://localhost:3000` |
+| Variable                         | Description                          | Default                 |
+| -------------------------------- | ------------------------------------ | ----------------------- |
+| `EXPO_PUBLIC_APP_NAME`           | Display name of the app              | `Field Service`         |
+| `EXPO_PUBLIC_API_URL`            | Base URL of the web API              | `http://localhost:3000` |
+| `EXPO_PUBLIC_SUPABASE_S3_BUCKET` | Storage bucket name used by mobile   | `FieldService`          |
 
 > **Note:** For USB development on Android, `EXPO_PUBLIC_API_URL` must point to your local machine's IP or use `http://localhost:3000` with ADB reverse port forwarding. See [DAILY_RUN.md](./DAILY_RUN.md).
 
 The mobile app also reads `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the root `env.local`.
+Do not put access keys or secret keys in `EXPO_PUBLIC_*` variables.
+
+`EXPO_PUBLIC_EAS_PROJECT_ID` is also read by the mobile app for OTA / EAS wiring. Keep in mind that it is public configuration, not a secret.
+
+The styling toolchain is intentionally split:
+
+- `apps/web` uses Tailwind CSS 4.
+- `apps/mobile` stays on Tailwind CSS 3.4 because NativeWind 4 still depends on the Tailwind v3 compiler.
 
 ---
 

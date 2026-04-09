@@ -133,6 +133,33 @@ describe('PDF Generator', () => {
       expect(html).toContain('Repair Electrical Panel');
       expect(html).not.toContain('signature.png');
     });
+
+    it('should escape unsafe HTML in text fields and form data', () => {
+      const data: ReportData = {
+        id: 'report-unsafe',
+        taskTitle: '<script>alert(1)</script>',
+        taskDescription: 'Desc',
+        taskAddress: 'Addr',
+        customerName: 'John <b>Doe</b>',
+        customerPhone: '123456789',
+        technicianName: 'Tech',
+        technicianId: 'tech-1',
+        photos: [],
+        signature: null,
+        formData: {
+          note: '<img src=x onerror=alert(1)>',
+        },
+        createdAt: '2025-01-01T10:00:00.000Z',
+        completedAt: '2025-01-01T12:00:00.000Z',
+      };
+
+      const html = generateReportHTML(data);
+
+      expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+      expect(html).toContain('John &lt;b&gt;Doe&lt;/b&gt;');
+      expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+      expect(html).not.toContain('<script>alert(1)</script>');
+    });
   });
 
   describe('generatePDF', () => {

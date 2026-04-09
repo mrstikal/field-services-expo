@@ -175,6 +175,7 @@ export interface Technician {
     longitude: number;
   } | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface User {

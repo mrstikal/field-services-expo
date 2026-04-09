@@ -1,19 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import * as Camera from 'expo-camera';
-import { useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Linking } from 'react-native';
-
-export type BarcodeType =
-  | 'ean-13'
-  | 'qr'
-  | 'code-128'
-  | 'code-39'
-  | 'upc_e'
-  | 'upc_a'
-  | 'data_MATRIX'
-  | 'pdf417'
-  | 'aztec';
+import { isBarcodeType, type BarcodeType } from './barcode-scanner.types';
 
 export interface BarcodeResult {
   data: string;
@@ -26,7 +15,7 @@ interface UseBarcodeScannerReturn {
   hasPermission: boolean | null;
   isScanning: boolean;
   scannedBarcode: BarcodeResult | null;
-  cameraRef: React.RefObject<Camera.CameraView | null>;
+  cameraRef: React.RefObject<CameraView | null>;
   requestPermission: () => Promise<boolean>;
   startScanning: () => void;
   stopScanning: () => void;
@@ -45,7 +34,7 @@ export function useBarcodeScanner(): UseBarcodeScannerReturn {
   const [scannedBarcode, setScannedBarcode] = useState<BarcodeResult | null>(
     null
   );
-  const cameraRef = React.useRef<Camera.CameraView>(null);
+  const cameraRef = useRef<CameraView | null>(null);
   const lastScanRef = useRef<{ data: string; timestamp: number } | null>(null);
   const DUPLICATE_SCAN_COOLDOWN_MS = 2000;
 
@@ -83,10 +72,14 @@ export function useBarcodeScanner(): UseBarcodeScannerReturn {
       // Haptic feedback for successful scan
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
+      if (!isBarcodeType(result.type)) {
+        return;
+      }
+
       lastScanRef.current = { data: result.data, timestamp: now };
       setScannedBarcode({
         data: result.data,
-        type: result.type as BarcodeType,
+        type: result.type,
       });
       setIsScanning(false);
     },

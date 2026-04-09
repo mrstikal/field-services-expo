@@ -1,5 +1,8 @@
 import React from 'react';
-import { Animated } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+} from 'react-native-reanimated';
 
 interface TaskDetailTransitionProps {
   readonly children: React.ReactNode;
@@ -12,24 +15,20 @@ const TaskDetailTransition: React.FC<TaskDetailTransitionProps> = ({
   isActive,
   onComplete,
 }) => {
-  const opacity = React.useRef(new Animated.Value(isActive ? 1 : 0)).current;
-
   React.useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: isActive ? 1 : 0,
-      duration: isActive ? 220 : 180,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished && isActive && onComplete) {
-        onComplete();
-      }
-    });
-  }, [isActive, onComplete, opacity]);
+    if (isActive && onComplete) {
+      onComplete();
+    }
+  }, [isActive, onComplete]);
+
+  const entering = isActive ? FadeIn.duration(180) : undefined;
+  const exiting = FadeOut.duration(120);
 
   return (
     <Animated.View
       className="m-2 flex-1 overflow-hidden bg-gray-50"
-      style={{ opacity }}
+      entering={entering}
+      exiting={exiting}
     >
       {children}
     </Animated.View>

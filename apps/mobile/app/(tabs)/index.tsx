@@ -2,49 +2,38 @@ import {
   View,
   Text,
   ScrollView,
+  FlatList,
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { taskRepository } from '@/lib/db/task-repository';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
 import { useIsOnline } from '@/lib/hooks/use-network-status';
 import { useLocationTracking } from '@/lib/hooks/use-location-tracking';
 import { useGeofencing } from '@/lib/hooks/use-geofencing';
 import { useAuth } from '@/lib/auth-context';
+import type { Task as SharedTask } from '@field-service/shared-types';
 
-interface Task {
-  id: string;
-  title: string;
-  address?: string;
-  latitude: number | null;
-  longitude: number | null;
-  status: 'assigned' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  due_date: string;
-  technician_id?: string | null;
-}
-
-function filterVisibleTasksForUser(
-  tasks: Task[],
-  userId?: string,
-  role?: string
-): Task[] {
-  if (!userId || role !== 'technician') {
-    return tasks;
-  }
-
-  return tasks.filter(task => task.technician_id === userId);
-}
+type HomeTask = Pick<
+  SharedTask,
+  | 'id'
+  | 'title'
+  | 'address'
+  | 'latitude'
+  | 'longitude'
+  | 'status'
+  | 'priority'
+  | 'due_date'
+>;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [todayTasks, setTodayTasks] = useState<Task[]>([]);
-  const [localTasks, setLocalTasks] = useState<Task[]>([]);
+  const [todayTasks, setTodayTasks] = useState<HomeTask[]>([]);
+  const [localTasks, setLocalTasks] = useState<HomeTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isOnline = useIsOnline();
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -55,6 +44,8 @@ export default function HomeScreen() {
     requestPermissions,
     startTracking,
     stopTracking,
+    startBackgroundTracking,
+    stopBackgroundTracking,
   } = useLocationTracking();
   const { currentTask, isNearTask, updateLocation, setTrackedTasks } =
     useGeofencing();
@@ -64,16 +55,11 @@ export default function HomeScreen() {
     const fetchLocalTasks = async () => {
       try {
         const tasks = await taskRepository.getAll();
-        const visibleTasks = filterVisibleTasksForUser(
-          tasks,
-          user?.id,
-          user?.role
-        );
-        setLocalTasks(visibleTasks);
+        setLocalTasks(tasks);
 
         // Filter for today's assigned tasks
         const today = new Date().toISOString().split('T')[0];
-        const filtered = visibleTasks.filter(
+        const filtered = tasks.filter(
           t => t.status === 'assigned' && t.due_date.startsWith(today)
         );
         setTodayTasks(filtered);
@@ -100,6 +86,7 @@ export default function HomeScreen() {
       const permission = await requestPermissions();
       if (permission.status === 'granted') {
         await startTracking();
+        await startBackgroundTracking();
       }
     };
 
@@ -107,8 +94,15 @@ export default function HomeScreen() {
 
     return () => {
       stopTracking();
+      void stopBackgroundTracking();
     };
-  }, [requestPermissions, startTracking, stopTracking]);
+  }, [
+    requestPermissions,
+    startTracking,
+    stopTracking,
+    startBackgroundTracking,
+    stopBackgroundTracking,
+  ]);
 
   useEffect(() => {
     if (location) {
@@ -128,56 +122,33 @@ export default function HomeScreen() {
     setTrackedTasks(geofenceTasks);
   }, [todayTasks, setTrackedTasks]);
 
-  // Fallback to server if local data is empty and online
+  // Fallback sync if local data is empty and online
   useEffect(() => {
     if (isOnline && localTasks.length === 0 && !isLoading && !isAuthLoading) {
-      const fetchServerTasks = async () => {
+      const syncAndReloadLocalTasks = async () => {
         try {
-          let query = supabase
-            .from('tasks')
-            .select('*')
-            .eq('status', 'assigned')
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false });
+          await sync();
+          const tasks = await taskRepository.getAll();
+          setLocalTasks(tasks);
 
-          if (user?.id && user.role === 'technician') {
-            query = query.eq('technician_id', user.id);
-          }
-
-          const { data } = await query;
-
-          if (data && data.length > 0) {
-            // Save to local database
-            for (const task of data) {
-              await taskRepository.create(task);
-            }
-            const visibleTasks = filterVisibleTasksForUser(
-              data,
-              user?.id,
-              user?.role
-            );
-            setLocalTasks(visibleTasks);
-
-            const today = new Date().toISOString().split('T')[0];
-            const filtered = visibleTasks.filter(
-              t => t.status === 'assigned' && t.due_date.startsWith(today)
-            );
-            setTodayTasks(filtered);
-          }
+          const today = new Date().toISOString().split('T')[0];
+          const filtered = tasks.filter(
+            t => t.status === 'assigned' && t.due_date.startsWith(today)
+          );
+          setTodayTasks(filtered);
         } catch (error) {
-          console.error('Error fetching server tasks:', error);
+          console.error('Error syncing tasks fallback:', error);
         }
       };
 
-      fetchServerTasks();
+      syncAndReloadLocalTasks();
     }
   }, [
     isOnline,
     localTasks.length,
     isLoading,
     isAuthLoading,
-    user?.id,
-    user?.role,
+    sync,
   ]);
 
   if (isLoading) {
@@ -266,20 +237,26 @@ export default function HomeScreen() {
             No new tasks for today
           </Text>
         ) : (
-          todayTasks.map(task => (
-            <TouchableOpacity
-              key={task.id}
-              className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
-              onPress={() => router.push(`/tasks/${task.id}`)}
-              accessibilityLabel={`Task: ${task.title}, Status: ${task.status}`}
-              accessibilityRole="button"
-            >
-              <Text className="text-sm font-medium text-gray-800">
-                {task.title}
-              </Text>
-              <Text className="mt-1 text-xs text-gray-500">{task.status}</Text>
-            </TouchableOpacity>
-          ))
+          <FlatList
+            data={todayTasks}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                className="mb-2 rounded-lg border border-gray-200 bg-white p-3"
+                onPress={() => router.push(`/tasks/${item.id}`)}
+                accessibilityLabel={`Task: ${item.title}, Status: ${item.status}`}
+                accessibilityRole="button"
+              >
+                <Text className="text-sm font-medium text-gray-800">
+                  {item.title}
+                </Text>
+                <Text className="mt-1 text-xs text-gray-500">
+                  {item.status}
+                </Text>
+              </TouchableOpacity>
+            )}
+            scrollEnabled={false}
+          />
         )}
       </View>
     </ScrollView>

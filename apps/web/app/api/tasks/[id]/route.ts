@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { taskUpdateInputSchema } from '@field-service/shared-types';
 import { logApiError } from '@/lib/api-errors';
+import { sendExpoPushNotification } from '@/lib/expo-push';
 import { getAppUserProfile, isDispatcher } from '@/lib/server-auth';
 import { requireRequestUser } from '@/lib/server-supabase';
 
@@ -14,6 +15,20 @@ function isMissingDeletedAtColumnError(
   return (
     error.code === '42703' ||
     (error.code === 'PGRST204' && error.message?.includes('deleted_at')) ===
+      true
+  );
+}
+
+function isMissingExpoPushTokenColumnError(
+  error: { code?: string; message?: string } | null
+) {
+  if (!error) {
+    return false;
+  }
+
+  return (
+    error.code === '42703' ||
+    (error.code === 'PGRST204' && error.message?.includes('expo_push_token')) ===
       true
   );
 }
@@ -62,6 +77,71 @@ async function requireDispatcherAccess(request: NextRequest) {
   }
 
   return { ...context, response: null };
+}
+
+async function loadTechnicianPushTarget(
+  supabase: Awaited<ReturnType<typeof requireRequestUser>>['supabase'],
+  technicianId: string
+) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('expo_push_token, name')
+    .eq('id', technicianId)
+    .maybeSingle();
+
+  if (isMissingExpoPushTokenColumnError(error)) {
+    return null;
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data || typeof data.expo_push_token !== 'string') {
+    return null;
+  }
+
+  return {
+    token: data.expo_push_token,
+    name: typeof data.name === 'string' ? data.name : null,
+  };
+}
+
+async function notifyTechnicianAboutAssignment(
+  supabase: Awaited<ReturnType<typeof requireRequestUser>>['supabase'],
+  existingTask: { technician_id?: string | null; title?: string | null; id?: string },
+  updatedTask: { technician_id?: string | null; title?: string | null; id?: string }
+) {
+  const previousTechnicianId =
+    typeof existingTask.technician_id === 'string'
+      ? existingTask.technician_id
+      : null;
+  const nextTechnicianId =
+    typeof updatedTask.technician_id === 'string'
+      ? updatedTask.technician_id
+      : null;
+
+  if (!nextTechnicianId || nextTechnicianId === previousTechnicianId) {
+    return;
+  }
+
+  const target = await loadTechnicianPushTarget(supabase, nextTechnicianId);
+  if (!target?.token) {
+    return;
+  }
+
+  await sendExpoPushNotification({
+    to: target.token,
+    title: 'New task assigned',
+    body:
+      typeof updatedTask.title === 'string' && updatedTask.title.length > 0
+        ? updatedTask.title
+        : 'You have a new assigned task.',
+    data: {
+      taskId: typeof updatedTask.id === 'string' ? updatedTask.id : null,
+      type: 'task-assigned',
+    },
+  });
 }
 
 function invalidIdResponse() {
@@ -149,6 +229,16 @@ export async function PUT(
 
     if (error) {
       throw error;
+    }
+
+    try {
+      await notifyTechnicianAboutAssignment(
+        supabase,
+        existingTask as { technician_id?: string | null; title?: string | null; id?: string },
+        data as { technician_id?: string | null; title?: string | null; id?: string }
+      );
+    } catch (notificationError) {
+      logApiError('tasks:assignment-notification', notificationError);
     }
 
     return NextResponse.json(data);

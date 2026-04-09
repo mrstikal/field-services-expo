@@ -7,8 +7,14 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.EXPO_PUBLIC_ENV || 'development';
-  const easProjectId =
-    process.env.EXPO_PUBLIC_EAS_PROJECT_ID || 'YOUR_EAS_PROJECT_ID';
+  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  const easExtra = easProjectId ? { eas: { projectId: easProjectId } } : {};
+  const updatesConfig = easProjectId
+    ? {
+        ...config.updates,
+        url: `https://u.expo.dev/${easProjectId}`,
+      }
+    : config.updates;
 
   return {
     ...config,
@@ -19,15 +25,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       router: {
         origin: false,
       },
-      eas: {
-        projectId: easProjectId,
-      },
+      ...easExtra,
       env,
     },
-    updates: {
-      ...config.updates,
-      url: `https://u.expo.dev/${easProjectId}`,
-    },
+    updates: updatesConfig,
+    plugins: Array.from(new Set([...(config.plugins || []), 'expo-notifications'])),
     android: {
       ...config.android,
       package: 'cz.fieldservice.app',

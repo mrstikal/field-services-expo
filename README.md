@@ -122,19 +122,19 @@ field-service/
 
 ### Mobile (Expo)
 
-- **Framework:** Expo SDK 52, React Native 0.76
-- **Navigation:** Expo Router (file-based)
+- **Framework:** Expo SDK 54, React Native 0.81
+- **Navigation:** Expo Router 6 (current Expo SDK 54 line; this supersedes the older Expo Router v3 requirement from the original assignment)
 - **State:** TanStack Query, Zustand
 - **Forms:** React Hook Form + Zod
 - **Offline:** expo-sqlite, local sync queue, local conflict table
 - **Animations:** React Native Reanimated, Gesture Handler
 - **Native:** Camera, Location, FileSystem, Secure Store, Print, Sharing
-- **Styling:** NativeWind + Tailwind CSS
+- **Styling:** NativeWind 4 + Tailwind CSS 3.4 on mobile; Tailwind CSS 4 on web. NativeWind 4 currently pins the mobile app to Tailwind v3, so the split is intentional.
 
 ### Web (Next.js)
 
 - **Framework:** Next.js 16 with App Router
-- **Styling:** Tailwind CSS
+- **Styling:** Tailwind CSS 4
 - **State:** TanStack Query
 - **Forms:** React Hook Form + Zod
 - **Maps:** Mapbox GL JS / react-map-gl

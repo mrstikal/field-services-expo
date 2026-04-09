@@ -8,7 +8,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import SwipeableTaskCard from '@/components/swipeable-task-card';
 import SkeletonTaskList from '@/components/skeleton-task-list';
@@ -18,13 +17,12 @@ import { Task } from '@field-service/shared-types';
 import { useRealtimeTasks } from '@/lib/hooks/use-realtime-tasks';
 import { paddingStyles } from '@/lib/styles';
 import { useAuth } from '@/lib/auth-context';
-import { useIsOnline } from '@/lib/hooks/use-network-status';
+import { taskRepository } from '@/lib/db/task-repository';
 
 export default function TasksListScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const isOnline = useIsOnline();
   const [isFiltersVisible, setIsFiltersVisible] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
@@ -43,23 +41,18 @@ export default function TasksListScreen() {
   } = useQuery({
     queryKey: ['tasks', user?.id],
     queryFn: async () => {
-      let query = supabase.from('tasks').select('*');
-
-      // Filter tasks based on user role
-      if (user?.role === 'technician') {
-        // Technicians see only their assigned tasks
-        query = query.eq('technician_id', user.id);
+      if (!user?.id) {
+        return [];
       }
-      // Dispatchers see all tasks (no filter needed due to RLS)
 
-      const { data, error } = await query.order('created_at', {
-        ascending: false,
-      });
+      const tasks =
+        user.role === 'technician'
+          ? await taskRepository.getByTechnician(user.id)
+          : await taskRepository.getAll();
 
-      if (error) throw error;
-      return data || [];
+      return tasks;
     },
-    enabled: !!user?.id && isOnline,
+    enabled: !!user?.id,
     retry: false,
   });
 

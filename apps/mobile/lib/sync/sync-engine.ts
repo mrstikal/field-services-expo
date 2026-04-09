@@ -153,9 +153,11 @@ export class SyncEngine {
       method: 'POST',
       body: JSON.stringify({ lastSyncTimestamp: lastSync }),
     });
+    const responseError =
+      typeof response.error === 'string' ? response.error : undefined;
 
     if (!response.success) {
-      throw new Error('Pull sync API call failed');
+      throw new Error(responseError || 'Pull sync API call failed');
     }
 
     const { data } = response;
@@ -230,6 +232,17 @@ export class SyncEngine {
     return (result?.count ?? 0) > 0;
   }
 
+  private mapQueueItemToSyncChange(item: SyncQueueItem): SyncChange {
+    return {
+      id: item.id,
+      type: item.type,
+      action: item.action,
+      entityId: item.entity_id,
+      data: typeof item.data === 'string' ? JSON.parse(item.data) : item.data,
+      version: item.version,
+    };
+  }
+
   async pushSync(): Promise<{
     success: number;
     failed: number;
@@ -248,31 +261,30 @@ export class SyncEngine {
       return result;
     }
 
-    const changes: SyncChange[] = queueItems.map(item => ({
-      id: item.id,
-      type: item.type,
-      action: item.action,
-      entityId: item.entity_id,
-      data: typeof item.data === 'string' ? JSON.parse(item.data) : item.data,
-      version: item.version,
-    }));
+    const changes: SyncChange[] = queueItems.map(item =>
+      this.mapQueueItemToSyncChange(item)
+    );
 
     const response = await this.makeApiRequest('/api/sync/push', {
       method: 'POST',
       body: JSON.stringify({ changes }),
     });
+    const responseError =
+      typeof response.error === 'string' ? response.error : undefined;
 
     if (!response.success) {
-      throw new Error('Push sync API call failed');
+      throw new Error(responseError || 'Push sync API call failed');
     }
 
     const itemResults = (response.results?.itemResults ??
       []) as PushItemResult[];
     const queueItemsById = new Map(queueItems.map(item => [item.id, item]));
+    const processedItemIds = new Set<string>();
 
     for (const itemResult of itemResults) {
       const queueItem = queueItemsById.get(itemResult.id);
       if (!queueItem) continue;
+      processedItemIds.add(queueItem.id);
 
       if (itemResult.status === 'success') {
         await this.handleSuccessfulPush(queueItem, itemResult.record);
@@ -281,13 +293,38 @@ export class SyncEngine {
       }
 
       if (itemResult.status === 'conflict') {
-        await this.handleConflictPush(queueItem, itemResult.serverRecord);
-        result.success++;
+        const resolved = await this.handleConflictPush(
+          queueItem,
+          itemResult.serverRecord
+        );
+        if (resolved) {
+          result.success++;
+        } else {
+          result.failed++;
+          result.errors.push(
+            'Conflict returned without a server record.'
+          );
+        }
         continue;
       }
 
       const message =
-        itemResult.error || `Sync failed for queue item ${queueItem.id}`;
+        itemResult.error ||
+        responseError ||
+        `Sync failed for queue item ${queueItem.id}`;
+      await this.updateSyncQueueStatus(queueItem.id, 'failed', message);
+      result.failed++;
+      result.errors.push(message);
+    }
+
+    for (const queueItem of queueItems) {
+      if (processedItemIds.has(queueItem.id)) {
+        continue;
+      }
+
+      const message =
+        responseError ||
+        `Push response missing result for queue item ${queueItem.id}`;
       await this.updateSyncQueueStatus(queueItem.id, 'failed', message);
       result.failed++;
       result.errors.push(message);
@@ -317,19 +354,21 @@ export class SyncEngine {
         await locationRepository.upsertFromServer(record as Location);
         break;
     }
+
+    await this.updateSyncQueueStatus(queueItem.id, 'synced');
   }
 
   private async handleConflictPush(
     queueItem: SyncQueueItem,
     serverRecord?: Record<string, unknown>
-  ) {
+  ): Promise<boolean> {
     if (!serverRecord) {
       await this.updateSyncQueueStatus(
         queueItem.id,
         'failed',
         'Conflict returned without a server record.'
       );
-      return;
+      return false;
     }
 
     switch (queueItem.type) {
@@ -363,23 +402,12 @@ export class SyncEngine {
         await locationRepository.upsertFromServer(serverRecord as Location);
         break;
     }
+
+    await this.updateSyncQueueStatus(queueItem.id, 'synced');
+    return true;
   }
 
   private async updateSyncQueueStatus(
-    id: string,
-    status: 'pending' | 'synced' | 'failed',
-    error?: string
-  ) {
-    const db = getDatabase();
-    const now = new Date().toISOString();
-
-    await db.runAsync(
-      `UPDATE sync_queue SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
-      [status, error ?? null, now, id]
-    );
-  }
-
-  private async updateSyncQueueStatusWithRetry(
     id: string,
     status: 'pending' | 'synced' | 'failed',
     error?: string,
@@ -396,7 +424,10 @@ export class SyncEngine {
       return;
     }
 
-    await this.updateSyncQueueStatus(id, status, error);
+    await db.runAsync(
+      `UPDATE sync_queue SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
+      [status, error ?? null, now, id]
+    );
   }
 
   async fullSync(): Promise<{
@@ -487,24 +518,26 @@ export class SyncEngine {
         const response = await this.makeApiRequest('/api/sync/push', {
           method: 'POST',
           body: JSON.stringify({
-            changes: [
-              {
-                id: item.id,
-                type: item.type,
-                action: item.action,
-                entityId: item.entity_id,
-                data:
-                  typeof item.data === 'string'
-                    ? JSON.parse(item.data)
-                    : item.data,
-                version: item.version,
-              },
-            ],
+            changes: [this.mapQueueItemToSyncChange(item)],
           }),
         });
 
         const [itemResult] = (response.results?.itemResults ??
           []) as PushItemResult[];
+        const responseError =
+          typeof response.error === 'string' ? response.error : undefined;
+        if (!itemResult) {
+          await this.updateSyncQueueStatus(
+            item.id,
+            'failed',
+            responseError ||
+              `Retry response missing result for queue item ${item.id}`,
+            true
+          );
+          result.failed++;
+          continue;
+        }
+
         if (response.success && itemResult?.status === 'success') {
           await this.handleSuccessfulPush(item, itemResult.record);
           result.success++;
@@ -512,22 +545,29 @@ export class SyncEngine {
         }
 
         if (itemResult?.status === 'conflict') {
-          await this.handleConflictPush(item, itemResult.serverRecord);
-          result.success++;
+          const resolved = await this.handleConflictPush(
+            item,
+            itemResult.serverRecord
+          );
+          if (resolved) {
+            result.success++;
+          } else {
+            result.failed++;
+          }
           continue;
         }
 
-        await this.updateSyncQueueStatusWithRetry(
+        await this.updateSyncQueueStatus(
           item.id,
           'failed',
-          itemResult?.error || 'Retry failed',
+          itemResult?.error || responseError || 'Retry failed',
           true
         );
         result.failed++;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown retry error';
-        await this.updateSyncQueueStatusWithRetry(
+        await this.updateSyncQueueStatus(
           item.id,
           'failed',
           message,
@@ -542,4 +582,4 @@ export class SyncEngine {
   }
 }
 
-export const syncEngine = new SyncEngine();
+export const syncEngine = SyncEngine.getInstance();

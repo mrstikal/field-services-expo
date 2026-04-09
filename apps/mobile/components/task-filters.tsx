@@ -1,6 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import BottomSheet, {
+  BottomSheetScrollView,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 
 interface TaskFiltersProps {
   readonly isVisible: boolean;
@@ -43,27 +47,34 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
     { label: 'This Month', value: 'this_month' },
   ];
 
+  if (!isVisible) {
+    return null;
+  }
+
   return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={isVisible}
-      onRequestClose={onApplyFilters}
-    >
-      <View className="flex-1 bg-black/50">
-        <View className="mt-auto flex-1 rounded-t-2xl bg-white">
+    <View className="absolute inset-0 z-50 bg-black/50">
+      <BottomSheet
+        enablePanDownToClose
+        index={0}
+        onClose={onApplyFilters}
+        snapPoints={['82%']}
+      >
+        <BottomSheetView className="flex-1">
           <View className="border-b border-gray-200 px-4 py-4">
             <View className="flex-row items-center justify-between">
               <Text className="text-lg font-semibold text-gray-800">
                 Filter Tasks
               </Text>
-              <TouchableOpacity onPress={onResetFilters}>
+              <TouchableOpacity
+                accessibilityLabel="Reset filters"
+                onPress={onResetFilters}
+              >
                 <Ionicons color="#1e40af" name="refresh" size={24} />
               </TouchableOpacity>
             </View>
           </View>
 
-          <ScrollView className="flex-1 p-4">
+          <BottomSheetScrollView className="flex-1 p-4">
             {/* Status Filter */}
             <View className="mb-5">
               <Text className="mb-2.5 text-sm font-semibold text-gray-800">
@@ -147,7 +158,7 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
                 </View>
               </ScrollView>
             </View>
-          </ScrollView>
+          </BottomSheetScrollView>
 
           {/* Close Button */}
           <View className="border-t border-gray-200 p-4">
@@ -158,9 +169,9 @@ const TaskFilters: React.FC<TaskFiltersProps> = ({
               <Text className="text-base font-semibold text-white">Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
-    </Modal>
+        </BottomSheetView>
+      </BottomSheet>
+    </View>
   );
 };
 

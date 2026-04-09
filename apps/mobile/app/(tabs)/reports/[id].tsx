@@ -9,11 +9,15 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { formTemplates } from '@/lib/validators/report-schemas';
-import { TaskCategory, FormFieldType } from '@field-service/shared-types';
+import {
+  TaskCategory,
+  FormFieldType,
+} from '@field-service/shared-types';
 import { useState } from 'react';
+import { reportRepository } from '@/lib/db/report-repository';
+import { taskRepository } from '@/lib/db/task-repository';
 
 interface FormField {
   id: string;
@@ -29,32 +33,8 @@ interface FormField {
   conditional?: { fieldId: string; value: string | number | boolean };
 }
 
-interface Report {
-  id: string;
-  task_id: string;
-  status: 'draft' | 'completed' | 'synced';
-  photos: string[];
-  form_data: Record<string, unknown>;
-  signature: string | null;
-  created_at: string;
-  updated_at: string;
-  version: number;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  address: string;
-  category: TaskCategory;
-  customer_name: string;
-  customer_phone: string;
-  status: string;
-  due_date: string;
-}
-
 export default function ReportDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
@@ -68,15 +48,9 @@ export default function ReportDetailScreen() {
     queryKey: ['report', id],
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data as Report;
+      return reportRepository.getById(id);
     },
-    enabled: id !== undefined,
+    enabled: !!id,
   });
 
   // Fetch task data
@@ -88,15 +62,9 @@ export default function ReportDetailScreen() {
     queryKey: ['task', report?.task_id],
     queryFn: async () => {
       if (!report?.task_id) return null;
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', report.task_id)
-        .single();
-      if (error) throw error;
-      return data as Task;
+      return taskRepository.getById(report.task_id);
     },
-    enabled: report?.task_id !== undefined,
+    enabled: !!report?.task_id,
   });
 
   const getFieldValue = (
@@ -184,7 +152,10 @@ export default function ReportDetailScreen() {
     );
   }
 
-  const formData = formatFormData(report.form_data, task.category);
+  const formData = formatFormData(
+    report.form_data as Record<string, unknown>,
+    task.category as TaskCategory
+  );
 
   return (
     <View className="flex-1 bg-slate-50">

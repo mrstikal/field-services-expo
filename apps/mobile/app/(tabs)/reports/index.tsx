@@ -8,22 +8,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { paddingStyles } from '@/lib/styles';
-
-interface Task {
-  title: string;
-}
-
-interface Report {
-  id: string;
-  task_id: string;
-  tasks: Task[];
-  status: 'draft' | 'completed' | 'synced';
-  created_at: string;
-  updated_at: string;
-}
+import { reportRepository } from '@/lib/db/report-repository';
+import { taskRepository } from '@/lib/db/task-repository';
+import {
+  mapReportsToListItems,
+  type ReportListItem,
+} from './reports-list.utils';
 
 const getStatusClassName = (status: string) => {
   switch (status) {
@@ -58,24 +50,17 @@ export default function ReportsListScreen() {
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      const { data } = await supabase
-        .from('reports')
-        .select(
-          `
-          id,
-          task_id,
-          tasks!inner(title),
-          status,
-          created_at,
-          updated_at
-        `
-        )
-        .order('created_at', { ascending: false });
-      return data || [];
+      const [reports, tasks] = await Promise.all([
+        reportRepository.getAll(),
+        taskRepository.getAll(),
+      ]);
+
+      const taskTitlesById = new Map(tasks.map(task => [task.id, task.title]));
+      return mapReportsToListItems(reports, taskTitlesById);
     },
   });
 
-  const renderReportCard = ({ item }: { item: Report }) => (
+  const renderReportCard = ({ item }: { item: ReportListItem }) => (
     <TouchableOpacity
       className="mb-3 rounded-lg border-l-4 border-l-blue-800 bg-white p-3"
       onPress={() => router.push(`/reports/${item.id}`)}
@@ -100,7 +85,7 @@ export default function ReportsListScreen() {
       <View className="flex-row items-center">
         <Ionicons color="#6b7280" name="document-text-outline" size={14} />
         <Text className="ml-1.5 text-[11px] text-gray-500">
-          Task: {item.tasks[0]?.title || 'Unknown'}
+          Task: {item.taskTitle}
         </Text>
       </View>
     </TouchableOpacity>

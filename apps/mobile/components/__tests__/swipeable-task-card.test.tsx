@@ -4,14 +4,11 @@ import SwipeableTaskCard from '@/components/swipeable-task-card';
 import { Task } from '@field-service/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { taskRepository } from '@/lib/db/task-repository';
 
-// Mock supabase
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    })),
+vi.mock('@/lib/db/task-repository', () => ({
+  taskRepository: {
+    updateStatus: vi.fn(),
   },
 }));
 
@@ -57,11 +54,28 @@ describe('SwipeableTaskCard', () => {
   };
 
   const mockInvalidateQueries = vi.fn();
+  const mockGetQueriesData = vi.fn();
+  const mockGetQueryData = vi.fn();
+  const mockSetQueriesData = vi.fn();
+  const mockSetQueryData = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(taskRepository.updateStatus).mockResolvedValue({
+      ...mockTask,
+      status: 'completed',
+      version: 2,
+      synced: 0,
+      updated_at: '2024-01-01T00:01:00Z',
+    });
+    mockGetQueriesData.mockReturnValue([[['tasks', mockTask.technician_id], [mockTask]]]);
+    mockGetQueryData.mockReturnValue(mockTask);
     vi.mocked(useQueryClient).mockReturnValue({
       invalidateQueries: mockInvalidateQueries,
+      getQueriesData: mockGetQueriesData,
+      getQueryData: mockGetQueryData,
+      setQueriesData: mockSetQueriesData,
+      setQueryData: mockSetQueryData,
     } as never);
   });
 
@@ -197,8 +211,15 @@ describe('SwipeableTaskCard', () => {
     });
   });
 
-  it('should call Haptics.notificationAsync with Error on dismiss swipe action', async () => {
+  it('should call Haptics.notificationAsync with Success on dismiss swipe action', async () => {
     const onPressMock = vi.fn();
+    vi.mocked(taskRepository.updateStatus).mockResolvedValue({
+      ...mockTask,
+      status: 'assigned',
+      version: 2,
+      synced: 0,
+      updated_at: '2024-01-01T00:01:00Z',
+    });
     const { getByText } = render(
       <SwipeableTaskCard
         item={mockTask}
@@ -213,7 +234,7 @@ describe('SwipeableTaskCard', () => {
     // Wait for async haptic call
     await vi.waitFor(() => {
       expect(Haptics.notificationAsync).toHaveBeenCalledWith(
-        Haptics.NotificationFeedbackType.Error
+        Haptics.NotificationFeedbackType.Success
       );
     });
   });
@@ -235,5 +256,71 @@ describe('SwipeableTaskCard', () => {
         expect.objectContaining({ queryKey: ['tasks'] })
       );
     });
+  });
+
+  it('should optimistically update task caches before repository update resolves', async () => {
+    let resolveUpdate: ((value: Task) => void) | null = null;
+    vi.mocked(taskRepository.updateStatus).mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveUpdate = resolve as (value: Task) => void;
+        })
+    );
+
+    const onPressMock = vi.fn();
+    const { getByText } = render(
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
+    );
+
+    fireEvent.press(getByText('Complete'));
+
+    expect(mockSetQueriesData).toHaveBeenCalled();
+    expect(mockSetQueryData).toHaveBeenCalledWith(
+      ['task', mockTask.id],
+      expect.any(Function)
+    );
+
+    resolveUpdate?.({
+      ...mockTask,
+      status: 'completed',
+      version: 2,
+      synced: 0,
+      updated_at: '2024-01-01T00:01:00Z',
+    });
+
+    await vi.waitFor(() => {
+      expect(taskRepository.updateStatus).toHaveBeenCalledWith(
+        mockTask.id,
+        'completed'
+      );
+    });
+  });
+
+  it('should rollback optimistic cache update when repository update fails', async () => {
+    vi.mocked(taskRepository.updateStatus).mockRejectedValue(
+      new Error('Update failed')
+    );
+
+    const onPressMock = vi.fn();
+    const { getByText } = render(
+      <SwipeableTaskCard
+        item={mockTask}
+        taskId={mockTask.id}
+        onPress={onPressMock}
+      />
+    );
+
+    fireEvent.press(getByText('Complete'));
+
+    await vi.waitFor(() => {
+      expect(mockSetQueryData).toHaveBeenCalledWith(['task', mockTask.id], mockTask);
+    });
+    expect(Haptics.notificationAsync).toHaveBeenCalledWith(
+      Haptics.NotificationFeedbackType.Error
+    );
   });
 });

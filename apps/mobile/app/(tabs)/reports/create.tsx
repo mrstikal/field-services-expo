@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useCallback,
   useRef,
-  useMemo,
 } from 'react';
 import {
   View,
@@ -23,7 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView } from 'expo-camera';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
-import { supabase } from '@/lib/supabase';
+import { SUPPORTED_BARCODE_TYPES } from '@/lib/hooks/barcode-scanner.types';
 import { generatePDF, sharePDF } from '@/lib/utils/pdf-generator';
 import { uploadPhoto, uploadPDF, uploadSignature } from '@/lib/utils/storage';
 import { detectObjects, suggestFormFields } from '@/lib/utils/vision-detection';
@@ -39,6 +38,13 @@ import {
   CameraErrorBoundary,
   FileSystemErrorBoundary,
 } from '@/components/error-boundary';
+import { reportRepository } from '@/lib/db/report-repository';
+import {
+  appendPhoto,
+  createPhotoId,
+  createReportId,
+  removePhotoById,
+} from './create.utils';
 
 interface Photo {
   id: string;
@@ -47,12 +53,165 @@ interface Photo {
   height: number;
 }
 
+interface ReportScannerContentProps {
+  readonly hasPermission: boolean | null;
+  readonly isScannerOpen: boolean;
+  readonly isScanning: boolean;
+  readonly insetsTop: number;
+  readonly insetsBottom: number;
+  readonly scannerNotice: {
+    type: 'success' | 'error';
+    message: string;
+  } | null;
+  readonly cameraRef: React.RefObject<CameraView | null>;
+  readonly onClose: () => void;
+  readonly onRetryPermission: () => Promise<void>;
+  readonly onOpenSettings: () => void;
+  readonly onResumeScanner: () => void;
+  readonly onBarcodeScanned:
+    | ((...args: Parameters<NonNullable<React.ComponentProps<typeof CameraView>['onBarcodeScanned']>>) => void)
+    | undefined;
+}
+
+function ReportScannerContent({
+  hasPermission,
+  isScannerOpen,
+  isScanning,
+  insetsTop,
+  insetsBottom,
+  scannerNotice,
+  cameraRef,
+  onClose,
+  onRetryPermission,
+  onOpenSettings,
+  onResumeScanner,
+  onBarcodeScanned,
+}: ReportScannerContentProps) {
+  if (hasPermission === null) {
+    return (
+      <View className="flex-1 bg-slate-50">
+        <View className="flex-1 items-center justify-center p-8">
+          <ActivityIndicator color="#1e40af" size="large" />
+          <Text className="mb-6 text-center text-base text-gray-500">
+            Checking camera permission...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!hasPermission) {
+    return (
+      <View className="flex-1 bg-slate-50">
+        <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
+          <TouchableOpacity className="p-2" onPress={onClose}>
+            <Ionicons color="#1e40af" name="chevron-back" size={24} />
+          </TouchableOpacity>
+          <Text className="text-lg font-semibold text-gray-800">
+            Barcode Scanner
+          </Text>
+          <View className="w-6" />
+        </View>
+        <View className="flex-1 items-center justify-center p-8">
+          <Ionicons color="#ef4444" name="camera-outline" size={64} />
+          <Text className="mb-6 text-center text-base text-gray-500">
+            Camera permission is required to scan part barcodes.
+          </Text>
+          <TouchableOpacity
+            className="flex-row items-center justify-center rounded-lg bg-blue-800 p-3"
+            onPress={() => {
+              void onRetryPermission();
+            }}
+          >
+            <Text className="text-sm font-semibold text-white">Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="mt-3 rounded-lg border border-blue-800 px-4 py-2.5"
+            onPress={onOpenSettings}
+          >
+            <Text className="text-sm font-semibold text-blue-800">
+              Open Settings
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <CameraErrorBoundary>
+      <View className="flex-1 bg-slate-50">
+        <View
+          className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3"
+          style={{ paddingTop: insetsTop }}
+        >
+          <TouchableOpacity className="p-2" onPress={onClose}>
+            <Ionicons color="#1e40af" name="chevron-back" size={24} />
+          </TouchableOpacity>
+          <Text className="text-lg font-semibold text-gray-800">
+            Barcode Scanner
+          </Text>
+          <View className="w-6" />
+        </View>
+        <View
+          className="relative flex-1 bg-black"
+          style={{ paddingBottom: insetsBottom }}
+        >
+          <CameraView
+            active={isScannerOpen}
+            barcodeScannerSettings={{
+              barcodeTypes: [...SUPPORTED_BARCODE_TYPES],
+            }}
+            className="flex-1"
+            facing="back"
+            onBarcodeScanned={isScanning ? onBarcodeScanned : undefined}
+            ref={cameraRef}
+            style={{ flex: 1 }}
+          />
+          <View className="pointer-events-none absolute inset-0 items-center justify-center">
+            <View className="h-[220px] w-[220px] rounded-xl border-2 border-white/80" />
+            <Text className="mt-4 text-sm text-white/80">
+              Align barcode inside frame
+            </Text>
+          </View>
+
+          {scannerNotice ? (
+            <View
+              className="absolute bottom-5 left-4 right-4 rounded-lg px-4 py-3"
+              style={{
+                backgroundColor:
+                  scannerNotice.type === 'error' ? '#991b1b' : '#065f46',
+              }}
+            >
+              <Text className="text-sm text-white">{scannerNotice.message}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {!isScanning ? (
+          <View className="bg-slate-50 px-4 pb-4">
+            <TouchableOpacity
+              className="rounded-lg bg-blue-800 p-3"
+              onPress={onResumeScanner}
+            >
+              <Text className="text-center text-sm font-semibold text-white">
+                Scan again
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
+    </CameraErrorBoundary>
+  );
+}
+
 export default function CreateReportScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
   const dynamicFormRef = useRef<DynamicFormHandle | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const scannerLifecycleRef = useRef(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -74,6 +233,9 @@ export default function CreateReportScreen() {
     Array<{ id: string; name: string; barcode: string }>
   >([]);
   const [formSectionY, setFormSectionY] = useState(0);
+  const [currentReportId, setCurrentReportId] = useState<string>(() =>
+    createReportId()
+  );
 
   // Barcode scanner hook
   const {
@@ -240,7 +402,7 @@ export default function CreateReportScreen() {
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
       return {
-        id: Date.now().toString(),
+        id: createPhotoId(),
         uri: result.uri,
         width: result.width,
         height: result.height,
@@ -249,7 +411,7 @@ export default function CreateReportScreen() {
       console.error('Error compressing image:', error);
       // Return original if compression fails
       return {
-        id: Date.now().toString(),
+        id: createPhotoId(),
         uri,
         width: 0,
         height: 0,
@@ -259,16 +421,18 @@ export default function CreateReportScreen() {
 
   // Add photo to report - store locally, upload to storage only when saving report
   const addPhoto = (photo: Photo) => {
-    if (photos.length >= 10) {
-      Alert.alert('Limit Reached', 'Maximum 10 photos allowed');
-      return;
-    }
-    setPhotos([...photos, photo]);
+    setPhotos(previousPhotos => {
+      if (previousPhotos.length >= 10) {
+        Alert.alert('Limit Reached', 'Maximum 10 photos allowed');
+        return previousPhotos;
+      }
+      return appendPhoto(previousPhotos, photo);
+    });
   };
 
   // Remove photo
   const removePhoto = (id: string) => {
-    setPhotos(photos.filter(p => p.id !== id));
+    setPhotos(previousPhotos => removePhotoById(previousPhotos, id));
   };
 
   // Open barcode scanner
@@ -288,11 +452,18 @@ export default function CreateReportScreen() {
     setScannerNotice(null);
     setIsScannerOpen(false);
     stopScanner();
-    // Reset is called after scanner is closed to avoid re-triggering
-    setTimeout(() => {
-      resetScanner();
-    }, 100);
   };
+
+  useEffect(() => {
+    if (!scannerLifecycleRef.current) {
+      scannerLifecycleRef.current = true;
+      return;
+    }
+
+    if (!isScannerOpen) {
+      resetScanner();
+    }
+  }, [isScannerOpen, resetScanner]);
 
   const resumeScanner = () => {
     setScannerNotice(null);
@@ -309,8 +480,7 @@ export default function CreateReportScreen() {
 
     setIsProcessing(true);
     try {
-      const reportId = Date.now().toString();
-      const signatureUrl = await uploadSignature(signatureData, reportId);
+      const signatureUrl = await uploadSignature(signatureData, currentReportId);
       setSignature(signatureUrl);
       setIsSignatureOpen(false);
     } catch (error) {
@@ -388,6 +558,7 @@ export default function CreateReportScreen() {
     setDetectionValues({});
     setReportFormDraft({});
     setScannedParts([]);
+    setCurrentReportId(createReportId());
     if (dynamicFormRef.current) {
       dynamicFormRef.current.resetForm({});
     }
@@ -423,7 +594,6 @@ export default function CreateReportScreen() {
       }
 
       const nowIso = new Date().toISOString();
-      const reportId = Date.now().toString();
 
       // Get form data from DynamicForm to ensure we have the latest values
       const formValues = dynamicFormRef.current?.getFormData() || {};
@@ -437,7 +607,7 @@ export default function CreateReportScreen() {
       };
 
       const pdfUri = await generatePDF({
-        id: reportId,
+        id: currentReportId,
         taskTitle: selectedTask.title,
         taskDescription: selectedTask.description,
         taskAddress: selectedTask.address,
@@ -456,7 +626,7 @@ export default function CreateReportScreen() {
       let photoUrls: string[] = [];
       try {
         photoUrls = await Promise.all(
-          photos.map(photo => uploadPhoto(photo.uri, reportId))
+          photos.map(photo => uploadPhoto(photo.uri, currentReportId))
         );
       } catch (uploadError) {
         console.error('Photo upload failed:', uploadError);
@@ -471,7 +641,7 @@ export default function CreateReportScreen() {
       // Upload PDF to storage
       let pdfUrl: string;
       try {
-        pdfUrl = await uploadPDF(pdfUri, reportId);
+        pdfUrl = await uploadPDF(pdfUri, currentReportId);
       } catch (uploadError) {
         console.error('PDF upload failed:', uploadError);
         Alert.alert(
@@ -482,9 +652,9 @@ export default function CreateReportScreen() {
         pdfUrl = pdfUri;
       }
 
-      // Save report to database with public URLs
-      // NOTE: pdf URL is stored in form_data to avoid hard dependency on DB schema migration
-      const { error: dbError } = await supabase.from('reports').insert({
+      // Save report locally and enqueue sync (offline-first)
+      await reportRepository.create({
+        id: currentReportId,
         task_id: selectedTask.id,
         status: 'completed',
         photos: photoUrls,
@@ -493,13 +663,8 @@ export default function CreateReportScreen() {
           pdf_url: pdfUrl,
         },
         signature: signature || null,
+        pdf_url: pdfUrl,
       });
-
-      if (dbError) {
-        console.error('Error saving report to database:', dbError);
-        Alert.alert('Error', 'Failed to save report to database');
-        return;
-      }
 
       // Invalidate cache to refresh the reports list and tasks list
       await queryClient.invalidateQueries({ queryKey: ['reports'] });
@@ -564,151 +729,23 @@ export default function CreateReportScreen() {
     };
   }, [selectedTask]);
 
-  const scannerContent = useMemo(() => {
-    if (hasPermission === null) {
-      return (
-        <View className="flex-1 bg-slate-50">
-          <View className="flex-1 items-center justify-center p-8">
-            <ActivityIndicator color="#1e40af" size="large" />
-            <Text className="mb-6 text-center text-base text-gray-500">
-              Checking camera permission...
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
-    if (!hasPermission) {
-      return (
-        <View className="flex-1 bg-slate-50">
-          <View className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-            <TouchableOpacity className="p-2" onPress={closeScanner}>
-              <Ionicons color="#1e40af" name="chevron-back" size={24} />
-            </TouchableOpacity>
-            <Text className="text-lg font-semibold text-gray-800">
-              Barcode Scanner
-            </Text>
-            <View className="w-6" />
-          </View>
-          <View className="flex-1 items-center justify-center p-8">
-            <Ionicons color="#ef4444" name="camera-outline" size={64} />
-            <Text className="mb-6 text-center text-base text-gray-500">
-              Camera permission is required to scan part barcodes.
-            </Text>
-            <TouchableOpacity
-              className="flex-row items-center justify-center rounded-lg bg-blue-800 p-3"
-              onPress={handleScannerPermissionRetry}
-            >
-              <Text className="text-sm font-semibold text-white">
-                Try Again
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="mt-3 rounded-lg border border-blue-800 px-4 py-2.5"
-              onPress={openSettings}
-            >
-              <Text className="text-sm font-semibold text-blue-800">
-                Open Settings
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
-    }
-
-    return (
-      <CameraErrorBoundary>
-        <View className="flex-1 bg-slate-50">
-          <View
-            className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 py-3"
-            style={{ paddingTop: insets.top }}
-          >
-            <TouchableOpacity className="p-2" onPress={closeScanner}>
-              <Ionicons color="#1e40af" name="chevron-back" size={24} />
-            </TouchableOpacity>
-            <Text className="text-lg font-semibold text-gray-800">
-              Barcode Scanner
-            </Text>
-            <View className="w-6" />
-          </View>
-          <View
-            className="flex-1 relative bg-black"
-            style={{ paddingBottom: insets.bottom }}
-          >
-            <CameraView
-              active={isScannerOpen}
-              barcodeScannerSettings={{
-                barcodeTypes: [
-                  'ean13',
-                  'qr',
-                  'code128',
-                  'code39',
-                  'upc_e',
-                  'upc_a',
-                  'datamatrix',
-                  'pdf417',
-                  'aztec',
-                ],
-              }}
-              className="flex-1"
-              facing="back"
-              onBarcodeScanned={isScanning ? handleBarCodeScanned : undefined}
-              ref={cameraRef}
-              style={{ flex: 1 }}
-            />
-            <View className="absolute inset-0 items-center justify-center pointer-events-none">
-              <View className="h-[220px] w-[220px] rounded-xl border-2 border-white/80" />
-              <Text className="mt-4 text-sm text-white/80">
-                Align barcode inside frame
-              </Text>
-            </View>
-
-            {scannerNotice ? (
-              <View
-                className="absolute bottom-5 left-4 right-4 rounded-lg px-4 py-3"
-                style={{
-                  backgroundColor:
-                    scannerNotice.type === 'error' ? '#991b1b' : '#065f46',
-                }}
-              >
-                <Text className="text-sm text-white">
-                  {scannerNotice.message}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          {!isScanning ? (
-            <View className="bg-slate-50 px-4 pb-4">
-              <TouchableOpacity
-                className="rounded-lg bg-blue-800 p-3"
-                onPress={resumeScanner}
-              >
-                <Text className="text-center text-sm font-semibold text-white">
-                  Scan again
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
-      </CameraErrorBoundary>
-    );
-  }, [
-    hasPermission,
-    closeScanner,
-    handleScannerPermissionRetry,
-    openSettings,
-    insets.top,
-    insets.bottom,
-    isScanning,
-    handleBarCodeScanned,
-    cameraRef,
-    scannerNotice,
-    isScannerOpen,
-  ]);
-
   if (isScannerOpen) {
-    return scannerContent;
+    return (
+      <ReportScannerContent
+        cameraRef={cameraRef}
+        hasPermission={hasPermission}
+        insetsBottom={insets.bottom}
+        insetsTop={insets.top}
+        isScannerOpen={isScannerOpen}
+        isScanning={isScanning}
+        onBarcodeScanned={handleBarCodeScanned}
+        onClose={closeScanner}
+        onOpenSettings={openSettings}
+        onResumeScanner={resumeScanner}
+        onRetryPermission={handleScannerPermissionRetry}
+        scannerNotice={scannerNotice}
+      />
+    );
   }
 
   const formTemplate = getFormTemplate();

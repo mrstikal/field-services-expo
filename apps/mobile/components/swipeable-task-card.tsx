@@ -1,16 +1,24 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  PanResponder,
-} from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Task } from '@field-service/shared-types';
-import { supabase } from '@/lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { taskRepository } from '@/lib/db/task-repository';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { getTaskSharedTransitionTag } from '@/lib/task-shared-transition';
+
+type AnimatedSharedViewProps = React.ComponentProps<typeof Animated.View> & {
+  sharedTransitionTag?: string;
+};
+const AnimatedSharedView =
+  Animated.View as unknown as React.ComponentType<AnimatedSharedViewProps>;
 
 interface SwipeableTaskCardProps {
   readonly item: Task;
@@ -57,172 +65,224 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
   // Accessibility label for screen readers
   const accessibilityLabel = `Task: ${item.title}, Priority: ${item.priority}, Status: ${item.status}`;
   const accessibilityRole = 'button';
-  const translateX = React.useRef(new Animated.Value(0)).current;
+  const translateX = useSharedValue(0);
   const queryClient = useQueryClient();
 
   const resetCard = React.useCallback(() => {
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-      bounciness: 6,
-      speed: 16,
-    }).start();
+    translateX.value = withTiming(0, { duration: 180 });
   }, [translateX]);
 
-  const completeTask = React.useCallback(async () => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('Error completing task:', error.message);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      console.error('Error completing task:', err);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [taskId, queryClient]);
-
-  const dismissTask = React.useCallback(async () => {
-    try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: 'assigned', updated_at: new Date().toISOString() })
-        .eq('id', taskId);
-
-      if (error) {
-        console.error('Error dismissing task:', error.message);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        return;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      await queryClient.invalidateQueries({ queryKey: ['task', taskId] });
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (err) {
-      console.error('Error dismissing task:', err);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-  }, [taskId, queryClient]);
-
-  const runSwipeAction = React.useCallback(
-    (toValue: number, action: () => Promise<void>) => {
-      Animated.timing(translateX, {
-        toValue,
-        duration: 150,
-        useNativeDriver: true,
-      }).start(() => {
-        void action().finally(() => {
-          resetCard();
-        });
+  const animateSwipeFeedback = React.useCallback(
+    (toValue: number) => {
+      translateX.value = withTiming(toValue, { duration: 120 }, finished => {
+        if (finished) {
+          translateX.value = withTiming(0, { duration: 180 });
+        }
       });
     },
-    [resetCard, translateX]
+    [translateX]
   );
 
-  const panResponder = React.useMemo(
+  const setTaskCache = React.useCallback(
+    (updatedTask: Task) => {
+      queryClient.setQueriesData<Task[] | undefined>(
+        { queryKey: ['tasks'] },
+        tasks =>
+          tasks?.map(task => (task.id === updatedTask.id ? updatedTask : task))
+      );
+      queryClient.setQueryData<Task | undefined>(
+        ['task', taskId],
+        currentTask => (currentTask ? updatedTask : currentTask)
+      );
+    },
+    [queryClient, taskId]
+  );
+
+  const applyOptimisticStatus = React.useCallback(
+    (nextStatus: Task['status']) => {
+      const optimisticUpdatedAt = new Date().toISOString();
+      const previousTaskLists = queryClient.getQueriesData<Task[] | undefined>({
+        queryKey: ['tasks'],
+      });
+      const previousTaskDetail = queryClient.getQueryData<Task | undefined>([
+        'task',
+        taskId,
+      ]);
+
+      queryClient.setQueriesData<Task[] | undefined>(
+        { queryKey: ['tasks'] },
+        tasks =>
+          tasks?.map(task =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  status: nextStatus,
+                  synced: 0,
+                  updated_at: optimisticUpdatedAt,
+                  version: task.version + 1,
+                }
+              : task
+          )
+      );
+      queryClient.setQueryData<Task | undefined>(['task', taskId], currentTask =>
+        currentTask
+          ? {
+              ...currentTask,
+              status: nextStatus,
+              synced: 0,
+              updated_at: optimisticUpdatedAt,
+              version: currentTask.version + 1,
+            }
+          : currentTask
+      );
+
+      return () => {
+        previousTaskLists.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+        queryClient.setQueryData(['task', taskId], previousTaskDetail);
+      };
+    },
+    [queryClient, taskId]
+  );
+
+  const handleStatusChange = React.useCallback(
+    async (nextStatus: Task['status']) => {
+      const rollback = applyOptimisticStatus(nextStatus);
+
+      try {
+        const updated = await taskRepository.updateStatus(taskId, nextStatus);
+        if (!updated) {
+          throw new Error('Task not found');
+        }
+
+        setTaskCache(updated);
+        await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        await queryClient.invalidateQueries({ queryKey: ['task', taskId] });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } catch (err) {
+        rollback();
+        console.error(`Error updating task status to ${nextStatus}:`, err);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    },
+    [applyOptimisticStatus, queryClient, setTaskCache, taskId]
+  );
+
+  const completeTask = React.useCallback(() => {
+    animateSwipeFeedback(SWIPE_LIMIT);
+    void handleStatusChange('completed');
+  }, [animateSwipeFeedback, handleStatusChange]);
+
+  const dismissTask = React.useCallback(() => {
+    animateSwipeFeedback(-SWIPE_LIMIT);
+    void handleStatusChange('assigned');
+  }, [animateSwipeFeedback, handleStatusChange]);
+
+  const panGesture = React.useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dx) > 8 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-        onPanResponderMove: (_, gestureState) => {
+      Gesture.Pan()
+        .activeOffsetX([-10, 10])
+        .onUpdate(event => {
           const clamped = Math.max(
             -SWIPE_LIMIT,
-            Math.min(SWIPE_LIMIT, gestureState.dx)
+            Math.min(SWIPE_LIMIT, event.translationX)
           );
-          translateX.setValue(clamped);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          if (gestureState.dx >= SWIPE_THRESHOLD) {
-            runSwipeAction(SWIPE_LIMIT, completeTask);
+          translateX.value = clamped;
+        })
+        .onEnd(event => {
+          if (event.translationX >= SWIPE_THRESHOLD) {
+            runOnJS(completeTask)();
             return;
           }
 
-          if (gestureState.dx <= -SWIPE_THRESHOLD) {
-            runSwipeAction(-SWIPE_LIMIT, dismissTask);
+          if (event.translationX <= -SWIPE_THRESHOLD) {
+            runOnJS(dismissTask)();
             return;
           }
 
-          resetCard();
-        },
-        onPanResponderTerminate: resetCard,
-      }),
-    [completeTask, dismissTask, resetCard, runSwipeAction, translateX]
+          runOnJS(resetCard)();
+        }),
+    [completeTask, dismissTask, resetCard, translateX]
   );
+
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+  const sharedTransitionTag = getTaskSharedTransitionTag(taskId);
 
   return (
     <View className="mb-3 overflow-hidden rounded-lg">
       <View className="absolute bottom-0 left-0 right-0 top-0 flex-row">
-        <View className="flex-1 items-start justify-center bg-green-500 px-4">
+        <TouchableOpacity
+          className="flex-1 items-start justify-center bg-green-500 px-4"
+          onPress={completeTask}
+        >
           <View className="items-center">
             <Ionicons color="#ffffff" name="checkmark" size={22} />
             <Text className="mt-1 text-xs font-bold text-white">Complete</Text>
           </View>
-        </View>
-        <View className="flex-1 items-end justify-center bg-red-500 px-4">
+        </TouchableOpacity>
+        <TouchableOpacity
+          className="flex-1 items-end justify-center bg-red-500 px-4"
+          onPress={dismissTask}
+        >
           <View className="items-center">
             <Ionicons color="#ffffff" name="close" size={22} />
             <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
-      <Animated.View
-        className="rounded-lg border-l-4 border-l-blue-600 bg-white"
-        style={{ transform: [{ translateX }] }}
-        {...panResponder.panHandlers}
-      >
-        <TouchableOpacity
-          className="p-3"
-          onPress={() => onPress(taskId)}
-          accessibilityLabel={accessibilityLabel}
-          accessibilityRole={accessibilityRole}
-          testID="task-card"
+      <GestureDetector gesture={panGesture}>
+        <AnimatedSharedView
+          className="rounded-lg border-l-4 border-l-blue-600 bg-white"
+          sharedTransitionTag={sharedTransitionTag}
+          style={animatedCardStyle}
         >
-          <View className="mb-2 flex-row items-start justify-between">
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-gray-800">
-                {item.title}
-              </Text>
-              <View className="mt-1.5 flex-row items-center">
-                <Ionicons color="#6b7280" name="location-outline" size={12} />
-                <Text className="ml-1 flex-1 text-xs text-gray-500">
-                  {item.address}
+          <TouchableOpacity
+            className="p-3"
+            onPress={() => onPress(taskId)}
+            accessibilityLabel={accessibilityLabel}
+            accessibilityRole={accessibilityRole}
+            testID="task-card"
+          >
+            <View className="mb-2 flex-row items-start justify-between">
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-gray-800">
+                  {item.title}
+                </Text>
+                <View className="mt-1.5 flex-row items-center">
+                  <Ionicons color="#6b7280" name="location-outline" size={12} />
+                  <Text className="ml-1 flex-1 text-xs text-gray-500">
+                    {item.address}
+                  </Text>
+                </View>
+              </View>
+              <View
+                className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
+              >
+                <Text className="text-[10px] font-semibold capitalize text-white">
+                  {item.priority}
                 </Text>
               </View>
             </View>
-            <View
-              className={`ml-2 rounded px-2 py-1 ${getPriorityClassName(item.priority)}`}
-            >
-              <Text className="text-[10px] font-semibold capitalize text-white">
-                {item.priority}
-              </Text>
+            <View className="flex-row items-center justify-between">
+              <View className="rounded bg-gray-100 px-2 py-1">
+                <Text className="text-[11px] font-medium text-gray-500">
+                  {getStatusLabel(item.status)}
+                </Text>
+              </View>
+              <View className="flex-row items-center">
+                <Ionicons color="#6b7280" name="time-outline" size={12} />
+                <Text className="ml-1 text-[11px] text-gray-500">
+                  {item.estimated_time} min
+                </Text>
+              </View>
             </View>
-          </View>
-          <View className="flex-row items-center justify-between">
-            <View className="rounded bg-gray-100 px-2 py-1">
-              <Text className="text-[11px] font-medium text-gray-500">
-                {getStatusLabel(item.status)}
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons color="#6b7280" name="time-outline" size={12} />
-              <Text className="ml-1 text-[11px] text-gray-500">
-                {item.estimated_time} min
-              </Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+          </TouchableOpacity>
+        </AnimatedSharedView>
+      </GestureDetector>
     </View>
   );
 };

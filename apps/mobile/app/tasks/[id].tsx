@@ -10,30 +10,20 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, type ComponentProps, type ComponentType } from 'react';
 import { useRealtimeTask } from '@/lib/hooks/use-realtime-tasks';
 import TaskDetailTransition from '@/components/task-detail-transition';
+import { taskRepository } from '@/lib/db/task-repository';
+import { getTaskSharedTransitionTag } from '@/lib/task-shared-transition';
+import type { Task } from '@field-service/shared-types';
+import Animated from 'react-native-reanimated';
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  status: 'assigned' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  category: string;
-  due_date: string;
-  customer_name: string;
-  customer_phone: string;
-  estimated_time: number;
-  technician_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
+type AnimatedSharedViewProps = ComponentProps<typeof Animated.View> & {
+  sharedTransitionTag?: string;
+};
+const AnimatedSharedView =
+  Animated.View as unknown as ComponentType<AnimatedSharedViewProps>;
 
 const getPriorityBadgeClass = (priority: string) => {
   switch (priority) {
@@ -120,13 +110,8 @@ export default function TaskDetailScreen() {
     queryKey: ['task', id],
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', id)
-        .single();
-      if (error) throw error;
-      return data as Task;
+      const localTask = await taskRepository.getById(id);
+      return localTask as Task | null;
     },
     enabled: !!id,
   });
@@ -155,12 +140,8 @@ export default function TaskDetailScreen() {
   const handleStartWork = async () => {
     if (!task) return;
     try {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-        .eq('id', task.id);
-
-      if (error) {
+      const updated = await taskRepository.updateStatus(task.id, 'in_progress');
+      if (!updated) {
         Alert.alert('Error', 'Failed to start task');
         return;
       }
@@ -259,43 +240,49 @@ export default function TaskDetailScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {/* Title and Status */}
-          <View className="mb-5">
-            <View className="flex-row items-start justify-between">
-              <View className="flex-1">
-                <Text className="mb-1 text-2xl font-bold text-gray-800">
-                  {task.title}
-                </Text>
-                <Text className="text-sm font-medium text-gray-500">
-                  {getCategoryLabel(task.category)}
-                </Text>
-              </View>
-              <View
-                className={`ml-3 rounded-md px-3 py-1.5 ${getPriorityBadgeClass(task.priority)}`}
-              >
-                <Text className="text-xs font-semibold capitalize text-white">
-                  {task.priority}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Status */}
-          <View className="mb-5">
-            <View className="flex-row items-center justify-between">
-              <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">
-                Status:
-              </Text>
-              <View className="flex-row items-center">
+          {/* Shared card transition source from tasks list */}
+          <AnimatedSharedView
+            className="mb-5 rounded-lg border-l-4 border-l-blue-600 bg-white p-4"
+            sharedTransitionTag={getTaskSharedTransitionTag(task.id)}
+          >
+            {/* Title and Status */}
+            <View>
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1">
+                  <Text className="mb-1 text-2xl font-bold text-gray-800">
+                    {task.title}
+                  </Text>
+                  <Text className="text-sm font-medium text-gray-500">
+                    {getCategoryLabel(task.category)}
+                  </Text>
+                </View>
                 <View
-                  className={`mr-2 h-2 w-2 rounded ${getStatusDotClass(task.status)}`}
-                />
-                <Text className="text-sm font-semibold text-gray-800">
-                  {getStatusLabel(task.status)}
-                </Text>
+                  className={`ml-3 rounded-md px-3 py-1.5 ${getPriorityBadgeClass(task.priority)}`}
+                >
+                  <Text className="text-xs font-semibold capitalize text-white">
+                    {task.priority}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+
+            {/* Status */}
+            <View className="mt-4">
+              <View className="flex-row items-center justify-between">
+                <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">
+                  Status:
+                </Text>
+                <View className="flex-row items-center">
+                  <View
+                    className={`mr-2 h-2 w-2 rounded ${getStatusDotClass(task.status)}`}
+                  />
+                  <Text className="text-sm font-semibold text-gray-800">
+                    {getStatusLabel(task.status)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </AnimatedSharedView>
 
           {/* Description */}
           <View className="mb-5">
@@ -343,7 +330,10 @@ export default function TaskDetailScreen() {
               <View className="flex-row items-center">
                 <Ionicons color="#6b7280" name="navigate-outline" size={16} />
                 <Text className="ml-3 flex-1 text-sm text-gray-800">
-                  {task.latitude.toFixed(4)}, {task.longitude.toFixed(4)}
+                  {typeof task.latitude === 'number' &&
+                  typeof task.longitude === 'number'
+                    ? `${task.latitude.toFixed(4)}, ${task.longitude.toFixed(4)}`
+                    : 'Coordinates unavailable'}
                 </Text>
               </View>
             </View>

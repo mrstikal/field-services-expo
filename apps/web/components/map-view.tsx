@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import Link from 'next/link';
 import MapGL, {
   Marker,
   Popup,
@@ -9,31 +10,22 @@ import MapGL, {
   MapRef,
 } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Task, Technician as SharedTechnician } from '@field-service/shared-types';
 import { supabase } from '@/lib/supabase';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
+import { formatLastSeen, getLastSeenTimestamp } from './map-view.utils';
 
-interface Technician {
-  id: string;
-  name: string;
-  email: string;
-  is_online: boolean;
-  last_location: {
-    latitude: number;
-    longitude: number;
-  } | null;
-  created_at: string;
-}
+type Technician = SharedTechnician;
 
 interface MapViewProps {
   readonly height?: string;
 }
 
-interface TaskGeofence {
-  id: string;
-  title: string;
+type TaskGeofence = Pick<Task, 'id' | 'title' | 'status'> & {
   latitude: number;
   longitude: number;
-  status: string;
-}
+};
+type DispatchableTask = Pick<Task, 'id' | 'title'>;
 
 interface ClusterPoint {
   id: string;
@@ -50,6 +42,18 @@ export default function MapView({ height }: MapViewProps) {
     Record<string, number>
   >({});
   const [taskGeofences, setTaskGeofences] = useState<TaskGeofence[]>([]);
+  const [dispatchableTasks, setDispatchableTasks] = useState<DispatchableTask[]>(
+    []
+  );
+  const [selectedDispatchTaskId, setSelectedDispatchTaskId] = useState<
+    string | null
+  >(null);
+  const [isPushingTask, setIsPushingTask] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [pushSuccess, setPushSuccess] = useState<string | null>(null);
+  const [lastPushedTask, setLastPushedTask] = useState<DispatchableTask | null>(
+    null
+  );
   const [viewport, setViewport] = useState({
     latitude: 49.75,
     longitude: 15.47,
@@ -68,7 +72,16 @@ export default function MapView({ height }: MapViewProps) {
     setIsMapReady(true);
   }, []);
 
-  const clusterPrecision = viewport.zoom < 7 ? 1 : viewport.zoom < 9 ? 2 : 3;
+  useEffect(() => {
+    if (selectedTechnician && !selectedTechnician.last_location) {
+      setSelectedTechnician(null);
+    }
+  }, [selectedTechnician]);
+
+  const clusterPrecision = useMemo(
+    () => (viewport.zoom < 7 ? 1 : viewport.zoom < 9 ? 2 : 3),
+    [viewport.zoom]
+  );
   const clusteredPoints = useMemo<ClusterPoint[]>(() => {
     const grouped = new Map<string, ClusterPoint>();
 
@@ -100,17 +113,54 @@ export default function MapView({ height }: MapViewProps) {
     return Array.from(grouped.values());
   }, [technicians, clusterPrecision]);
 
+  const loadActiveTasks = useCallback(async () => {
+    const tasksResult = await supabase
+      .from('tasks')
+      .select('id, title, latitude, longitude, status, technician_id')
+      .in('status', ['assigned', 'in_progress']);
+
+    if (tasksResult.error) {
+      console.error('Error loading task geofences:', tasksResult.error);
+      return false;
+    }
+
+    if (tasksResult.data) {
+      const counts = tasksResult.data.reduce<Record<string, number>>(
+        (acc, task) => {
+          const technicianId =
+            typeof task.technician_id === 'string' ? task.technician_id : null;
+          if (technicianId) {
+            acc[technicianId] = (acc[technicianId] || 0) + 1;
+          }
+          return acc;
+        },
+        {}
+      );
+      setTechnicianTaskCounts(counts);
+
+      const geofences = tasksResult.data.filter(
+        task =>
+          typeof task.latitude === 'number' && typeof task.longitude === 'number'
+      ) as TaskGeofence[];
+      setTaskGeofences(geofences);
+
+      const unassigned = tasksResult.data.filter(
+        task => task.status === 'assigned' && !task.technician_id
+      ) as DispatchableTask[];
+      setDispatchableTasks(unassigned);
+    }
+
+    return true;
+  }, []);
+
   // Load technicians with locations
   useEffect(() => {
     const loadTechnicians = async () => {
       try {
-        const [usersResult, tasksResult] = await Promise.all([
-          supabase.from('users').select('*').eq('role', 'technician'),
-          supabase
-            .from('tasks')
-            .select('id, title, latitude, longitude, status, technician_id')
-            .in('status', ['assigned', 'in_progress']),
-        ]);
+        const usersResult = await supabase
+          .from('users')
+          .select('*')
+          .eq('role', 'technician');
 
         const { data, error } = usersResult;
         if (error) {
@@ -124,34 +174,7 @@ export default function MapView({ height }: MapViewProps) {
           return;
         }
 
-        if (tasksResult.error) {
-          console.error('Error loading task geofences:', tasksResult.error);
-          return;
-        }
-
-        if (tasksResult.data) {
-          const counts = tasksResult.data.reduce<Record<string, number>>(
-            (acc, task) => {
-              const technicianId =
-                typeof task.technician_id === 'string'
-                  ? task.technician_id
-                  : null;
-              if (technicianId) {
-                acc[technicianId] = (acc[technicianId] || 0) + 1;
-              }
-              return acc;
-            },
-            {}
-          );
-          setTechnicianTaskCounts(counts);
-
-          const geofences = tasksResult.data.filter(
-            task =>
-              typeof task.latitude === 'number' &&
-              typeof task.longitude === 'number'
-          ) as TaskGeofence[];
-          setTaskGeofences(geofences);
-        }
+        await loadActiveTasks();
 
         if (data) {
           setTechnicians(data as Technician[]);
@@ -180,6 +203,9 @@ export default function MapView({ height }: MapViewProps) {
               tech.id === payload.new.id ? (payload.new as Technician) : tech
             )
           );
+          setSelectedTechnician(prev =>
+            prev && prev.id === payload.new.id ? (payload.new as Technician) : prev
+          );
         }
       )
       .subscribe();
@@ -187,11 +213,15 @@ export default function MapView({ height }: MapViewProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadActiveTasks]);
 
   // Handle marker click
   const handleMarkerClick = (technician: Technician) => {
     setSelectedTechnician(technician);
+    setPushError(null);
+    setPushSuccess(null);
+    setLastPushedTask(null);
+    setSelectedDispatchTaskId(prev => prev ?? dispatchableTasks[0]?.id ?? null);
     // Center map on technician
     if (technician.last_location) {
       setViewport(prev => ({
@@ -220,22 +250,101 @@ export default function MapView({ height }: MapViewProps) {
   // Close popup
   const closePopup = () => {
     setSelectedTechnician(null);
+    setPushError(null);
+    setPushSuccess(null);
+    setLastPushedTask(null);
+    setSelectedDispatchTaskId(null);
   };
 
-  // Format last seen time
-  const formatLastSeen = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
+  const handlePushNextTask = async () => {
+    if (!selectedTechnician || isPushingTask) {
+      return;
+    }
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    const taskToPush = dispatchableTasks.find(
+      task => task.id === selectedDispatchTaskId
+    );
+    if (!taskToPush) {
+      return;
+    }
+
+    try {
+      setIsPushingTask(true);
+      setPushError(null);
+      setPushSuccess(null);
+      setLastPushedTask(null);
+      const response = await authenticatedFetch(`/api/tasks/${taskToPush.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          technician_id: selectedTechnician.id,
+          status: 'assigned',
+        }),
+      });
+
+      if (!response.ok) {
+        let message = 'Unable to push task.';
+        try {
+          const body = (await response.json()) as { error?: unknown };
+          if (typeof body.error === 'string' && body.error.length > 0) {
+            message = body.error;
+          }
+        } catch {
+          // Keep fallback message when response body is not JSON.
+        }
+        throw new Error(message);
+      }
+
+      setDispatchableTasks(prev =>
+        prev.filter(task => task.id !== taskToPush.id)
+      );
+      setTechnicianTaskCounts(prev => ({
+        ...prev,
+        [selectedTechnician.id]: (prev[selectedTechnician.id] || 0) + 1,
+      }));
+      setSelectedDispatchTaskId(prev => {
+        if (prev === taskToPush.id) {
+          const remainingTask = dispatchableTasks.find(
+            task => task.id !== taskToPush.id
+          );
+          return remainingTask?.id ?? null;
+        }
+        return prev;
+      });
+      setPushSuccess(`Task "${taskToPush.title}" pushed.`);
+      setLastPushedTask(taskToPush);
+      void loadActiveTasks();
+    } catch (error) {
+      console.error('Error pushing task from map popup:', error);
+      setPushSuccess(null);
+      setLastPushedTask(null);
+      setPushError(
+        error instanceof Error && error.message.length > 0
+          ? error.message
+          : 'Unable to push task.'
+      );
+    } finally {
+      setIsPushingTask(false);
+    }
   };
+  const nextDispatchableTask = dispatchableTasks.find(
+    task => task.id === selectedDispatchTaskId
+  );
+
+  useEffect(() => {
+    if (!selectedTechnician) {
+      return;
+    }
+
+    const hasSelected = dispatchableTasks.some(
+      task => task.id === selectedDispatchTaskId
+    );
+    if (!hasSelected) {
+      setSelectedDispatchTaskId(dispatchableTasks[0]?.id ?? null);
+    }
+  }, [dispatchableTasks, selectedDispatchTaskId, selectedTechnician]);
 
   if (!isMapReady) {
     return (
@@ -244,17 +353,6 @@ export default function MapView({ height }: MapViewProps) {
         style={{ height: height || '400px' }}
       >
         <div className="text-gray-500">Loading map...</div>
-      </div>
-    );
-  }
-
-  if (viewport.latitude === 0 && viewport.longitude === 0) {
-    return (
-      <div
-        className="flex items-center justify-center bg-gray-100 rounded-lg"
-        style={{ height: height || '400px' }}
-      >
-        <div className="text-gray-500">Initializing map...</div>
       </div>
     );
   }
@@ -334,14 +432,14 @@ export default function MapView({ height }: MapViewProps) {
           })}
 
           {/* Popup for selected technician */}
-          {selectedTechnician ? (
+          {selectedTechnician && selectedTechnician.last_location ? (
             <Popup
               anchor="top"
               className="map-popup"
               closeButton
               closeOnClick={false}
-              latitude={selectedTechnician.last_location?.latitude || 0}
-              longitude={selectedTechnician.last_location?.longitude || 0}
+              latitude={selectedTechnician.last_location.latitude}
+              longitude={selectedTechnician.last_location.longitude}
               onClose={closePopup}
               maxWidth="300px"
             >
@@ -362,13 +460,67 @@ export default function MapView({ height }: MapViewProps) {
                   />
                   <span className="text-xs text-gray-600">
                     {selectedTechnician.is_online ? 'Online' : 'Offline'} -{' '}
-                    {formatLastSeen(selectedTechnician.created_at)}
+                    {formatLastSeen(
+                      getLastSeenTimestamp(
+                        selectedTechnician.updated_at,
+                        selectedTechnician.created_at
+                      )
+                    )}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 mt-2">
                   Active tasks:{' '}
                   {technicianTaskCounts[selectedTechnician.id] || 0}
                 </p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Unassigned tasks: {dispatchableTasks.length}
+                </p>
+                {dispatchableTasks.length > 0 ? (
+                  <label className="mt-2 block text-xs text-gray-600">
+                    Task to push:
+                    <select
+                      className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800"
+                      onChange={event => setSelectedDispatchTaskId(event.target.value)}
+                      value={selectedDispatchTaskId ?? ''}
+                    >
+                      {dispatchableTasks.map(task => (
+                        <option key={task.id} value={task.id}>
+                          {task.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <p className="text-xs text-gray-600 mt-1">
+                  Next task:{' '}
+                  {nextDispatchableTask ? nextDispatchableTask.title : 'None'}
+                </p>
+                <button
+                  className="mt-2 rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-gray-400"
+                  disabled={isPushingTask || dispatchableTasks.length === 0}
+                  onClick={() => {
+                    void handlePushNextTask();
+                  }}
+                  type="button"
+                >
+                  {isPushingTask
+                    ? 'Pushing...'
+                    : `Push selected task (${dispatchableTasks.length})`}
+                </button>
+                {pushError ? (
+                  <p className="mt-1 text-xs text-red-600">{pushError}</p>
+                ) : null}
+                {pushSuccess ? (
+                  <p className="mt-1 text-xs text-green-700">{pushSuccess}</p>
+                ) : null}
+                {lastPushedTask ? (
+                  <Link
+                    className="mt-2 inline-block rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white hover:bg-black"
+                    href={`/dashboard/tasks/${encodeURIComponent(lastPushedTask.id)}`}
+                  >
+                    Open task
+                  </Link>
+                ) : null}
               </div>
             </Popup>
           ) : null}

@@ -47,24 +47,36 @@ describe('Web Sync API Integration', () => {
 
       const tasksQuery = {
         select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: mockTasks, error: null }),
       };
 
       const reportsQuery = {
         select: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
 
       const locationsQuery = {
         select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
         gte: vi.fn().mockReturnThis(),
-        order: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+
+      const usersQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: techId, role: 'technician' },
+          error: null,
+        }),
       };
 
       mockSupabaseClient.from.mockImplementation(((table: string) => {
+        if (table === 'users') return usersQuery as never;
         if (table === 'tasks') return tasksQuery as never;
         if (table === 'reports') return reportsQuery as never;
         if (table === 'locations') return locationsQuery as never;
@@ -135,8 +147,17 @@ describe('Web Sync API Integration', () => {
       const reportsMutationQuery = {
         upsert: vi.fn().mockReturnValue(reportsUpsertQuery),
       };
+      const usersQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: techId, role: 'dispatcher' },
+          error: null,
+        }),
+      };
 
       mockSupabaseClient.from.mockImplementation(((table: string) => {
+        if (table === 'users') return usersQuery as never;
         if (table === 'tasks') {
           return {
             ...tasksExistingQuery,

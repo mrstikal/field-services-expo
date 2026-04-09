@@ -19,15 +19,17 @@ field-service/
 │   │
 │   └── web/                 # Next.js application (Web Dashboard)
 │       ├── app/             # Next.js App Router
-│       │   ├── (auth)/      # Auth flow (login)
-│       │   ├── (dashboard)/ # Protected dashboard
+│       │   ├── login/       # Auth flow (login)
+│       │   ├── dashboard/   # Protected dashboard
 │       │   │   ├── page.tsx        # Dashboard overview
 │       │   │   ├── tasks/          # Task management
 │       │   │   └── technicians/    # Technician management
+│       │   └── api/         # Next.js route handlers (sync/tasks/vision/...)
 │       │   ├── layout.tsx          # Root layout
-│       │   └── middleware.ts       # Protected routes middleware
+│       │   └── page.tsx            # Root redirect page
 │       ├── components/      # Reusable components
 │       ├── lib/             # Utility functions
+│       ├── middleware.ts    # Protected routes middleware
 │       └── package.json
 │
 ├── packages/
@@ -185,7 +187,10 @@ tasks
 ├── estimated_time (INTEGER, minutes)
 ├── technician_id (UUID, FK → users)
 ├── created_at (TIMESTAMP)
-└── updated_at (TIMESTAMP)
+├── updated_at (TIMESTAMP)
+├── version (INTEGER, conflict resolution version)
+├── synced (INTEGER: 0 | 1)
+└── deleted_at (TIMESTAMP, soft delete)
 
 -- Reports
 reports
@@ -194,9 +199,13 @@ reports
 ├── status (TEXT: 'draft' | 'completed' | 'synced')
 ├── photos (TEXT[], URLs)
 ├── form_data (JSONB, dynamic form data)
+├── pdf_url (TEXT, generated PDF URL)
 ├── signature (TEXT, SVG/PNG base64)
 ├── created_at (TIMESTAMP)
-└── updated_at (TIMESTAMP)
+├── updated_at (TIMESTAMP)
+├── version (INTEGER, conflict resolution version)
+├── synced (INTEGER: 0 | 1)
+└── deleted_at (TIMESTAMP, soft delete)
 
 -- Locations (GPS tracking)
 locations
@@ -223,13 +232,14 @@ parts
 -- Sync Queue (Offline changes)
 sync_queue
 ├── id (UUID, PK)
-├── user_id (UUID, FK → users)
 ├── type (TEXT: 'task' | 'report' | 'location')
 ├── action (TEXT: 'create' | 'update' | 'delete')
+├── entity_id (UUID)
 ├── data (JSONB)
 ├── version (INTEGER)
 ├── status (TEXT: 'pending' | 'synced' | 'failed')
 ├── error (TEXT)
+├── retry_count (INTEGER)
 ├── created_at (TIMESTAMP)
 └── updated_at (TIMESTAMP)
 ```
@@ -322,7 +332,7 @@ Sync Queue Table:
                           ↓
 ┌─────────────────────────────────────────────────────────┐
 │              Protected Routes Middleware                │
-│  - apps/web/app/middleware.ts                           │
+│  - apps/web/middleware.ts                               │
 │  - Check auth token in cookies                          │
 │  - Redirect to login if not authenticated               │
 └─────────────────────────────────────────────────────────┘
@@ -372,6 +382,17 @@ TRANSITION OFFLINE → ONLINE:
 └──────────────────────────────────────────────────────────┘
 ```
 
+### Conflict Resolution Strategy
+
+- **Primary rule:** version-based *last write wins*.
+- **Where resolved:** `apps/mobile/lib/sync/sync-engine.ts` (`processServerTask`, `processServerReport`, `handleConflictPush`) and repository methods `resolveConflict(...)`.
+- **Decision logic:**
+  - `server_wins` when `remote.version > local.version`, or same version with newer/equal `updated_at`.
+  - otherwise `local_wins`.
+- **Audit trail:** every conflict is stored in local table `sync_conflicts` with `local_data`, `server_data`, `resolution`, `created_at`, `resolved_at`.
+- **Queue behavior:** conflicted queue item is not blindly retried; it is resolved against server record and local DB is updated through repository upsert/resolve path.
+- **UI behavior (current state):** conflict resolution is automatic in background sync; there is no dedicated manual conflict resolution screen yet.
+
 ## 🚀 CI/CD Pipeline
 
 ```
@@ -406,8 +427,8 @@ export interface Task {
   title: string;
   description: string;
   address: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   status: 'assigned' | 'in_progress' | 'completed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   category: 'repair' | 'installation' | 'maintenance' | 'inspection';
@@ -418,6 +439,9 @@ export interface Task {
   technician_id: string | null;
   created_at: string;
   updated_at: string;
+  version: number;
+  deleted_at?: string | null;
+  synced?: number;
 }
 
 export interface Technician {
@@ -430,6 +454,7 @@ export interface Technician {
   is_online: boolean;
   last_location: { latitude: number; longitude: number } | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Report {
@@ -439,8 +464,12 @@ export interface Report {
   photos: string[];
   form_data: Record<string, unknown>;
   signature: string | null;
+  pdf_url?: string | null;
   created_at: string;
   updated_at: string;
+  version: number;
+  deleted_at?: string | null;
+  synced?: number;
 }
 
 // ... more types

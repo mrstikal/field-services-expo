@@ -1,28 +1,31 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
 import { Alert } from 'react-native';
-
-// Geofence radius in meters
-const GEOFENCE_RADIUS = 100;
-
-interface TaskLocation {
-  id: string;
-  title: string;
-  latitude: number;
-  longitude: number;
-  address: string;
-}
+import { taskRepository } from '@/lib/db/task-repository';
+import {
+  buildGeofenceRegions,
+  GEOFENCE_RADIUS,
+  type TaskLocation,
+} from './geofencing-regions';
+const GEOFENCE_TASK_NAME = 'task-geofencing-task';
 
 interface UseGeofencingReturn {
   currentLocation: Location.LocationObject | null;
   nearbyTasks: TaskLocation[];
   trackedTasks: TaskLocation[];
+  isNativeGeofencing: boolean;
   isNearTask: boolean;
   currentTask: TaskLocation | null;
   updateLocation: (location: Location.LocationObject) => void;
   setTrackedTasks: (tasks: TaskLocation[]) => void;
   checkGeofence: (tasks?: TaskLocation[]) => Promise<void>;
   distanceToTask: (task: TaskLocation) => number;
+}
+
+interface GeofencingTaskData {
+  eventType: Location.LocationGeofencingEventType;
+  region: Location.LocationRegion;
 }
 
 /**
@@ -51,6 +54,35 @@ function calculateDistance(
   return R * c;
 }
 
+function registerGeofencingTask() {
+  if (TaskManager.isTaskDefined(GEOFENCE_TASK_NAME)) {
+    return;
+  }
+
+  TaskManager.defineTask(GEOFENCE_TASK_NAME, async ({ data, error }) => {
+    if (error || !data) {
+      if (error) {
+        console.error('Geofencing task error:', error);
+      }
+      return;
+    }
+
+    const geofencingEvent = data as GeofencingTaskData;
+
+    if (
+      geofencingEvent.eventType === Location.GeofencingEventType.Enter &&
+      geofencingEvent.region?.identifier
+    ) {
+      await taskRepository.updateStatus(
+        geofencingEvent.region.identifier,
+        'in_progress'
+      );
+    }
+  });
+}
+
+registerGeofencingTask();
+
 /**
  * Custom hook for geofencing functionality
  * Automatically checks if user is near a task location
@@ -60,16 +92,63 @@ export function useGeofencing(): UseGeofencingReturn {
     useState<Location.LocationObject | null>(null);
   const [nearbyTasks, setNearbyTasks] = useState<TaskLocation[]>([]);
   const [trackedTasks, setTrackedTasks] = useState<TaskLocation[]>([]);
+  const [isNativeGeofencing, setIsNativeGeofencing] = useState(false);
   const [isNearTask, setIsNearTask] = useState<boolean>(false);
   const [currentTask, setCurrentTask] = useState<TaskLocation | null>(null);
 
   // Debounce timer reference
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trackedTasksRef = useRef<TaskLocation[]>([]);
+  const isNearTaskRef = useRef(false);
+
+  useEffect(() => {
+    isNearTaskRef.current = isNearTask;
+  }, [isNearTask]);
 
   // Update current location - kept for potential future use
   const updateLocation = useCallback((location: Location.LocationObject) => {
     setCurrentLocation(location);
+  }, []);
+
+  const updateNativeGeofencing = useCallback(async (tasks: TaskLocation[]) => {
+    try {
+      const started = await Location.hasStartedGeofencingAsync(
+        GEOFENCE_TASK_NAME
+      );
+      const regions = buildGeofenceRegions(tasks);
+
+      if (!regions.length) {
+        if (started) {
+          await Location.stopGeofencingAsync(GEOFENCE_TASK_NAME);
+        }
+        setIsNativeGeofencing(false);
+        return;
+      }
+
+      const fgPermissions = await Location.getForegroundPermissionsAsync();
+      if (fgPermissions.status !== 'granted') {
+        const fgRequest = await Location.requestForegroundPermissionsAsync();
+        if (fgRequest.status !== 'granted') {
+          setIsNativeGeofencing(false);
+          return;
+        }
+      }
+
+      const bgPermissions = await Location.getBackgroundPermissionsAsync();
+      if (bgPermissions.status !== 'granted') {
+        const bgRequest = await Location.requestBackgroundPermissionsAsync();
+        if (bgRequest.status !== 'granted') {
+          setIsNativeGeofencing(false);
+          return;
+        }
+      }
+
+      await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, regions);
+      setIsNativeGeofencing(true);
+    } catch (error) {
+      console.error('Native geofencing setup failed:', error);
+      setIsNativeGeofencing(false);
+    }
   }, []);
 
   const handleSetTrackedTasks = useCallback((tasks: TaskLocation[]) => {
@@ -83,6 +162,21 @@ export function useGeofencing(): UseGeofencingReturn {
       }
       return tasks;
     });
+    void updateNativeGeofencing(tasks);
+  }, [updateNativeGeofencing]);
+
+  const handleCheckIn = useCallback(async (taskId: string) => {
+    try {
+      const updated = await taskRepository.updateStatus(taskId, 'in_progress');
+      if (!updated) {
+        Alert.alert('Check In Failed', 'Unable to start the task.');
+        return;
+      }
+
+      Alert.alert('Checked In', 'Task status was updated to In Progress.');
+    } catch {
+      Alert.alert('Check In Failed', 'Unable to start the task.');
+    }
   }, []);
 
   // Check geofence around tasks
@@ -126,7 +220,7 @@ export function useGeofencing(): UseGeofencingReturn {
       setIsNearTask(nearby.length > 0);
 
       // Alert when entering geofence
-      if (nearby.length > 0 && !isNearTask) {
+      if (nearby.length > 0 && !isNearTaskRef.current) {
         Alert.alert(
           'Arrived at Task',
           `You have arrived at: ${nearestTask?.title}\nAddress: ${nearestTask?.address}`,
@@ -134,8 +228,10 @@ export function useGeofencing(): UseGeofencingReturn {
             {
               text: 'Check In',
               onPress: () => {
-                console.log('Task checked in:', nearestTask?.id);
-                // Here you would call your API to update task status
+                if (!nearestTask?.id) {
+                  return;
+                }
+                void handleCheckIn(nearestTask.id);
               },
             },
             {
@@ -149,7 +245,7 @@ export function useGeofencing(): UseGeofencingReturn {
         );
       }
     },
-    [currentLocation, isNearTask]
+    [currentLocation, handleCheckIn]
   );
 
   // Debounced geofence check (to avoid too many alerts)
@@ -194,6 +290,7 @@ export function useGeofencing(): UseGeofencingReturn {
     currentLocation,
     nearbyTasks,
     trackedTasks,
+    isNativeGeofencing,
     isNearTask,
     currentTask,
     updateLocation,

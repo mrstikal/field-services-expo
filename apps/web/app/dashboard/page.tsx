@@ -5,20 +5,14 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapViewErrorBoundary } from '@/components/map-view-error-boundary';
+import type {
+  Task,
+  Technician as SharedTechnician,
+} from '@field-service/shared-types';
 
 const MapView = dynamic(() => import('@/components/map-view'), { ssr: false });
 
-interface Task {
-  id: string;
-  status: 'assigned' | 'in_progress' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-}
-
-interface Technician {
-  id: string;
-  name: string;
-  is_online: boolean;
-}
+type DashboardTechnician = Pick<SharedTechnician, 'id' | 'name' | 'is_online'>;
 
 export default function DashboardPage() {
   const {
@@ -101,7 +95,7 @@ export default function DashboardPage() {
     inProgressTasks: tasks.filter((t: Task) => t.status === 'in_progress')
       .length,
     completedTasks: tasks.filter((t: Task) => t.status === 'completed').length,
-    onlineTechnicians: technicians.filter((t: Technician) => t.is_online)
+    onlineTechnicians: technicians.filter((t: DashboardTechnician) => t.is_online)
       .length,
     totalTechnicians: technicians.length,
   };
@@ -283,7 +277,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {technicians.slice(0, 5).map((tech: Technician) => (
+              {technicians.slice(0, 5).map((tech: DashboardTechnician) => (
                 <div
                   className="flex items-center justify-between"
                   key={tech.id}

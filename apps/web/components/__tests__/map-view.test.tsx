@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import MapView from '@components/map-view';
 import { supabase } from '@/lib/supabase';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 vi.mock('mapbox-gl/dist/mapbox-gl.css', () => ({}));
 
@@ -76,6 +77,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/lib/authenticated-fetch', () => ({
+  authenticatedFetch: vi.fn(),
+}));
+
 describe('MapView', () => {
   const mockTechnicians = [
     {
@@ -105,10 +110,22 @@ describe('MapView', () => {
       status: 'assigned',
       technician_id: 'tech1',
     },
+    {
+      id: 'task2',
+      title: 'Task Two',
+      latitude: null,
+      longitude: null,
+      status: 'assigned',
+      technician_id: null,
+    },
   ];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (authenticatedFetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
     (supabase.from as any).mockImplementation((tableName: any) => {
       if (tableName === 'users') {
         return {
@@ -213,5 +230,150 @@ describe('MapView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Offline/)).toBeInTheDocument();
     });
+  });
+
+  it('should close popup when selected technician loses location in real-time update', async () => {
+    let onUpdateCallback: any;
+    (supabase.channel as any).mockReturnValue({
+      on: vi.fn((event: any, filter: any, callback: any) => {
+        if (event === 'postgres_changes' && filter.table === 'users') {
+          onUpdateCallback = callback;
+        }
+        return { subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })) };
+      }),
+    });
+
+    render(<MapView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('2'));
+    await waitFor(() => {
+      expect(screen.getAllByText('T')).toHaveLength(2);
+    });
+    fireEvent.click(screen.getAllByText('T')[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-popup')).toBeInTheDocument();
+    });
+
+    act(() => {
+      onUpdateCallback({
+        new: {
+          ...mockTechnicians[0],
+          last_location: null,
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('mock-popup')).toBeNull();
+    });
+  });
+
+  it('should push next unassigned task from popup to selected technician', async () => {
+    render(<MapView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('2'));
+    await waitFor(() => {
+      expect(screen.getAllByText('T')).toHaveLength(2);
+    });
+    fireEvent.click(screen.getAllByText('T')[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-popup')).toBeInTheDocument();
+      expect(screen.getByText('Push selected task (1)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Push selected task (1)'));
+
+    await waitFor(() => {
+      expect(authenticatedFetch).toHaveBeenCalledWith('/api/tasks/task2', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technician_id: 'tech1',
+          status: 'assigned',
+        }),
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Task "Task Two" pushed.')).toBeInTheDocument();
+    });
+  });
+
+  it('should show server error message when push task fails', async () => {
+    (authenticatedFetch as any).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Task is locked by another dispatcher.' }),
+    });
+
+    render(<MapView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('2'));
+    await waitFor(() => {
+      expect(screen.getAllByText('T')).toHaveLength(2);
+    });
+    fireEvent.click(screen.getAllByText('T')[0]);
+    await waitFor(() => {
+      expect(screen.getByText('Push selected task (1)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Push selected task (1)'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Task is locked by another dispatcher.')
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText('Unassigned tasks: 1')).toBeInTheDocument();
+    expect(screen.getByText('Active tasks: 1')).toBeInTheDocument();
+  });
+
+  it('should clear push error after popup close and reopen', async () => {
+    (authenticatedFetch as any).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'Task is locked by another dispatcher.' }),
+    });
+
+    render(<MapView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('2'));
+    await waitFor(() => {
+      expect(screen.getAllByText('T')).toHaveLength(2);
+    });
+    fireEvent.click(screen.getAllByText('T')[0]);
+    await waitFor(() => {
+      expect(screen.getByText('Push selected task (1)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Push selected task (1)'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Task is locked by another dispatcher.')
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('mock-popup-close'));
+    expect(screen.queryByTestId('mock-popup')).toBeNull();
+
+    fireEvent.click(screen.getAllByText('T')[0]);
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-popup')).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByText('Task is locked by another dispatcher.')
+    ).toBeNull();
   });
 });

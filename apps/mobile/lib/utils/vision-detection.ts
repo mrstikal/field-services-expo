@@ -8,6 +8,58 @@ interface VisionApiErrorPayload {
   };
 }
 
+type VisionAction = 'detect' | 'extractText';
+
+function getVisionProxyUrl() {
+  const apiBaseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+  return `${apiBaseUrl}/api/vision/analyze`;
+}
+
+function getErrorDetail(responseText: string, fallback: string) {
+  if (!responseText) return fallback || 'Unknown error';
+
+  try {
+    const parsedError = JSON.parse(responseText) as {
+      error?: string | VisionApiErrorPayload['error'];
+    };
+    if (typeof parsedError.error === 'string') return parsedError.error;
+    return parsedError.error?.message || fallback || responseText;
+  } catch {
+    return responseText;
+  }
+}
+
+async function callVisionProxy(
+  action: VisionAction,
+  imageBase64: string
+): Promise<Record<string, unknown> | null> {
+  const response = await fetch(getVisionProxyUrl(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action,
+      imageBase64,
+    }),
+  });
+
+  const responseText = await response.text();
+  if (response.status === 503) {
+    console.warn('Vision API proxy is not configured');
+    return null;
+  }
+
+  if (!response.ok) {
+    const detail = getErrorDetail(responseText, response.statusText);
+    throw new Error(
+      `Vision API error (${response.status}): ${detail || 'Unknown error'}`
+    );
+  }
+
+  return responseText ? (JSON.parse(responseText) as Record<string, unknown>) : {};
+}
+
 /**
  * Interface for Vision API response
  */
@@ -26,13 +78,13 @@ export interface VisionDetectionResult {
 }
 
 export interface LabelAnnotation {
-  description: string;
-  score: number;
+  text: string;
+  confidence: number;
 }
 
 export interface LocalizedObjectAnnotation {
   name: string;
-  score: number;
+  confidence: number;
   boundingPoly: BoundingPoly;
 }
 
@@ -44,82 +96,23 @@ export interface LocalizedObjectAnnotation {
 export async function detectObjects(
   imageUri: string
 ): Promise<VisionDetectionResult | null> {
-  // Get image data
   const imageBase64 = await FileSystem.readAsStringAsync(imageUri, {
     encoding: 'base64',
   });
-
-  // Google Cloud Vision API endpoint
-  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_API_KEY;
-  if (!apiKey) {
-    console.warn('Google Cloud API key not configured');
-    return null;
-  }
-
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: imageBase64,
-            },
-            features: [
-              { type: 'LABEL_DETECTION', maxResults: 10 },
-              { type: 'OBJECT_LOCALIZATION', maxResults: 10 },
-            ],
-          },
-        ],
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const responseText = await response.text();
-    let detail = response.statusText;
-
-    if (responseText) {
-      try {
-        const parsedError = JSON.parse(responseText) as VisionApiErrorPayload;
-        detail = parsedError.error?.message || detail || responseText;
-      } catch {
-        detail = responseText;
-      }
-    }
-
-    throw new Error(
-      `Vision API error (${response.status}): ${detail || 'Unknown error'}`
-    );
-  }
-
-  const data = await response.json();
-  const results = data.responses?.[0];
-
-  if (results?.error) {
-    const code =
-      typeof results.error.code === 'number' ? ` (${results.error.code})` : '';
-    const message = results.error.message || 'Unknown API error';
-    throw new Error(`Vision API response error${code}: ${message}`);
-  }
+  const results = await callVisionProxy('detect', imageBase64);
+  if (!results) return null;
 
   // Process labels
-  const labels = (results.labelAnnotations || []).map(
-    (label: LabelAnnotation) => ({
-      text: label.description,
-      confidence: label.score,
-    })
-  );
+  const labels = ((results.labels || []) as LabelAnnotation[]).map(label => ({
+    text: label.text,
+    confidence: label.confidence,
+  }));
 
   // Process objects
-  const objects = (results.localizedObjectAnnotations || []).map(
-    (obj: LocalizedObjectAnnotation) => ({
+  const objects = ((results.objects || []) as LocalizedObjectAnnotation[]).map(
+    obj => ({
       name: obj.name,
-      confidence: obj.score,
+      confidence: obj.confidence,
       boundingPoly: obj.boundingPoly,
     })
   );
@@ -139,65 +132,10 @@ export async function extractText(imageUri: string): Promise<string | null> {
   const imageBase64 = await FileSystem.readAsStringAsync(imageUri, {
     encoding: 'base64',
   });
+  const result = await callVisionProxy('extractText', imageBase64);
+  if (!result) return null;
 
-  const apiKey = process.env.EXPO_PUBLIC_GOOGLE_CLOUD_API_KEY;
-  if (!apiKey) {
-    console.warn('Google Cloud API key not configured');
-    return null;
-  }
-
-  const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        requests: [
-          {
-            image: {
-              content: imageBase64,
-            },
-            features: [{ type: 'TEXT_DETECTION', maxResults: 1 }],
-          },
-        ],
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const responseText = await response.text();
-    let detail = response.statusText;
-
-    if (responseText) {
-      try {
-        const parsedError = JSON.parse(responseText) as VisionApiErrorPayload;
-        detail = parsedError.error?.message || detail || responseText;
-      } catch {
-        detail = responseText;
-      }
-    }
-
-    throw new Error(
-      `Vision API error (${response.status}): ${detail || 'Unknown error'}`
-    );
-  }
-
-  const data = await response.json();
-  const result = data.responses?.[0];
-
-  if (result?.error) {
-    const code =
-      typeof result.error.code === 'number' ? ` (${result.error.code})` : '';
-    const message = result.error.message || 'Unknown API error';
-    throw new Error(`Vision API response error${code}: ${message}`);
-  }
-  const textAnnotations = result?.textAnnotations;
-
-  return textAnnotations && textAnnotations.length > 0
-    ? textAnnotations[0].description
-    : null;
+  return typeof result.text === 'string' ? result.text : null;
 }
 
 /**

@@ -30,6 +30,7 @@ export const users = pgTable('users', {
   name: text('name'),
   phone: text('phone'),
   avatar_url: text('avatar_url'),
+  expo_push_token: text('expo_push_token'),
   is_online: boolean('is_online').default(false),
   last_location_lat: doublePrecision('last_location_lat'),
   last_location_lng: doublePrecision('last_location_lng'),

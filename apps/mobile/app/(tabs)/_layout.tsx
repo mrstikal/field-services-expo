@@ -4,6 +4,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/lib/auth-context';
 import { OfflineBanner } from '@/components/offline-banner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { usePushTokenRegistration } from '@/lib/hooks/use-push-token-registration';
 import type { ComponentProps } from 'react';
 
 type TabScreenOptions = NonNullable<
@@ -28,6 +29,7 @@ function createTabOptions(
 export default function TabsLayout() {
   const { user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
+  usePushTokenRegistration(user?.id);
 
   if (isLoading) {
     return (
