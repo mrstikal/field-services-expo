@@ -125,11 +125,58 @@ EXPO_PUBLIC_APP_NAME="Field Service"
 
 For daily development on Windows + Android USB, see [`docs/DAILY_RUN.md`](./DAILY_RUN.md).
 
+### Android SDK Setup
+
+#### Windows
+
+1. Install Android Studio.
+2. In Android Studio, install:
+   - `Android SDK Platform-Tools`
+   - at least one `Android SDK Platform`
+   - matching `Android SDK Build-Tools`
+3. From the repo root, persist SDK variables:
+
+   ```powershell
+   Set-Location "F:\expo\field-service"
+   pnpm android:sdk:windows
+   ```
+
+4. Restart PowerShell or your IDE after the script updates the user `PATH`.
+
+If Android Studio installed the SDK into a non-default folder, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\set-android-sdk-env.windows.ps1 -SdkPath "C:\Path\To\Android\Sdk"
+```
+
+#### Linux / macOS
+
+Install Android Studio and export SDK paths in your shell profile:
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+```
+
+Then reload the shell:
+
+```bash
+source ~/.zshrc
+# or
+source ~/.bashrc
+```
+
+Adjust the SDK path if your Android Studio installation uses another location.
+
 ### Mobile App (Expo)
 
 ```bash
 # Start dev server
 pnpm --filter field-service-mobile dev
+
+# Start dev server for Expo dev client
+pnpm --filter field-service-mobile dev:client
 
 # Or specific platform
 pnpm --filter field-service-mobile android
@@ -138,6 +185,68 @@ pnpm --filter field-service-mobile web
 ```
 
 App opens at `http://localhost:8081`
+
+### Android Dev Client Workflow
+
+#### Windows
+
+Terminal 1:
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm mobile:metro:dev-client:usb
+```
+
+Terminal 2:
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm mobile:dev-client:android:usb
+```
+
+#### Linux / macOS
+
+Terminal 1:
+
+```bash
+cd /path/to/field-service
+pnpm mobile:metro:dev-client:usb
+```
+
+Terminal 2:
+
+```bash
+cd /path/to/field-service
+pnpm mobile:dev-client:android:usb
+```
+
+Notes:
+
+- `mobile:metro:dev-client:usb` starts Metro with `expo start --dev-client --localhost --port 8081 --clear`.
+- `mobile:dev-client:android:usb` configures `adb reverse`, sets Android SDK env variables when possible, and runs the native Android build.
+- Android remote push notifications do not work in Expo Go as of Expo SDK 53+. Use the dev client workflow above for push testing.
+
+### Android Dev Client All-in-One
+
+#### Windows
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm android:sdk:windows
+pnpm dev:all:dev-client:windows
+```
+
+#### Linux / macOS
+
+```bash
+cd /path/to/field-service
+export ANDROID_HOME="$HOME/Android/Sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+pnpm dev:all:dev-client:posix
+```
+
+This starts web, starts Metro in dev client mode, then builds and launches the native Android app over USB.
 
 **Demo Credentials:**
 
@@ -270,6 +379,38 @@ cat apps/mobile/eas.json
 # Run with verbose logging
 eas build --platform all --profile development --verbose
 ```
+
+### "Failed to resolve the Android SDK path"
+
+#### Windows
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm android:sdk:windows
+```
+
+Then restart PowerShell and retry `pnpm mobile:dev-client:android:usb`.
+
+#### Linux / macOS
+
+Verify `ANDROID_HOME` / `ANDROID_SDK_ROOT` and that the SDK contains `platform-tools` and `platforms`.
+
+### "`adb` is not recognized"
+
+#### Windows
+
+Run:
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm android:sdk:windows
+```
+
+If `adb` still fails in a new shell, verify that `%ANDROID_HOME%\platform-tools` exists.
+
+#### Linux / macOS
+
+Add `$ANDROID_HOME/platform-tools` to your `PATH` and reload the shell.
 
 ## 📚 Additional Resources
 

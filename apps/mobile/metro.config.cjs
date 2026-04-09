@@ -4,16 +4,46 @@ const { withNativeWind } = require("nativewind/metro");
 const path = require("node:path");
 
 const projectRoot = __dirname;
+const appNodeModules = path.resolve(projectRoot, "node_modules");
+const workspaceNodeModules = path.resolve(projectRoot, "..", "..", "node_modules");
 const webidlShimPath = path.resolve(projectRoot, "shims", "webidl-conversions", "index.js");
+const forcedModulePaths = new Map([
+  ["react", require.resolve("react", { paths: [appNodeModules] })],
+  ["react/jsx-runtime", require.resolve("react/jsx-runtime", { paths: [appNodeModules] })],
+  ["react/jsx-dev-runtime", require.resolve("react/jsx-dev-runtime", { paths: [appNodeModules] })],
+  ["react-native", require.resolve("react-native", { paths: [appNodeModules] })],
+  ["scheduler", require.resolve("scheduler", { paths: [appNodeModules] })],
+  ["expo", require.resolve("expo", { paths: [appNodeModules] })],
+  ["expo-router", require.resolve("expo-router", { paths: [appNodeModules] })],
+  ["@expo/metro-runtime", require.resolve("@expo/metro-runtime", { paths: [appNodeModules] })],
+]);
 
-const config = getDefaultConfig(projectRoot);
+const config = getDefaultConfig(projectRoot, { isCSSEnabled: false });
 const defaultResolveRequest = config.resolver.resolveRequest;
+config.resolver.disableHierarchicalLookup = true;
+config.resolver.nodeModulesPaths = [appNodeModules, workspaceNodeModules];
 
 config.resolver.extraNodeModules = {
+  react: path.resolve(appNodeModules, "react"),
+  "react/jsx-runtime": path.resolve(appNodeModules, "react/jsx-runtime.js"),
+  "react/jsx-dev-runtime": path.resolve(appNodeModules, "react/jsx-dev-runtime.js"),
+  "react-native": path.resolve(appNodeModules, "react-native"),
+  scheduler: path.resolve(appNodeModules, "scheduler"),
+  expo: path.resolve(appNodeModules, "expo"),
+  "expo-router": path.resolve(appNodeModules, "expo-router"),
+  "@expo/metro-runtime": path.resolve(appNodeModules, "@expo/metro-runtime"),
   "webidl-conversions": path.resolve(projectRoot, "shims/webidl-conversions"),
 };
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const forcedModulePath = forcedModulePaths.get(moduleName);
+  if (forcedModulePath) {
+    return {
+      filePath: forcedModulePath,
+      type: "sourceFile",
+    };
+  }
+
   if (moduleName === "webidl-conversions" || moduleName.startsWith("webidl-conversions/")) {
     return {
       filePath: webidlShimPath,
@@ -29,6 +59,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 module.exports = withNativeWind(config, {
-  input: "./global.css",
-  configPath: "./tailwind.config.cjs",
+  input: path.resolve(projectRoot, "global.css"),
+  configPath: path.resolve(projectRoot, "tailwind.config.cjs"),
+  projectRoot,
 });

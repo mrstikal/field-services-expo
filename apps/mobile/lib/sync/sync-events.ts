@@ -1,4 +1,5 @@
 import { getDatabase } from '@/lib/db/local-database';
+import { generateId } from '@/lib/utils/generate-id';
 
 export type SyncEventListener = () => void;
 
@@ -29,7 +30,7 @@ export async function enqueueSyncChange(change: {
     `INSERT INTO sync_queue (id, type, action, entity_id, data, version, status, retry_count, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?)`,
     [
-      crypto.randomUUID(),
+      generateId(),
       change.type,
       change.action,
       change.entityId,
@@ -82,7 +83,7 @@ export async function recordSyncConflict(conflict: {
     `INSERT INTO sync_conflicts (id, entity_type, entity_id, local_data, server_data, resolution, created_at, resolved_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      crypto.randomUUID(),
+      generateId(),
       conflict.entityType,
       conflict.entityId,
       JSON.stringify(conflict.localData),

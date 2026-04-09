@@ -11,9 +11,12 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 const mobileDir = path.join(projectRoot, "apps", "mobile");
 const port = 8081;
+const enableDevClient = process.argv.includes("--dev-client");
 
 function warnIgnoredArgs(argv) {
-  const args = argv.slice(2).filter((arg) => arg !== "--");
+  const args = argv
+    .slice(2)
+    .filter((arg) => arg !== "--" && arg !== "--dev-client");
 
   if (args.length > 0) {
     console.warn(
@@ -176,9 +179,23 @@ try {
 }
 
 const isWindows = process.platform === "win32";
-const pnpmArgs = ["exec", "expo", "start", "--localhost", "--port", String(port), "--clear"];
+const pnpmArgs = [
+  "exec",
+  "expo",
+  "start",
+  "--localhost",
+  "--port",
+  String(port),
+  "--clear",
+];
 
-console.log(`[mobile:metro:usb] Starting Expo Metro on port ${port}`);
+if (enableDevClient) {
+  pnpmArgs.push("--dev-client");
+}
+
+console.log(
+  `[mobile:metro:usb] Starting Expo Metro on port ${port}${enableDevClient ? " in dev client mode" : ""}`
+);
 
 const child = spawn(
   "pnpm",

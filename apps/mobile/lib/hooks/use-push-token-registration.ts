@@ -1,15 +1,7 @@
 import { useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 function isMissingExpoPushTokenColumnError(
   error: { code?: string; message?: string } | null
@@ -25,6 +17,34 @@ function isMissingExpoPushTokenColumnError(
   );
 }
 
+function isUnsupportedExpoGoPushEnvironment() {
+  return (
+    Platform.OS === 'android' &&
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+  );
+}
+
+let notificationsConfigured = false;
+
+async function loadNotificationsModule() {
+  const Notifications = await import('expo-notifications');
+
+  if (!notificationsConfigured) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+
+    notificationsConfigured = true;
+  }
+
+  return Notifications;
+}
+
 export function usePushTokenRegistration(userId: string | undefined) {
   const lastRegisteredTokenRef = useRef<string | null>(null);
 
@@ -37,6 +57,14 @@ export function usePushTokenRegistration(userId: string | undefined) {
 
     void (async () => {
       try {
+        if (isUnsupportedExpoGoPushEnvironment()) {
+          console.info(
+            'Skipping push token registration because Android remote notifications are not available in Expo Go.'
+          );
+          return;
+        }
+
+        const Notifications = await loadNotificationsModule();
         const existingPermission = await Notifications.getPermissionsAsync();
         let finalStatus = existingPermission.status;
 

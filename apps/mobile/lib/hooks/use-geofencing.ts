@@ -124,6 +124,15 @@ export function useGeofencing(): UseGeofencingReturn {
         return;
       }
 
+      const isTaskManagerAvailable = await TaskManager.isAvailableAsync();
+      if (!isTaskManagerAvailable) {
+        console.info(
+          'Skipping native geofencing because TaskManager is not available in this build.'
+        );
+        setIsNativeGeofencing(false);
+        return;
+      }
+
       const started = await Location.hasStartedGeofencingAsync(
         GEOFENCE_TASK_NAME
       );
@@ -171,6 +180,22 @@ export function useGeofencing(): UseGeofencingReturn {
       await Location.startGeofencingAsync(GEOFENCE_TASK_NAME, regions);
       setIsNativeGeofencing(true);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'Unknown error');
+
+      if (
+        message.includes('hasStartedGeofencingAsync') ||
+        message.includes('startGeofencingAsync') ||
+        message.includes('not available') ||
+        message.includes('unavailable')
+      ) {
+        console.warn(
+          'Skipping native geofencing because it is not available in the current Android build.'
+        );
+        setIsNativeGeofencing(false);
+        return;
+      }
+
       console.error('Native geofencing setup failed:', error);
       setIsNativeGeofencing(false);
     }

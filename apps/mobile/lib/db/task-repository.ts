@@ -12,6 +12,7 @@ import {
   emitSyncEvent,
   recordSyncConflict,
 } from '@/lib/sync/sync-events';
+import { generateId } from '@/lib/utils/generate-id';
 
 interface TaskRow extends Omit<LocalTask, 'latitude' | 'longitude'> {
   latitude: number | null;
@@ -120,7 +121,7 @@ export class TaskRepository {
   async create(task: NewTaskInput): Promise<LocalTask> {
     const now = new Date().toISOString();
     const newTask: LocalTask = {
-      id: task.id || crypto.randomUUID(),
+      id: task.id || generateId(),
       title: task.title,
       description: task.description,
       address: task.address,

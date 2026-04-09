@@ -8,17 +8,16 @@ export function ServerUnavailableBanner() {
     useServerAvailability();
   const insets = useSafeAreaInsets();
   const [bannerHeight, setBannerHeight] = useState(0);
-
-  if (isChecking || isAvailable !== false) {
-    return null;
-  }
-
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const nextHeight = Math.ceil(event.nativeEvent.layout.height);
     setBannerHeight(currentHeight =>
       currentHeight === nextHeight ? currentHeight : nextHeight
     );
   }, []);
+
+  if (isChecking || isAvailable !== false) {
+    return null;
+  }
 
   const checkedAtLabel = checkedAt
     ? new Date(checkedAt).toLocaleTimeString([], {

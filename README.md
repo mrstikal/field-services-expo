@@ -65,6 +65,13 @@ pnpm dev:all          # Start web + mobile Metro from repo root
 pnpm --filter field-service-web dev     # Start only the web app
 pnpm --filter field-service-mobile dev  # Start only the mobile Expo dev server
 pnpm mobile:metro:usb # Start mobile Metro for USB Android workflow
+pnpm mobile:metro:dev-client:usb # Start Metro for Android dev client over USB
+pnpm android:usb      # Detect adb and set adb reverse for ports 8081/3000
+pnpm android:sdk:windows # Persist ANDROID_HOME / ANDROID_SDK_ROOT on Windows
+pnpm mobile:android:usb # Build and run the Android app over USB
+pnpm mobile:dev-client:android:usb # Build and run Android dev client over USB
+pnpm dev:all:dev-client:windows # Windows: web + Metro + Android dev client build
+pnpm dev:all:dev-client:posix   # Linux/macOS: web + Metro + Android dev client build
 pnpm build            # Build all apps
 pnpm lint             # Run ESLint
 pnpm typecheck        # Run TypeScript type checking
@@ -84,6 +91,28 @@ pnpm approve-builds   # Approve build scripts for dependencies
 
 For detailed setup instructions, see [SETUP.md](./docs/SETUP.md).  
 For daily development on Windows + Android USB, see [DAILY_RUN.md](./docs/DAILY_RUN.md).
+
+### Android USB Development
+
+#### Windows
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm android:sdk:windows
+pnpm dev:all:dev-client:windows
+```
+
+#### Linux / macOS
+
+```bash
+cd /path/to/field-service
+export ANDROID_HOME="$HOME/Android/Sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+pnpm dev:all:dev-client:posix
+```
+
+Use Expo Go only for non-push workflows. Remote push notifications on Android require the dev client or another native build.
 
 ## 📚 Documentation
 

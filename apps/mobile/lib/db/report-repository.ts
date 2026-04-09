@@ -11,6 +11,7 @@ import {
   emitSyncEvent,
   recordSyncConflict,
 } from '@/lib/sync/sync-events';
+import { generateId } from '@/lib/utils/generate-id';
 
 interface ReportRow extends Omit<LocalReport, 'photos' | 'form_data'> {
   photos: string;
@@ -115,7 +116,7 @@ export class ReportRepository {
   async create(report: NewReportInput): Promise<LocalReport> {
     const now = new Date().toISOString();
     const newReport: LocalReport = {
-      id: report.id || crypto.randomUUID(),
+      id: report.id || generateId(),
       task_id: report.task_id,
       status: report.status ?? 'draft',
       photos: report.photos ?? [],

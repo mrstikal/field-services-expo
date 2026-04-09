@@ -200,6 +200,15 @@ export function useLocationTracking(): UseLocationTrackingReturn {
   }, []);
 
   const startBackgroundTracking = useCallback(async () => {
+    const isTaskManagerAvailable = await TaskManager.isAvailableAsync();
+    if (!isTaskManagerAvailable) {
+      console.info(
+        'Skipping background location tracking because TaskManager is not available in this build.'
+      );
+      setIsBackgroundTracking(false);
+      return;
+    }
+
     if (!hasPermission) {
       const granted = await checkPermissions();
       if (!granted) {
@@ -232,7 +241,24 @@ export function useLocationTracking(): UseLocationTrackingReturn {
       }
       setIsBackgroundTracking(true);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error ?? 'Unknown error');
+
+      if (
+        message.includes('hasStartedLocationUpdatesAsync') ||
+        message.includes('startLocationUpdatesAsync') ||
+        message.includes('not available') ||
+        message.includes('unavailable')
+      ) {
+        console.warn(
+          'Skipping background location tracking because it is not available in the current Android build.'
+        );
+        setIsBackgroundTracking(false);
+        return;
+      }
+
       console.error('Error starting background tracking:', error);
+      setIsBackgroundTracking(false);
     }
   }, [hasPermission, checkPermissions, requestBackgroundPermissions]);
 

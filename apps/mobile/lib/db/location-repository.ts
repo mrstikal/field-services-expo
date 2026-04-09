@@ -6,6 +6,7 @@ import {
   enqueueSyncChange,
   emitSyncEvent,
 } from '@/lib/sync/sync-events';
+import { generateId } from '@/lib/utils/generate-id';
 
 export class LocationRepository {
   private db: SQLiteDatabase | null = null;
@@ -27,7 +28,7 @@ export class LocationRepository {
     const createdAt = new Date().toISOString();
     const location: Location = {
       ...input,
-      id: input.id || crypto.randomUUID(),
+      id: input.id || generateId(),
       created_at: createdAt,
     };
 

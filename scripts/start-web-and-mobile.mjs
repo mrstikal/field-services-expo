@@ -13,6 +13,18 @@ const webDir = path.join(projectRoot, 'apps', 'web');
 const isWindows = process.platform === 'win32';
 const metroPort = 8081;
 const webPort = 3000;
+const args = new Set(process.argv.slice(2));
+const enableDevClient = args.has('--dev-client');
+const enableAndroidBuild = args.has('--android-build');
+const targetOs = (() => {
+  if (args.has('--windows')) {
+    return 'windows';
+  }
+  if (args.has('--posix')) {
+    return 'posix';
+  }
+  return null;
+})();
 
 const children = [];
 let isShuttingDown = false;
@@ -312,7 +324,21 @@ function resolveAdbPath() {
   return 'adb';
 }
 
+function validateTargetOs() {
+  if (targetOs === 'windows' && !isWindows) {
+    throw new Error('This all-in-one command is for Windows only. Use the Linux/macOS variant on this OS.');
+  }
+
+  if (targetOs === 'posix' && isWindows) {
+    throw new Error('This all-in-one command is for Linux/macOS only. Use the Windows variant on this OS.');
+  }
+}
+
 async function setupUsbBridgeAndLaunchApp() {
+  if (enableDevClient) {
+    return;
+  }
+
   const adb = resolveAdbPath();
 
   try {
@@ -378,6 +404,39 @@ async function setupUsbBridgeAndLaunchApp() {
   }
 
   console.log('[dev:all] Expo Go launched over USB with clean state.');
+}
+
+async function buildAndroidDevClient() {
+  console.log('[dev:all] Building and launching Android dev client over USB');
+
+  const command = isWindows ? process.env.ComSpec || 'cmd.exe' : 'pnpm';
+  const commandArgs = isWindows
+    ? ['/d', '/s', '/c', 'pnpm', 'mobile:dev-client:android:usb']
+    : ['mobile:dev-client:android:usb'];
+
+  const result = await new Promise((resolve, reject) => {
+    const child = spawn(command, commandArgs, {
+      cwd: projectRoot,
+      stdio: 'inherit',
+      shell: false,
+      env: process.env,
+    });
+
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      resolve({ code: code ?? 0, signal });
+    });
+  });
+
+  if (result.signal) {
+    throw new Error(`Android dev client build was interrupted by signal ${result.signal}.`);
+  }
+
+  if (result.code !== 0) {
+    throw new Error(`Android dev client build failed with exit code ${result.code}.`);
+  }
+
+  console.log('[dev:all] Android dev client build finished.');
 }
 
 function startProcess(name, args) {
@@ -450,13 +509,23 @@ process.on('SIGTERM', () => {
 });
 
 async function main() {
+  validateTargetOs();
   await ensureWebPortReady();
 
   startProcess('web', ['--filter', 'field-service-web', 'dev']);
-  startProcess('mobile', ['mobile:metro:usb']);
+  startProcess('mobile', [
+    enableDevClient ? 'mobile:metro:dev-client:usb' : 'mobile:metro:usb',
+  ]);
 
-  setupUsbBridgeAndLaunchApp().catch((error) => {
+  const postStartTask = enableAndroidBuild
+    ? buildAndroidDevClient
+    : setupUsbBridgeAndLaunchApp;
+
+  postStartTask().catch((error) => {
     console.warn(`[dev:all] USB setup skipped: ${error.message}`);
+    if (enableAndroidBuild) {
+      void shutdown(1);
+    }
   });
 }
 
@@ -464,4 +533,3 @@ main().catch((error) => {
   console.error(`[dev:all] ${error.message}`);
   void shutdown(1);
 });
-

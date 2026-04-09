@@ -1,2 +1,3 @@
 import 'whatwg-fetch';
-import 'expo-router/entry';
+import './bootstrap-globals';
+import 'expo-router/entry-classic';
