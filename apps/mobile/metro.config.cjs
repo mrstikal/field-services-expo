@@ -2,6 +2,7 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 const path = require("node:path");
+const toPosixPath = (value) => value.replace(/\\/g, "/");
 
 const projectRoot = __dirname;
 const appNodeModules = path.resolve(projectRoot, "node_modules");
@@ -48,7 +49,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 };
 
 module.exports = withNativeWind(config, {
-  input: path.resolve(projectRoot, "global.css"),
-  configPath: path.resolve(projectRoot, "tailwind.config.cjs"),
-  projectRoot,
+  // NativeWind cache import path must be POSIX-like on Windows.
+  input: toPosixPath(path.resolve(projectRoot, "global.css")),
+  configPath: toPosixPath(path.resolve(projectRoot, "tailwind.config.cjs")),
+  projectRoot: toPosixPath(projectRoot),
 });

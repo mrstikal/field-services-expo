@@ -83,7 +83,7 @@ This script:
 - seeds demo tasks, reports, parts, and locations
 - ensures `pdf_url` and tombstone columns exist
 
-`pnpm demo:reset` is the recommended path for Supabase-backed development because it keeps `auth.users.id` and `public.users.id` aligned.
+`pnpm demo:reset` is the recommended path for Supabase-backed development because it keeps `auth.users.id` and `public.users.id` aligned. When `adb` sees a connected Android device or emulator, it also clears local app data for `cz.fieldservice.app` and Expo Go so the mobile SQLite cache does not keep stale demo records.
 
 ## 5. Local Seed Only
 

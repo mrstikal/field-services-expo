@@ -17,7 +17,29 @@ import { authenticatedFetch } from '@/lib/authenticated-fetch';
 
 const ITEMS_PER_PAGE = 20;
 
-type TaskFilter = 'all' | TaskStatus;
+type TaskFilter = 'all' | TaskStatus | 'overdue' | 'archived';
+
+const taskFilterOptions  = [
+  'all',
+  'assigned',
+  'in_progress',
+  'completed',
+  'overdue',
+  'archived',
+] as const satisfies readonly TaskFilter[];
+
+const getFilterLabel = (filter: TaskFilter) => {
+  switch (filter) {
+    case 'all':
+      return 'All';
+    case 'overdue':
+      return 'Overdue';
+    case 'archived':
+      return 'Archived';
+    default:
+      return `${filter.replace('_', ' ')}`;
+  }
+};
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -47,6 +69,18 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const getDueDateColor = (dueDate: string): string => {
+  if (!dueDate) {
+    return 'text-gray-600';
+  }
+  const due = new Date(dueDate);
+  const now = new Date();
+  if (isNaN(due.getTime()) || due <= now) {
+    return 'text-gray-600';
+  }
+  return 'text-red-600 font-semibold';
+};
+
 async function fetchTasks(
   filter: TaskFilter,
   page: number
@@ -56,7 +90,11 @@ async function fetchTasks(
     pageSize: String(ITEMS_PER_PAGE),
   });
 
-  if (filter !== 'all') {
+  if (filter === 'overdue') {
+    params.set('overdue', 'true');
+  } else if (filter === 'archived') {
+    params.set('archived', 'true');
+  } else if (filter !== 'all') {
     params.set('status', filter);
   }
 
@@ -70,6 +108,14 @@ async function fetchTasks(
   }
 
   return payload as TaskListResponse;
+}
+
+async function readJsonResponse(response: Response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 export default function TasksPage() {
@@ -159,9 +205,13 @@ export default function TasksPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = await response.json();
+      const result = await readJsonResponse(response);
       if (!response.ok) {
-        alert(result.error ?? 'Failed to create task.');
+        const errorMessage =
+          result && typeof result === 'object' && 'error' in result
+            ? String(result.error)
+            : 'Failed to create task.';
+        alert(errorMessage);
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -171,27 +221,72 @@ export default function TasksPage() {
     }
   };
 
-  const handleEditTask = async (payload: TaskCreateInput) => {
-    if (!editingTask) return;
-
+  const handleEditTask = async (taskId: string, payload: TaskCreateInput) => {
     setLoading(true);
     try {
-      const response = await authenticatedFetch(
-        `/api/tasks/${editingTask.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
-      const result = await response.json();
+      const response = await authenticatedFetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await readJsonResponse(response);
       if (!response.ok) {
-        alert(result.error ?? 'Failed to update task.');
+        const errorMessage =
+          result && typeof result === 'object' && 'error' in result
+            ? String(result.error)
+            : 'Failed to update task.';
+        alert(errorMessage);
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ['tasks'] });
       setDialogOpen(false);
       setEditingTask(undefined);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleArchiveTask = async (taskId: string) => {
+    setLoading(true);
+    try {
+      const response = await authenticatedFetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const result = await readJsonResponse(response);
+        const errorMessage =
+          result && typeof result === 'object' && 'error' in result
+            ? String(result.error)
+            : 'Failed to archive task.';
+        alert(errorMessage);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestoreTask = async (taskId: string) => {
+    setLoading(true);
+    try {
+      const response = await authenticatedFetch(`/api/tasks/${taskId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deleted_at: null }),
+        }
+      );
+      if (!response.ok) {
+        const result = await readJsonResponse(response);
+        const errorMessage =
+          result && typeof result === 'object' && 'error' in result
+            ? String(result.error)
+            : 'Failed to restore task.';
+        alert(errorMessage);
+        return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
     } finally {
       setLoading(false);
     }
@@ -218,8 +313,7 @@ export default function TasksPage() {
       </div>
 
       <div className="mb-6 flex gap-2">
-        {(['all', 'assigned', 'in_progress', 'completed'] as const).map(
-          status => (
+        {taskFilterOptions.map(status => (
             <button
               className={`rounded-lg px-4 py-2 font-medium transition-colors ${
                 filter === status
@@ -233,23 +327,14 @@ export default function TasksPage() {
               }}
               type="button"
             >
-              {status === 'all'
-                ? 'All Tasks'
-                : status.replace('_', ' ').charAt(0).toUpperCase() +
-                  status.slice(1).replace('_', ' ')}
+              {getFilterLabel(status)}
             </button>
-          )
-        )}
+          ))}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            {filter === 'all'
-              ? 'All Tasks'
-              : `${filter.replace('_', ' ')} Tasks`}{' '}
-            ({totalCount})
-          </CardTitle>
+          <CardTitle>{getFilterLabel(filter)} ({totalCount})</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -268,6 +353,9 @@ export default function TasksPage() {
                     <tr className="border-b border-gray-200">
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">
                         Title
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Due To
                       </th>
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">
                         Customer
@@ -304,11 +392,18 @@ export default function TasksPage() {
                               {task.description.substring(0, 50)}...
                             </p>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {task.customer_name}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <p className={getDueDateColor(task.due_date ?? '')}>
+                              {task.due_date 
+                                ? new Date(task.due_date).toLocaleDateString('cs-CZ') 
+                                : 'No due date'}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {task.customer_name}
                             </p>
                             <p className="text-sm text-gray-500">
                               {task.customer_phone}
@@ -336,16 +431,35 @@ export default function TasksPage() {
                           {task.estimated_time} min
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                            onClick={() => {
-                              setEditingTask(task);
-                              setDialogOpen(true);
-                            }}
-                            type="button"
-                          >
-                            Edit
-                          </button>
+                          {task.deleted_at ? (
+                            <button
+                              className="text-sm font-medium text-green-600 hover:text-green-800"
+                              onClick={() => handleRestoreTask(task.id)}
+                              type="button"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <span className="flex items-center">
+                              <button
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800"
+                                onClick={() => {
+                                  setEditingTask(task);
+                                  setDialogOpen(true);
+                                }}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="ml-2 text-sm font-medium text-red-600 hover:text-red-800"
+                                onClick={() => handleArchiveTask(task.id)}
+                                type="button"
+                              >
+                                Archive
+                              </button>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -393,7 +507,11 @@ export default function TasksPage() {
           clearEditTaskQueryParam();
         }}
         onOpenChange={setDialogOpen}
-        onSubmit={editingTask ? handleEditTask : handleCreateTask}
+        onSubmit={
+          editingTask
+            ? payload => handleEditTask(editingTask.id, payload)
+            : handleCreateTask
+        }
         open={dialogOpen}
         task={editingTask}
       />

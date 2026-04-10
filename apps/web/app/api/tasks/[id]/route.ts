@@ -35,12 +35,13 @@ function isMissingExpoPushTokenColumnError(
 
 async function loadTask(
   supabase: Awaited<ReturnType<typeof requireRequestUser>>['supabase'],
-  id: string
+  id: string,
+  includeDeleted: boolean = false
 ) {
   const buildQuery = (withDeletedAtFilter: boolean) => {
     let query = supabase.from('tasks').select('*').eq('id', id);
 
-    if (withDeletedAtFilter) {
+    if (withDeletedAtFilter && !includeDeleted) {
       query = query.is('deleted_at', null);
     }
 
@@ -164,8 +165,12 @@ export async function GET(
     }
 
     const task = await loadTask(supabase, id);
-    if (!task || task.deleted_at) {
+    if (!task) {
       return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
+    }
+
+    if (task.deleted_at) {
+      return NextResponse.json({ error: 'Task is archived.' }, { status: 410 });
     }
 
     return NextResponse.json(task);
@@ -200,6 +205,7 @@ export async function PUT(
 
     const parsedBody = taskUpdateInputSchema.safeParse(await request.json());
     if (!parsedBody.success) {
+      logApiError('tasks:update:validation', parsedBody.error.flatten()); // Add detailed logging for validation errors
       return NextResponse.json(
         { error: 'Invalid task payload.', details: parsedBody.error.flatten() },
         { status: 400 }
@@ -244,18 +250,77 @@ export async function PUT(
     return NextResponse.json(data);
   } catch (error) {
     logApiError('tasks:update', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
     return NextResponse.json(
-      { error: 'Unable to update task.' },
-      { status: 400 }
+      { error: `Unable to update task: ${errorMessage}` },
+      { status: 500 } // Changed to 500 for unexpected server errors
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  return PUT(request, context);
+  try {
+    const { supabase, response } = await requireDispatcherAccess(request);
+    if (response) {
+      return response;
+    }
+
+    const { id } = await params;
+    if (!id) {
+      return invalidIdResponse();
+    }
+
+    const existingTask = await loadTask(supabase, id, true); // Load even deleted tasks
+    if (!existingTask) {
+      return NextResponse.json({ error: 'Task not found.' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    if (body.deleted_at === null) {
+      const now = new Date().toISOString();
+      const restorePayload = {
+        deleted_at: null,
+        updated_at: now,
+        version: Number(existingTask.version ?? 0) + 1,
+      };
+
+      const buildRestoreQuery = (withDeletedAtFilter: boolean) => {
+        let query = supabase.from('tasks').update(restorePayload).eq('id', id);
+
+        if (withDeletedAtFilter) {
+          query = query.not('deleted_at', 'is', null); // Only restore if it was deleted
+        }
+
+        return query.select('*').single();
+      };
+
+      let { data, error } = await buildRestoreQuery(true);
+      if (isMissingDeletedAtColumnError(error)) {
+        ({ data, error } = await buildRestoreQuery(false));
+      }
+
+      if (error) {
+        throw error;
+      }
+
+      return NextResponse.json(data);
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid PATCH payload. Only deleted_at: null is supported.' },
+        { status: 400 }
+      );
+    }
+  } catch (error) {
+    logApiError('tasks:patch', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return NextResponse.json(
+      { error: `Unable to update task: ${errorMessage}` },
+      { status: 500 }
+    );
+  }
 }
 
 export async function DELETE(

@@ -311,6 +311,17 @@ export async function POST(request: NextRequest) {
               .single();
             if (error) throw error;
 
+            const { error: presenceError } = await supabase
+              .from('users')
+              .update({
+                is_online: true,
+                last_location_lat: parsedLocation.data.latitude,
+                last_location_lng: parsedLocation.data.longitude,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', parsedLocation.data.technician_id);
+            if (presenceError) throw presenceError;
+
             results.success++;
             results.itemResults.push({
               id: change.id,

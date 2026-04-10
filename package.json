@@ -5,6 +5,7 @@
   "scripts": {
     "build": "turbo build",
     "dev:all": "node ./scripts/start-web-and-mobile.mjs",
+    "dev:all:wifi": "node ./scripts/start-web-and-mobile-wifi.mjs",
     "lint": "eslint apps/web apps/mobile packages/db packages/shared-types",
     "lint:turbo": "turbo lint",
     "typecheck": "turbo typecheck && tsc --noEmit --project tsconfig.e2e.json",
@@ -12,7 +13,7 @@
     "db:migrate": "pnpm --filter @field-service/db migrate",
     "db:seed": "pnpm --filter @field-service/db db:seed",
     "approve-builds": "pnpm approve-builds --global sharp sqlite3 better-sqlite3 esbuild supabase unrs-resolver",
-    "demo:reset": "node ./scripts/reset-supabase.mjs",
+    "demo:reset": "node ./scripts/reset-demo.mjs",
     "android:usb": "node ./scripts/setup-android-usb.mjs",
     "android:sdk:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/set-android-sdk-env.windows.ps1",
     "mobile:metro:usb": "node ./scripts/start-mobile-metro-usb.mjs",
@@ -55,11 +56,11 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-native": "^5.0.0",
     "prettier": "^3.3.3",
+    "qrcode-terminal": "^0.12.0",
     "react-native-web": "^0.21.2",
     "react-test-renderer": "19.1.0",
     "turbo": "^2.9.4",
     "typescript": "~5.9.2"
   },
-  "packageManager": "pnpm@10.28.1",
-  "dependencies": {}
+  "packageManager": "pnpm@10.28.1"
 }

@@ -81,7 +81,9 @@ export function useOfflineSync() {
 
   const prevIsOnlineRef = useRef(false);
   const lastSyncErrorAtRef = useRef(0);
+  const lastPendingAutoSyncAtRef = useRef(0);
   const SYNC_ERROR_COOLDOWN_MS = 60_000;
+  const PENDING_AUTO_SYNC_COOLDOWN_MS = 10_000;
 
   const refreshStatus = useCallback(async () => {
     if (!user) return;
@@ -166,6 +168,26 @@ export function useOfflineSync() {
 
     return () => clearTimeout(timeoutId);
   }, [isOnline, performFullSync, user]);
+
+  useEffect(() => {
+    if (!user || !isOnline || syncState.isSyncing || syncState.pendingItems <= 0) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastPendingAutoSyncAtRef.current < PENDING_AUTO_SYNC_COOLDOWN_MS) {
+      return;
+    }
+
+    lastPendingAutoSyncAtRef.current = now;
+    performFullSync();
+  }, [
+    isOnline,
+    performFullSync,
+    syncState.isSyncing,
+    syncState.pendingItems,
+    user,
+  ]);
 
   const sync = useCallback(async () => {
     if (!user) return;

@@ -1,8 +1,21 @@
-# Daily Run (Web + Mobile USB)
+# Daily Run (Web + Mobile: Wi-Fi or USB)
 
-Quick daily startup flow for Windows, Linux, and macOS with an Android phone connected over USB.
+Quick daily startup flow for Windows, Linux, and macOS.
 
-Use one of these mobile modes:
+## 0) Scenario -> Command
+
+| Scenario | Command (repo root) | Notes |
+| --- | --- | --- |
+| Same network (fastest setup) | `pnpm dev:all:wifi` | Recommended. Opens via Expo Go over LAN. |
+| No shared Wi-Fi / no Wi-Fi on computer | `pnpm dev:all` | USB fallback with `adb reverse`. |
+| Native-only checks (push notifications, dev client) | `pnpm dev:all:dev-client:windows` (Windows) / `pnpm dev:all:dev-client:posix` (Linux/macOS) | Uses Android dev client instead of Expo Go. |
+
+Choose one connection mode first:
+
+- `Wi-Fi (recommended for demos)`: phone and computer are on the same Wi-Fi.
+- `USB (fallback)`: use when the computer has no Wi-Fi, or phone/computer cannot be put on the same Wi-Fi.
+
+Then choose one mobile runtime mode:
 
 - `Expo Go`: acceptable for non-push development only.
 - `Dev Client`: required for Android remote push notifications and other native-only checks.
@@ -11,9 +24,13 @@ For stable Android mobile E2E on an emulator, prefer `pnpm run test:e2e:mobile:e
 
 ## 1) Prerequisites
 
-- Android `USB debugging` is enabled.
-- `adb devices` shows the device as `device`.
-- `apps/mobile/.env.local` contains `EXPO_PUBLIC_API_URL=http://localhost:3000`.
+- `apps/mobile/.env.local` exists.
+- For Wi-Fi mode:
+  - phone and computer are on the same local network.
+  - avoid guest Wi-Fi / AP isolation.
+- For USB mode:
+  - Android `USB debugging` is enabled.
+  - `adb devices` shows the device as `device`.
 
 ### Windows
 
@@ -29,28 +46,72 @@ For stable Android mobile E2E on an emulator, prefer `pnpm run test:e2e:mobile:e
 - For Expo Go, install Expo Go on the phone.
 - For native testing, the dev client app will be installed by `pnpm mobile:dev-client:android:usb`.
 
-## 2) Web (terminal 1)
+## 2) Quick Start (choose one)
 
-### Quick combined start from repo root
+### A) Wi-Fi + Expo Go (recommended for recruiter demos)
+
+From repo root:
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm dev:all:wifi
+```
+
+What this does:
+
+- stops stale listeners on ports `8080` and `8081`.
+- starts web (`apps/web`) on port `3000`.
+- starts mobile Metro in Expo Go LAN mode on `8081`.
+- auto-detects LAN IP and sets mobile API URL to `http://<LAN_IP>:3000`.
+- prints a direct `exp://...` QR in terminal.
+
+Important:
+
+- In Expo Go, scan the QR printed by `dev:all:wifi` (`Direct Expo Go URL`).
+- Do not scan with system camera/Chrome.
+
+### B) USB (fallback when Wi-Fi is not possible)
+
+From repo root:
 
 ```powershell
 Set-Location "F:\expo\field-service"
 pnpm dev:all
 ```
 
-- Starts both:
-  - web (`apps/web`) on `http://localhost:3000`
-  - mobile Metro on `http://127.0.0.1:8081`
-- If a stale `field-service-web` dev server from a previous run is still holding `3000`, `pnpm dev:all` releases it before starting a fresh one.
-- If port `3000` is occupied by some other process, `pnpm dev:all` stops immediately and prints the owning PID/command instead of silently switching the web app to another port.
-- On Windows, it also attempts to:
-  - detect `adb`
-  - run `adb reverse` for ports `8081` and `3000`
-  - open Expo Go with `exp://127.0.0.1:8081`
-- If no Android device is connected, Metro and web still start normally.
-- After `Ctrl+C`, a new `pnpm dev:all` run should come back on the same ports without any manual cleanup.
+This keeps web on `3000`, Metro on `8081`, and configures `adb reverse` for `3000/8081`.
 
-### Quick combined dev client start
+## 3) Manual start (if quick start fails)
+
+### Wi-Fi mode (Expo Go)
+
+Terminal 1 (web):
+
+```powershell
+Set-Location "F:\expo\field-service\apps\web"
+pnpm exec next dev --hostname 0.0.0.0 --port 3000
+```
+
+Terminal 2 (mobile Metro):
+
+```powershell
+Set-Location "F:\expo\field-service\apps\mobile"
+$env:REACT_NATIVE_PACKAGER_HOSTNAME="<LAN_IP>"
+$env:EXPO_DEVTOOLS_LISTEN_ADDRESS="0.0.0.0"
+$env:EXPO_PUBLIC_API_URL="http://<LAN_IP>:3000"
+pnpm exec expo start --go --host lan --port 8081 --clear
+```
+
+### USB mode (Expo Go)
+
+Terminal 1:
+
+```powershell
+Set-Location "F:\expo\field-service"
+pnpm dev:all
+```
+
+### USB mode (Dev Client)
 
 #### Windows
 
@@ -59,11 +120,6 @@ Set-Location "F:\expo\field-service"
 pnpm android:sdk:windows
 pnpm dev:all:dev-client:windows
 ```
-
-- Starts web on `3000`.
-- Starts Metro in `--dev-client` mode on `8081`.
-- Builds and installs the Android dev client over USB.
-- Keeps web + Metro running after the native build finishes.
 
 #### Linux / macOS
 
@@ -75,47 +131,7 @@ export PATH="$ANDROID_HOME/platform-tools:$PATH"
 pnpm dev:all:dev-client:posix
 ```
 
-- Same flow as Windows, but expects Android SDK and `adb` to already be configured in the shell.
-
-### Windows (PowerShell)
-
-```powershell
-Set-Location "F:\expo\field-service\apps\web"
-pnpm dev
-```
-
-### Linux / macOS (bash/zsh)
-
-```bash
-cd /path/to/field-service/apps/web
-pnpm dev
-```
-
-- Web runs on `http://localhost:3000` when the port is free.
-
-## 3) Mobile Metro (terminal 2)
-
-### Expo Go: Windows / Linux / macOS
-
-```bash
-cd /path/to/field-service
-pnpm mobile:metro:usb
-```
-
-- The script always starts Metro on `8081` and, if needed, stops the process currently using that port first.
-- The script starts Expo with `CI=1`, so it fails fast instead of hanging on prompts such as `Fix dependencies?`.
-
-### Dev Client: Windows / Linux / macOS
-
-```bash
-cd /path/to/field-service
-pnpm mobile:metro:dev-client:usb
-```
-
-- This uses `expo start --dev-client --localhost --port 8081 --clear`.
-- Use this mode when testing Android remote push notifications.
-
-## 4) USB bridge + open app (terminal 3)
+## 4) USB bridge + open app (manual fallback)
 
 ### Expo Go
 
@@ -170,9 +186,10 @@ adb shell monkey -p cz.fieldservice.app -c android.intent.category.LAUNCHER 1
 
 - Expo Go mode: mobile app opens in Expo Go without errors.
 - Dev client mode: the native `cz.fieldservice.app` app opens and connects to Metro.
-- Web is available at `http://localhost:3000`.
+- Web is available at `http://localhost:3000` on the computer.
 - Login flow does not show bundler/runtime errors.
-- If the web/API server is unavailable, the mobile app shows a warning banner with the current server status and hints about `pnpm --filter field-service-web dev` and `adb reverse tcp:3000 tcp:3000`.
+- In Wi-Fi mode, mobile app reaches API via `http://<LAN_IP>:3000`.
+- In USB mode, mobile app reaches API via `http://localhost:3000` through `adb reverse`.
 
 ## 6) Common issues
 
@@ -194,6 +211,15 @@ $adb = (Get-ChildItem "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Google.Platfo
 & $adb reverse tcp:8081 tcp:8081
 & $adb shell am start -a android.intent.action.VIEW -d "exp://127.0.0.1:8081" host.exp.exponent
 ```
+
+### `Web is not running or is unreachable from the mobile app`
+
+- In Wi-Fi mode:
+  - verify web is running on `3000`.
+  - verify phone and computer are on the same subnet.
+  - rerun `pnpm dev:all:wifi` so mobile API URL is re-injected as `http://<LAN_IP>:3000`.
+- In USB mode:
+  - rerun `adb reverse tcp:3000 tcp:3000`.
 
 ### `Failed to resolve the Android SDK path`
 

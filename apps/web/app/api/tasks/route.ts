@@ -18,6 +18,19 @@ function parsePositiveInt(value: string | null, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function parseBooleanFilter(value: string | null) {
+  if (value === null) {
+    return { value: false, isValid: true };
+  }
+  if (value === 'true') {
+    return { value: true, isValid: true };
+  }
+  if (value === 'false') {
+    return { value: false, isValid: true };
+  }
+  return { value: false, isValid: false };
+}
+
 function isMissingDeletedAtColumnError(
   error: { code?: string; message?: string } | null
 ) {
@@ -30,6 +43,17 @@ function isMissingDeletedAtColumnError(
     (error.code === 'PGRST204' && error.message?.includes('deleted_at')) ===
       true
   );
+}
+
+function isOverdueTask(task: { due_date?: string; status?: string }) {
+  if (!task.due_date || task.status === 'completed') {
+    return false;
+  }
+  const dueTimestamp = new Date(task.due_date).getTime();
+  if (!Number.isFinite(dueTimestamp)) {
+    return false;
+  }
+  return dueTimestamp < Date.now();
 }
 
 export async function GET(request: NextRequest) {
@@ -54,6 +78,10 @@ export async function GET(request: NextRequest) {
     const parsedStatus = statusParam
       ? taskStatusSchema.safeParse(statusParam)
       : null;
+    const overdueParam = request.nextUrl.searchParams.get('overdue');
+    const parsedOverdue = parseBooleanFilter(overdueParam);
+    const archivedParam = request.nextUrl.searchParams.get('archived');
+    const parsedArchived = parseBooleanFilter(archivedParam);
 
     if (statusParam && !parsedStatus?.success) {
       return NextResponse.json(
@@ -61,11 +89,26 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!parsedOverdue.isValid) {
+      return NextResponse.json(
+        { error: 'Invalid overdue filter. Use true or false.' },
+        { status: 400 }
+      );
+    }
+    if (!parsedArchived.isValid) {
+      return NextResponse.json(
+        { error: 'Invalid archived filter. Use true or false.' },
+        { status: 400 }
+      );
+    }
 
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const buildQuery = (withDeletedAtFilter: boolean) => {
+    const buildQuery = (
+      withDeletedAtFilter: boolean,
+      showArchived: boolean
+    ) => {
       let query = supabase
         .from('tasks')
         .select('*', { count: 'exact' })
@@ -73,7 +116,11 @@ export async function GET(request: NextRequest) {
         .range(from, to);
 
       if (withDeletedAtFilter) {
-        query = query.is('deleted_at', null);
+        if (showArchived) {
+          query = query.not('deleted_at', 'is', null);
+        } else {
+          query = query.is('deleted_at', null);
+        }
       }
 
       if (parsedStatus?.success) {
@@ -83,9 +130,63 @@ export async function GET(request: NextRequest) {
       return query;
     };
 
-    let { data, count, error: tasksError } = await buildQuery(true);
-    if (isMissingDeletedAtColumnError(tasksError)) {
-      ({ data, count, error: tasksError } = await buildQuery(false));
+    const buildOverdueBaseQuery = (
+      withDeletedAtFilter: boolean,
+      showArchived: boolean
+    ) => {
+      let query = supabase
+        .from('tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (withDeletedAtFilter) {
+        if (showArchived) {
+          query = query.not('deleted_at', 'is', null);
+        } else {
+          query = query.is('deleted_at', null);
+        }
+      }
+
+      if (parsedStatus?.success) {
+        query = query.eq('status', parsedStatus.data);
+      } else {
+        query = query.neq('status', 'completed');
+      }
+
+      return query;
+    };
+
+    let data: unknown[] | null = null;
+    let count: number | null = null;
+    let tasksError: { code?: string; message?: string } | null = null;
+
+    if (parsedOverdue.value) {
+      let overdueQueryResult = await buildOverdueBaseQuery(
+        true,
+        parsedArchived.value
+      );
+      if (isMissingDeletedAtColumnError(overdueQueryResult.error)) {
+        overdueQueryResult = await buildOverdueBaseQuery(
+          false,
+          parsedArchived.value
+        );
+      }
+      tasksError = overdueQueryResult.error;
+      if (!tasksError) {
+        const filteredTasks = (
+          (overdueQueryResult.data ?? []) as TaskListResponse['data']
+        ).filter(isOverdueTask);
+        count = filteredTasks.length;
+        data = filteredTasks.slice(from, to + 1);
+      }
+    } else {
+      let pagedQueryResult = await buildQuery(true, parsedArchived.value);
+      if (isMissingDeletedAtColumnError(pagedQueryResult.error)) {
+        pagedQueryResult = await buildQuery(false, parsedArchived.value);
+      }
+      data = pagedQueryResult.data;
+      count = pagedQueryResult.count;
+      tasksError = pagedQueryResult.error;
     }
 
     if (tasksError) {

@@ -34,6 +34,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-font",
       "expo-sqlite",
       "expo-camera",
       "expo-location",

@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { Home, ClipboardList, Users } from 'lucide-react';
+import { Home, ClipboardList, Users, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-provider';
@@ -30,6 +30,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { href: '/dashboard', label: 'Overview', icon: Home },
     { href: '/dashboard/tasks', label: 'Tasks', icon: ClipboardList },
     { href: '/dashboard/technicians', label: 'Technicians', icon: Users },
+    { href: '/dashboard/reports', label: 'Reports', icon: BarChart3 },
   ];
 
   if (isLoading || !user) {

@@ -7,13 +7,19 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const env = process.env.EXPO_PUBLIC_ENV || 'development';
-  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
-  const easExtra = easProjectId ? { eas: { projectId: easProjectId } } : {};
+  const easProjectIdFromEnv = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  const easProjectIdFromConfig =
+    typeof config.extra?.eas?.projectId === 'string' ? config.extra.eas.projectId : undefined;
+  const resolveProjectId = [easProjectIdFromEnv, easProjectIdFromConfig].find(
+    projectId => projectId && !projectId.includes('YOUR_EAS_PROJECT_ID')
+  );
+  const shouldUseEasUpdates = env === 'production' && Boolean(resolveProjectId);
+  const easExtra = shouldUseEasUpdates && resolveProjectId ? { eas: { projectId: resolveProjectId } } : {};
+  const { eas: _ignoredEasExtra, ...extraWithoutEas } = config.extra ?? {};
   const configuredPlugins = (config.plugins || []).filter(plugin => {
     if (typeof plugin === 'string') {
       return ![
         'expo-dev-client',
-        'expo-notifications',
         'expo-location',
         'expo-task-manager',
       ].includes(plugin);
@@ -22,7 +28,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     if (Array.isArray(plugin) && typeof plugin[0] === 'string') {
       return ![
         'expo-dev-client',
-        'expo-notifications',
         'expo-location',
         'expo-task-manager',
       ].includes(plugin[0]);
@@ -30,19 +35,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
     return true;
   });
-  const updatesConfig = easProjectId
+  const updatesConfig = shouldUseEasUpdates && resolveProjectId
     ? {
         ...config.updates,
-        url: `https://u.expo.dev/${easProjectId}`,
+        url: `https://u.expo.dev/${resolveProjectId}`,
       }
-    : config.updates;
+    : undefined;
 
   return {
     ...config,
     name: config.name || 'field-service-mobile',
     slug: config.slug || 'field-service-mobile',
     extra: {
-      ...config.extra,
+      ...extraWithoutEas,
       router: {
         origin: false,
       },
@@ -50,6 +55,11 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       env,
     },
     updates: updatesConfig,
+    runtimeVersion: shouldUseEasUpdates
+      ? config.runtimeVersion ?? {
+          policy: 'appVersion',
+        }
+      : undefined,
     plugins: [
       ...configuredPlugins,
       [
@@ -66,7 +76,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
       'expo-task-manager',
       'expo-dev-client',
-      'expo-notifications',
     ],
     android: {
       ...config.android,

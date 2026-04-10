@@ -56,7 +56,7 @@ pnpm dev:all
 | Technician | technik4@demo.cz    | demo123  |
 | Technician | technik5@demo.cz    | demo123  |
 
-> **Note:** `pnpm demo:reset` creates or updates the Supabase Auth demo users and aligns `public.users.id` with `auth.users.id`.
+> **Note:** `pnpm demo:reset` creates or updates the Supabase Auth demo users, aligns `public.users.id` with `auth.users.id`, and when an Android device/emulator is connected via `adb`, also clears the mobile app's local app data so stale SQLite cache does not survive the reset.
 
 ### Available Commands
 
@@ -85,7 +85,7 @@ pnpm run test:e2e:full # Run mobile Maestro + web Playwright E2E
 pnpm run test:all     # Run unit + integration + default E2E
 pnpm format           # Format code with Prettier
 pnpm db:seed          # Seed database with demo data
-pnpm demo:reset       # Reset Supabase database with demo data
+pnpm demo:reset       # Reset Supabase demo data and clear connected Android app cache
 pnpm approve-builds   # Approve build scripts for dependencies
 ```
 

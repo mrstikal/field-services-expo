@@ -2,6 +2,18 @@
 
 import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  Gauge,
+  ListTodo,
+  MapPinned,
+  RadioTower,
+  Users,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapViewErrorBoundary } from '@/components/map-view-error-boundary';
@@ -95,6 +107,12 @@ export default function DashboardPage() {
     inProgressTasks: tasks.filter((t: Task) => t.status === 'in_progress')
       .length,
     completedTasks: tasks.filter((t: Task) => t.status === 'completed').length,
+    overdueTasks: tasks.filter(
+      (t: Task) =>
+        t.status !== 'completed' &&
+        !t.deleted_at &&
+        new Date(t.due_date).getTime() < Date.now()
+    ).length,
     onlineTechnicians: technicians.filter((t: DashboardTechnician) => t.is_online)
       .length,
     totalTechnicians: technicians.length,
@@ -108,9 +126,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-3">
+            <ClipboardList className="h-5 w-5 text-gray-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               Total Tasks
             </CardTitle>
@@ -125,6 +144,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-3">
+            <ListTodo className="h-5 w-5 text-blue-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               Assigned Tasks
             </CardTitle>
@@ -139,6 +159,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-3">
+            <Clock3 className="h-5 w-5 text-orange-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               In Progress
             </CardTitle>
@@ -155,6 +176,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               Completed Tasks
             </CardTitle>
@@ -169,13 +191,29 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-3">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Overdue Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">
+              {stats.overdueTasks}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">Past due date</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <Users className="h-5 w-5 text-green-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               Online Technicians
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">
-              {stats.onlineTechnicians}/{stats.totalTechnicians}
+            <div className="text-3xl font-bold text-gray-400">
+              <span className="text-green-600">{stats.onlineTechnicians}</span>/{stats.totalTechnicians}
             </div>
             <p className="text-xs text-gray-500 mt-2">Available technicians</p>
           </CardContent>
@@ -183,6 +221,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-3">
+            <Gauge className="h-5 w-5 text-blue-600" />
             <CardTitle className="text-sm font-medium text-gray-600">
               Completion Rate
             </CardTitle>
@@ -203,6 +242,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
+            <BarChart3 className="h-5 w-5 text-muted-foreground" />
             <CardTitle>Task Distribution</CardTitle>
           </CardHeader>
           <CardContent>
@@ -267,12 +307,33 @@ export default function DashboardPage() {
                   </span>
                 </div>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Overdue</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-red-600"
+                      style={{
+                        width: `${
+                          stats.totalTasks > 0
+                            ? (stats.overdueTasks / stats.totalTasks) * 100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">
+                    {stats.overdueTasks}
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
+            <RadioTower className="h-5 w-5 text-muted-foreground" />
             <CardTitle>Technician Status</CardTitle>
           </CardHeader>
           <CardContent>
@@ -303,6 +364,7 @@ export default function DashboardPage() {
       {/* Map View */}
       <Card className="mt-6">
         <CardHeader>
+          <MapPinned className="h-5 w-5 text-muted-foreground" />
           <CardTitle>Technicians Map</CardTitle>
         </CardHeader>
         <CardContent>
