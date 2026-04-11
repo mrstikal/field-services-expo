@@ -4,9 +4,13 @@ import {
   type BusinessRole,
   locationRecordSchema,
   reportRecordSchema,
+  taskPrioritySchema,
+  taskStatusSchema,
+  taskCategorySchema,
   syncPushRequestSchema,
   taskRecordSchema,
 } from '@field-service/shared-types';
+import { z } from 'zod';
 import { logApiError } from '@/lib/api-errors';
 import { checkRateLimit } from '@/lib/api-rate-limit';
 import { requireBearerUser } from '@/lib/server-supabase';
@@ -20,6 +24,27 @@ function getBearerToken(request: NextRequest) {
   return authHeader.slice(7);
 }
 
+const taskUpdatePayloadSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().trim().min(1).max(5000),
+    address: z.string().trim().min(1).max(500),
+    latitude: z.number().finite().nullable(),
+    longitude: z.number().finite().nullable(),
+    status: taskStatusSchema,
+    priority: taskPrioritySchema,
+    category: taskCategorySchema,
+    due_date: z.string().trim().min(1),
+    customer_name: z.string().trim().min(1).max(200),
+    customer_phone: z.string().trim().min(1).max(50),
+    estimated_time: z.number().int().min(0).max(24 * 60),
+    technician_id: z.string().uuid().nullable(),
+    updated_at: z.string().trim().min(1),
+    deleted_at: z.string().trim().min(1).nullable(),
+    version: z.number().int().min(1),
+  })
+  .partial();
+
 function parseTaskPayload(
   action: 'create' | 'update' | 'delete',
   data: Record<string, unknown>
@@ -28,6 +53,9 @@ function parseTaskPayload(
     return taskRecordSchema
       .pick({ id: true, deleted_at: true, updated_at: true, version: true })
       .safeParse(data);
+  }
+  if (action === 'update') {
+    return taskUpdatePayloadSchema.safeParse(data);
   }
   return taskRecordSchema.safeParse(data);
 }
@@ -120,7 +148,14 @@ export async function POST(request: NextRequest) {
           case 'task': {
             const parsedTask = parseTaskPayload(change.action, change.data);
             if (!parsedTask.success) {
-              throw new Error('Invalid task payload.');
+              const issuePath = parsedTask.error.issues[0]?.path?.join('.') || '';
+              const issueMessage = parsedTask.error.issues[0]?.message || '';
+              const details = [issuePath, issueMessage].filter(Boolean).join(': ');
+              throw new Error(
+                details
+                  ? `Invalid task payload (${details}).`
+                  : 'Invalid task payload.'
+              );
             }
 
             const { data: existingTask, error: existingTaskError } =
@@ -165,6 +200,25 @@ export async function POST(request: NextRequest) {
                   updated_at: parsedTask.data.updated_at,
                   version: parsedTask.data.version,
                 })
+                .eq('id', change.entityId)
+                .select('*')
+                .single();
+              if (error) throw error;
+              taskRecord = data;
+            } else if (change.action === 'update') {
+              if (!existingTask) {
+                throw new Error('Task not found for update.');
+              }
+
+              const { id: _ignoredId, ...taskUpdateData } =
+                parsedTask.data as Record<string, unknown>;
+              if (Object.keys(taskUpdateData).length === 0) {
+                throw new Error('Invalid task payload (no update fields).');
+              }
+
+              const { data, error } = await supabase
+                .from('tasks')
+                .update(taskUpdateData)
                 .eq('id', change.entityId)
                 .select('*')
                 .single();

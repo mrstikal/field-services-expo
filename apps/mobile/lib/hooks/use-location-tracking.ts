@@ -219,10 +219,10 @@ export function useLocationTracking(): UseLocationTrackingReturn {
 
     const bgResponse = await requestBackgroundPermissions();
     if (bgResponse.status !== 'granted') {
-      Alert.alert(
-        'Background Permission Required',
-        'Background location permission is required for tracking'
+      console.info(
+        'Background location permission was not granted. Continuing with foreground tracking only.'
       );
+      setIsBackgroundTracking(false);
       return;
     }
 

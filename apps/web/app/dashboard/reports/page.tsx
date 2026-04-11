@@ -60,6 +60,9 @@ export default function ReportsPage() {
       }
       return data || [];
     },
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const getStatusBadge = (status: string) => {

@@ -12,7 +12,12 @@ vi.mock('@/lib/sync/sync-engine', () => {
     pullSync: vi.fn(),
     pushSync: vi.fn(),
     getStatus: vi.fn(() =>
-      Promise.resolve({ lastSync: null, pendingItems: 0 })
+      Promise.resolve({
+        lastSync: null,
+        pendingItems: 0,
+        failedItems: 0,
+        latestFailedError: null,
+      })
     ),
     cleanupSyncQueue: vi.fn(),
     retryFailedSyncItems: vi.fn(),
@@ -80,6 +85,8 @@ describe('useOfflineSync', () => {
     mockSyncEngine.getStatus.mockResolvedValue({
       lastSync: null,
       pendingItems: 0,
+      failedItems: 0,
+      latestFailedError: null,
     });
 
     (useNetworkStatus as Mock).mockReturnValue({ status: 'online' });
@@ -255,6 +262,8 @@ describe('useOfflineSync', () => {
       const mockStatus = {
         lastSync: '2025-01-01T00:00:00.000Z',
         pendingItems: 5,
+        failedItems: 0,
+        latestFailedError: null,
       };
       mockSyncEngine.getStatus.mockResolvedValue(mockStatus);
 

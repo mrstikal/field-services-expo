@@ -136,6 +136,9 @@ export default function TasksPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['tasks', filter, page],
     queryFn: () => fetchTasks(filter, page),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const tasks = data?.data ?? [];

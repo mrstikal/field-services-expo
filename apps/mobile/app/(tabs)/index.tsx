@@ -51,8 +51,6 @@ export default function HomeScreen() {
     requestPermissions,
     startTracking,
     stopTracking,
-    startBackgroundTracking,
-    stopBackgroundTracking,
   } = useLocationTracking();
   const { currentTask, isNearTask, updateLocation, setTrackedTasks } =
     useGeofencing();
@@ -120,7 +118,6 @@ export default function HomeScreen() {
       const permission = await requestPermissions();
       if (permission.status === 'granted') {
         await startTracking();
-        await startBackgroundTracking();
       }
     };
 
@@ -128,15 +125,8 @@ export default function HomeScreen() {
 
     return () => {
       stopTracking();
-      void stopBackgroundTracking();
     };
-  }, [
-    requestPermissions,
-    startTracking,
-    stopTracking,
-    startBackgroundTracking,
-    stopBackgroundTracking,
-  ]);
+  }, [requestPermissions, startTracking, stopTracking]);
 
   useEffect(() => {
     if (location) {

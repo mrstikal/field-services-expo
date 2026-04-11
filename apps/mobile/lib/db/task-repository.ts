@@ -216,9 +216,13 @@ export class TaskRepository {
     const existing = await this.getById(id, { includeDeleted: true });
     if (!existing || existing.deleted_at) return null;
 
+    const sanitizedUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined)
+    ) as Partial<LocalTask>;
+
     const updated: LocalTask = {
       ...existing,
-      ...updates,
+      ...sanitizedUpdates,
       updated_at: new Date().toISOString(),
       version: existing.version + 1,
       synced: 0,
@@ -226,11 +230,18 @@ export class TaskRepository {
     };
 
     await this.writeLocalTask(updated);
+    const syncPayload: Record<string, unknown> = {
+      id,
+      ...sanitizedUpdates,
+      updated_at: updated.updated_at,
+      version: updated.version,
+      deleted_at: updated.deleted_at,
+    };
     await enqueueSyncChange({
       type: 'task',
       action: 'update',
       entityId: id,
-      data: updated,
+      data: syncPayload,
       version: updated.version,
     });
     return updated;

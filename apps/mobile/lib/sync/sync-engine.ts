@@ -442,14 +442,31 @@ export class SyncEngine {
   async getStatus(): Promise<{
     lastSync: string | null;
     pendingItems: number;
+    failedItems: number;
+    latestFailedError: string | null;
   }> {
     const lastSync = await taskRepository.getLastSyncTimestamp();
     const db = getDatabase();
-    const result = await db.getFirstAsync<{ count: number }>(
+    const pendingResult = await db.getFirstAsync<{ count: number }>(
       'SELECT COUNT(*) as count FROM sync_queue WHERE status = ?',
       ['pending']
     );
-    return { lastSync, pendingItems: result?.count || 0 };
+    const failedResult = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM sync_queue WHERE status = ?',
+      ['failed']
+    );
+    const latestFailed = await db.getFirstAsync<{ error: string | null }>(
+      `SELECT error FROM sync_queue
+       WHERE status = 'failed'
+       ORDER BY updated_at DESC
+       LIMIT 1`
+    );
+    return {
+      lastSync,
+      pendingItems: pendingResult?.count || 0,
+      failedItems: failedResult?.count || 0,
+      latestFailedError: latestFailed?.error ?? null,
+    };
   }
 
   async cleanupSyncQueue(

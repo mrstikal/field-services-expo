@@ -29,6 +29,7 @@ function createTabOptions(
 export default function TabsLayout() {
   const { user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
+  const bannerReservedHeight = insets.top + 10;
   usePushTokenRegistration(user?.id);
 
   if (isLoading) {
@@ -57,6 +58,7 @@ export default function TabsLayout() {
   return (
     <View style={{ flex: 1 }}>
       <OfflineBanner />
+      <View pointerEvents="none" style={{ height: bannerReservedHeight }} />
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: '#1e40af',

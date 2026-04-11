@@ -12,6 +12,8 @@ export interface SyncState {
   isSyncing: boolean;
   lastSync: string | null;
   pendingItems: number;
+  failedItems: number;
+  latestFailedError: string | null;
   lastPull: {
     tasks: number;
     reports: number;
@@ -75,6 +77,8 @@ export function useOfflineSync() {
     isSyncing: false,
     lastSync: null,
     pendingItems: 0,
+    failedItems: 0,
+    latestFailedError: null,
     lastPull: null,
     lastPush: null,
   });
@@ -82,8 +86,10 @@ export function useOfflineSync() {
   const prevIsOnlineRef = useRef(false);
   const lastSyncErrorAtRef = useRef(0);
   const lastPendingAutoSyncAtRef = useRef(0);
+  const lastFailedAutoRetryAtRef = useRef(0);
   const SYNC_ERROR_COOLDOWN_MS = 60_000;
   const PENDING_AUTO_SYNC_COOLDOWN_MS = 10_000;
+  const FAILED_AUTO_RETRY_COOLDOWN_MS = 20_000;
 
   const refreshStatus = useCallback(async () => {
     if (!user) return;
@@ -92,6 +98,8 @@ export function useOfflineSync() {
       ...prev,
       lastSync: currentStatus.lastSync,
       pendingItems: currentStatus.pendingItems,
+      failedItems: currentStatus.failedItems,
+      latestFailedError: currentStatus.latestFailedError,
     }));
   }, [user]);
 
@@ -144,11 +152,22 @@ export function useOfflineSync() {
     globalSyncEngine.initialize().then(refreshStatus);
 
     const unsubscribe = subscribeToSyncEvents(() => {
-      refreshStatus();
+      void (async () => {
+        await refreshStatus();
+
+        if (!isOnline || globalSyncEngine.isSyncInProgress()) {
+          return;
+        }
+
+        const status = await globalSyncEngine.getStatus();
+        if (status.pendingItems > 0 || status.failedItems > 0) {
+          await performFullSync();
+        }
+      })();
     });
 
     return unsubscribe;
-  }, [refreshStatus, user]);
+  }, [isOnline, performFullSync, refreshStatus, user]);
 
   useEffect(() => {
     const wentOnline = isOnline && !prevIsOnlineRef.current;
@@ -186,6 +205,31 @@ export function useOfflineSync() {
     performFullSync,
     syncState.isSyncing,
     syncState.pendingItems,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (!user || !isOnline || syncState.isSyncing || syncState.failedItems <= 0) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastFailedAutoRetryAtRef.current < FAILED_AUTO_RETRY_COOLDOWN_MS) {
+      return;
+    }
+
+    lastFailedAutoRetryAtRef.current = now;
+    void (async () => {
+      await globalSyncEngine.retryFailedSyncItems(Number.POSITIVE_INFINITY);
+      await refreshStatus();
+      await performFullSync();
+    })();
+  }, [
+    isOnline,
+    performFullSync,
+    refreshStatus,
+    syncState.failedItems,
+    syncState.isSyncing,
     user,
   ]);
 
@@ -280,6 +324,8 @@ export function useOfflineSync() {
     isSyncing: syncState.isSyncing,
     lastSync: syncState.lastSync,
     pendingItems: syncState.pendingItems,
+    failedItems: syncState.failedItems,
+    latestFailedError: syncState.latestFailedError,
     lastPull: syncState.lastPull,
     lastPush: syncState.lastPush,
     sync,

@@ -22,7 +22,15 @@ interface OfflineBannerProps {
 export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   const insets = useSafeAreaInsets();
   const { status } = useNetworkStatus();
-  const { isSyncing, sync, pendingItems, lastSync } = useOfflineSync();
+  const {
+    isSyncing,
+    sync,
+    pendingItems,
+    failedItems,
+    latestFailedError,
+    lastSync,
+    retryFailedSyncItems,
+  } = useOfflineSync();
   const isOffline = useIsOffline();
 
   const pulseAnim = useRef(new Animated.Value(0.5)).current;
@@ -48,8 +56,8 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
     }
   }, [isOffline, pulseAnim]);
 
-  // Don't show banner if online and no pending items
-  if (status === 'online' && pendingItems === 0) {
+  // Don't show banner if online and no queued issues.
+  if (status === 'online' && pendingItems === 0 && failedItems === 0) {
     return null;
   }
 
@@ -59,66 +67,104 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
     return date.toLocaleTimeString();
   };
 
+  const handleSyncPress = async () => {
+    if (failedItems > 0) {
+      await retryFailedSyncItems(Number.POSITIVE_INFINITY);
+    }
+    await sync();
+  };
+
   return (
     <View
-      className="flex-row items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3"
-      style={{ paddingTop: insets.top + 12 }}
-      testID="offline-banner"
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 999,
+        elevation: 999,
+      }}
     >
-      <View className="flex-1 flex-row items-center gap-2">
-        {isOffline ? (
-          <>
-            <Animated.View style={{ opacity: pulseAnim }}>
-              <Ionicons
-                color="#ef4444"
-                name="cloud-offline-outline"
-                size={20}
-              />
-            </Animated.View>
-            <Text
-              className="text-sm font-semibold text-slate-800"
-              testID="offline-banner-offline-text"
-            >
-              Offline
-            </Text>
-            <Text className="ml-1 text-xs text-slate-500">
-              Changes will sync when online
-            </Text>
-          </>
-        ) : (
-          <>
-            <Ionicons color="#10b981" name="wifi" size={20} />
-            <Text className="text-sm font-semibold text-slate-800">Online</Text>
-            <Text className="ml-1 text-xs text-slate-500">
-              Last sync: {formatLastSync(lastSync)}
-            </Text>
-          </>
-        )}
+      <View
+        className="border-b border-slate-200 bg-slate-50 px-4 py-3"
+        style={{ paddingTop: insets.top + 12 }}
+        testID="offline-banner"
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 flex-row items-center gap-2">
+            {isOffline ? (
+              <>
+                <Animated.View style={{ opacity: pulseAnim }}>
+                  <Ionicons
+                    color="#ef4444"
+                    name="cloud-offline-outline"
+                    size={20}
+                  />
+                </Animated.View>
+                <Text
+                  className="text-sm font-semibold text-slate-800"
+                  testID="offline-banner-offline-text"
+                >
+                  Offline
+                </Text>
+                <Text className="ml-1 text-xs text-slate-500">
+                  Changes will sync when online
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons color="#10b981" name="wifi" size={20} />
+                <Text className="text-sm font-semibold text-slate-800">
+                  Online
+                </Text>
+                <Text className="ml-1 text-xs text-slate-500">
+                  Last sync: {formatLastSync(lastSync)}
+                </Text>
+                {failedItems > 0 ? (
+                  <Text className="ml-2 text-xs font-semibold text-red-600">
+                    {failedItems} failed
+                  </Text>
+                ) : null}
+              </>
+            )}
 
-        {pendingItems > 0 && (
-          <View className="ml-2 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5">
-            <Text className="text-xs font-bold text-white">{pendingItems}</Text>
+            {pendingItems > 0 && (
+              <View className="ml-2 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5">
+                <Text className="text-xs font-bold text-white">
+                  {pendingItems}
+                </Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
 
-      {showSyncButton ? (
-        <TouchableOpacity
-          activeOpacity={0.7}
-          className="flex-row items-center gap-1 rounded bg-blue-800 px-3 py-1.5"
-          disabled={isSyncing}
-          onPress={sync}
-        >
-          {isSyncing ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <>
-              <Ionicons color="#fff" name="sync" size={16} />
-              <Text className="text-xs font-semibold text-white">Sync</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      ) : null}
+          {showSyncButton ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              className="flex-row items-center gap-1 rounded bg-blue-800 px-3 py-1.5"
+              disabled={isSyncing}
+              onPress={handleSyncPress}
+            >
+              {isSyncing ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons color="#fff" name="sync" size={16} />
+                  <Text className="text-xs font-semibold text-white">
+                    {failedItems > 0 ? 'Retry' : 'Sync'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {failedItems > 0 && latestFailedError ? (
+          <View className="mt-2">
+            <Text className="text-xs text-red-600">{latestFailedError}</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

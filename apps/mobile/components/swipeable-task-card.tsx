@@ -6,11 +6,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { taskRepository } from '@/lib/db/task-repository';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { getTaskSharedTransitionTag } from '@/lib/task-shared-transition';
 
@@ -186,16 +186,16 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
         })
         .onEnd(event => {
           if (event.translationX >= SWIPE_THRESHOLD) {
-            runOnJS(completeTask)();
+            scheduleOnRN(completeTask);
             return;
           }
 
           if (event.translationX <= -SWIPE_THRESHOLD) {
-            runOnJS(dismissTask)();
+            scheduleOnRN(dismissTask);
             return;
           }
 
-          runOnJS(resetCard)();
+          scheduleOnRN(resetCard);
         }),
     [completeTask, dismissTask, resetCard, translateX]
   );

@@ -22,7 +22,7 @@ export default function ProfileScreen() {
     <ScrollView className="flex-1 bg-slate-50">
       <View
         className="items-center border-b border-gray-200 bg-white px-4 py-6"
-        style={{ paddingTop: insets.top + 24 }}
+        style={{ paddingTop: insets.top + 10 }}
       >
         <View className="mb-4">
           <Ionicons color="#1e40af" name="person-circle" size={80} />

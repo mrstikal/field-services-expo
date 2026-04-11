@@ -25,9 +25,14 @@ vi.mock('react-native', () => ({
     flatten: (style: unknown) => style,
   },
   Animated: {
+    View: 'View',
     Value: vi.fn(() => ({
       interpolate: vi.fn(),
       setValue: vi.fn(),
+    })),
+    sequence: vi.fn(() => ({})),
+    loop: vi.fn(() => ({
+      start: vi.fn(),
     })),
     timing: vi.fn(() => ({
       start: vi.fn(),

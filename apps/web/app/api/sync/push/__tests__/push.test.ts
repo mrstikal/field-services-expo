@@ -623,6 +623,93 @@ describe('Push Sync API', () => {
     expect(taskQuery.upsert).not.toHaveBeenCalled();
   });
 
+  it('should use UPDATE (not UPSERT) for technician task status updates', async () => {
+    const userId = 'abababab-abab-4aba-8aba-abababababab';
+    const taskId = 'cdcdcdcd-cdcd-4cdc-8cdc-cdcdcdcdcdcd';
+    mockSupabaseAuth.getUser.mockResolvedValue({
+      data: { user: { id: userId } },
+      error: null,
+    } as never);
+
+    const changes = [
+      {
+        id: 'efefefef-efef-4efe-8efe-efefefefefef',
+        type: 'task',
+        action: 'update',
+        entityId: taskId,
+        data: {
+          id: taskId,
+          title: 'Updated task',
+          description: 'Task description',
+          address: 'Main street 4',
+          latitude: 50.3,
+          longitude: 14.6,
+          status: 'completed',
+          priority: 'medium',
+          category: 'repair',
+          due_date: '2026-04-09T10:00:00.000Z',
+          customer_name: 'Customer',
+          customer_phone: '+420123456789',
+          estimated_time: 45,
+          technician_id: userId,
+          created_at: '2026-04-09T09:00:00.000Z',
+          updated_at: '2026-04-09T09:45:00.000Z',
+          version: 2,
+          deleted_at: null,
+        },
+        version: 2,
+      },
+    ];
+
+    const userQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: userId, role: 'technician' },
+        error: null,
+      }),
+    };
+    const taskQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: taskId,
+          technician_id: userId,
+          version: 1,
+        },
+        error: null,
+      }),
+      update: vi.fn().mockReturnThis(),
+      upsert: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: taskId,
+          technician_id: userId,
+          status: 'completed',
+          version: 2,
+        },
+        error: null,
+      }),
+    };
+
+    mockSupabaseClient.from.mockImplementation(((table: string) => {
+      if (table === 'users') return userQuery as never;
+      if (table === 'tasks') return taskQuery as never;
+      throw new Error(`Unexpected table ${table}`);
+    }) as unknown as never);
+
+    const req = createRequest({ changes });
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.results.success).toBe(1);
+    expect(data.results.failed).toBe(0);
+    expect(taskQuery.update).toHaveBeenCalledTimes(1);
+    expect(taskQuery.upsert).not.toHaveBeenCalled();
+  });
+
   it('should block technician from creating report for task owned by another technician', async () => {
     const userId = '12121212-1212-4212-8212-121212121212';
     mockSupabaseAuth.getUser.mockResolvedValue({

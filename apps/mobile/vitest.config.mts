@@ -8,12 +8,25 @@ export default defineConfig({
     __DEV__: 'false',
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, '.'),
-      '@lib': path.resolve(__dirname, './lib'),
-      '@shared': path.resolve(__dirname, '../../packages/shared-types'),
-      'react-native': 'react-native-web',
-    },
+    alias: [
+      { find: /^@\//, replacement: `${path.resolve(__dirname, '.')}/` },
+      { find: /^@lib\//, replacement: `${path.resolve(__dirname, './lib')}/` },
+      {
+        find: /^@shared\//,
+        replacement: `${path.resolve(__dirname, '../../packages/shared-types')}/`,
+      },
+      { find: /^react-native$/, replacement: 'react-native-web' },
+    ],
+  },
+  ssr: {
+    noExternal: [
+      'react-native',
+      'react-native-web',
+      '@testing-library/react-native',
+      '@testing-library/react',
+      '@expo/vector-icons',
+      'react-test-renderer',
+    ],
   },
   test: {
     globals: true,
@@ -35,11 +48,12 @@ export default defineConfig({
     pool: 'forks',
     server: {
       deps: {
-          inline: [
-            /react-native-web/,
-            /@testing-library\/.*/,
-            /react-native-testing-library/,
-            /@react-native-community\/netinfo/,
+        inline: [
+          /react-native$/,
+          /react-native-web/,
+          /@testing-library\/.*/,
+          /react-native-testing-library/,
+          /@react-native-community\/netinfo/,
           /expo-.*/,
           /@expo\/.*/,
           /react-native-reanimated/,
