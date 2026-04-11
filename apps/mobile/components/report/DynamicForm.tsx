@@ -1,6 +1,11 @@
-import React, { useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, {
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+} from 'react';
 import { View, Alert } from 'react-native';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { FormTemplate } from '@field-service/shared-types';
 import {
@@ -19,10 +24,11 @@ interface DynamicFormProps {
   readonly template: FormTemplate;
   readonly onSubmit?: (data: ReportFormValues) => void;
   readonly defaultValues?: Record<string, unknown>;
+  readonly onValidationChange?: (isValid: boolean) => void;
 }
 
 export const DynamicForm = forwardRef<DynamicFormHandle, DynamicFormProps>(
-  ({ template, onSubmit, defaultValues }, ref) => {
+  ({ template, onSubmit, defaultValues, onValidationChange }, ref) => {
     const schema = useMemo(
       () => createReportSchema(template.categoryId),
       [template.categoryId]
@@ -77,6 +83,15 @@ export const DynamicForm = forwardRef<DynamicFormHandle, DynamicFormProps>(
     );
 
     const { control } = methods;
+    const watchedValues = useWatch({ control });
+
+    useEffect(() => {
+      if (!onValidationChange) {
+        return;
+      }
+      const isValid = schema.safeParse(watchedValues).success;
+      onValidationChange(isValid);
+    }, [onValidationChange, schema, watchedValues]);
 
     // Filter fields based on conditional logic
     const visibleFields = useMemo(() => {

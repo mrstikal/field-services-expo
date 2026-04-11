@@ -5,9 +5,12 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useCallback,
   ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import type { BusinessRole } from '@field-service/shared-types';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import {
   clearActiveUserSession,
@@ -15,6 +18,7 @@ import {
 } from './auth-session-cache';
 
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 8000;
+const TECHNICIANS_PRESENCE_CHANNEL = 'technicians-presence';
 
 interface User {
   id: string;
@@ -126,6 +130,84 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const lastResolvedUserRef = useRef<User | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const presenceChannelRef = useRef<RealtimeChannel | null>(null);
+
+  const stopPresenceTracking = useCallback(async () => {
+    const channel = presenceChannelRef.current;
+    if (!channel) {
+      return;
+    }
+
+    try {
+      await channel.untrack();
+    } catch (error) {
+      console.warn('Failed to untrack technician presence:', error);
+    } finally {
+      supabase.removeChannel(channel);
+      presenceChannelRef.current = null;
+    }
+  }, []);
+
+  const setTechnicianOnlineState = useCallback(
+    async (technicianId: string, isOnline: boolean) => {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            is_online: isOnline,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', technicianId);
+        if (error) {
+          throw error;
+        }
+      } catch (error) {
+        console.warn('Failed to update technician online state:', error);
+      }
+    },
+    []
+  );
+
+  const startPresenceTracking = useCallback(
+    async (currentUser: User) => {
+      if (
+        currentUser.role !== 'technician' ||
+        appStateRef.current !== 'active' ||
+        presenceChannelRef.current
+      ) {
+        return;
+      }
+
+      await setTechnicianOnlineState(currentUser.id, true);
+
+      const channel = supabase.channel(TECHNICIANS_PRESENCE_CHANNEL, {
+        config: {
+          presence: {
+            key: currentUser.id,
+          },
+        },
+      });
+
+      presenceChannelRef.current = channel;
+      channel.subscribe(async status => {
+        if (status !== 'SUBSCRIBED') {
+          return;
+        }
+
+        try {
+          await channel.track({
+            technician_id: currentUser.id,
+            app_state: appStateRef.current,
+            tracked_at: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.warn('Failed to track technician presence:', error);
+        }
+      });
+    },
+    [setTechnicianOnlineState]
+  );
 
   useEffect(() => {
     let active = true;
@@ -220,6 +302,39 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user || user.role !== 'technician') {
+      void stopPresenceTracking();
+      return;
+    }
+
+    if (appStateRef.current === 'active') {
+      void startPresenceTracking(user);
+    } else {
+      void stopPresenceTracking();
+    }
+
+    const subscription = AppState.addEventListener(
+      'change',
+      (nextState: AppStateStatus) => {
+        appStateRef.current = nextState;
+        if (nextState === 'active') {
+          void startPresenceTracking(user);
+          return;
+        }
+
+        void setTechnicianOnlineState(user.id, false);
+        void stopPresenceTracking();
+      }
+    );
+
+    return () => {
+      subscription.remove();
+      void setTechnicianOnlineState(user.id, false);
+      void stopPresenceTracking();
+    };
+  }, [user, setTechnicianOnlineState, startPresenceTracking, stopPresenceTracking]);
+
   const signIn = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -251,6 +366,10 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
   const signOut = async () => {
     setIsLoading(true);
     try {
+      if (user?.role === 'technician') {
+        await setTechnicianOnlineState(user.id, false);
+      }
+      await stopPresenceTracking();
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) throw error;
       setUser(null);

@@ -1,0 +1,26 @@
+appId: com.fieldservicemonorepo
+---
+- runFlow: login-technician.yaml
+- tapOn:
+    id: "tab-chat"
+- extendedWaitUntil:
+    visible:
+      id: "chat-screen"
+    timeout: 15000
+- assertVisible:
+    id: "chat-screen"
+- assertVisible: "Chat"
+- tapOn:
+    id: "chat-new-button"
+- assertVisible:
+    id: "chat-new-screen"
+- tapOn:
+    id: "chat-user-item"
+- assertVisible:
+    id: "chat-detail-screen"
+- tapOn:
+    id: "chat-message-input"
+- inputText: "Maestro E2E chat message"
+- tapOn:
+    id: "chat-send-button"
+- assertVisible: "Maestro E2E chat message"

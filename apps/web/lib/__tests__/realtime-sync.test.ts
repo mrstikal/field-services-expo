@@ -35,7 +35,9 @@ describe('RealtimeSyncService', () => {
     const callback = vi.fn();
     const subscription = service.subscribeToTasks(callback);
 
-    expect(supabase.channel).toHaveBeenCalledWith('tasks-changes');
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(/^tasks-changes-\d+$/)
+    );
     expect(subscription).toBeDefined();
     expect(typeof subscription.unsubscribe).toBe('function');
   });
@@ -45,14 +47,18 @@ describe('RealtimeSyncService', () => {
     const technicianId = 'tech-123';
     service.subscribeToTechnicianUpdates(technicianId, callback);
 
-    expect(supabase.channel).toHaveBeenCalledWith(`technician-${technicianId}`);
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^technician-${technicianId}-\\d+$`))
+    );
   });
 
   it('should subscribe to reports', () => {
     const callback = vi.fn();
     service.subscribeToReports(callback);
 
-    expect(supabase.channel).toHaveBeenCalledWith('reports-changes');
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(/^reports-changes-\d+$/)
+    );
   });
 
   it('should unsubscribe from a specific subscription', () => {

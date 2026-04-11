@@ -30,7 +30,14 @@ describe('Web Realtime Updates Integration', () => {
     const sub1 = service.subscribeToTasks(callback1);
     const sub2 = service.subscribeToTasks(callback2);
 
-    expect(supabase.channel).toHaveBeenCalledWith('tasks-changes');
+    expect(supabase.channel).toHaveBeenNthCalledWith(
+      1,
+      expect.stringMatching(/^tasks-changes-\d+$/)
+    );
+    expect(supabase.channel).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/^tasks-changes-\d+$/)
+    );
     expect(supabase.channel).toHaveBeenCalledTimes(2);
 
     sub1.unsubscribe();
@@ -43,7 +50,9 @@ describe('Web Realtime Updates Integration', () => {
 
     service.subscribeToTechnicianUpdates(technicianId, callback);
 
-    expect(supabase.channel).toHaveBeenCalledWith(`technician-${technicianId}`);
+    expect(supabase.channel).toHaveBeenCalledWith(
+      expect.stringMatching(new RegExp(`^technician-${technicianId}-\\d+$`))
+    );
     expect(mockChannel.on).toHaveBeenCalledWith(
       'postgres_changes',
       expect.objectContaining({

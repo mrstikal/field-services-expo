@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -17,6 +18,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MapViewErrorBoundary } from '@/components/map-view-error-boundary';
+import { realtimeSyncService } from '@/lib/realtime-sync';
 import type {
   Task,
   Technician as SharedTechnician,
@@ -31,6 +33,7 @@ export default function DashboardPage() {
     data: tasks = [],
     isLoading: tasksLoading,
     error: tasksError,
+    refetch: refetchTasks,
   } = useQuery({
     queryKey: ['tasks'],
     queryFn: async () => {
@@ -43,12 +46,16 @@ export default function DashboardPage() {
       }
       return data || [];
     },
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   const {
     data: technicians = [],
     isLoading: techLoading,
     error: techError,
+    refetch: refetchTechnicians,
   } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
@@ -64,7 +71,25 @@ export default function DashboardPage() {
       }
       return data || [];
     },
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
+  useEffect(() => {
+    const tasksSubscription = realtimeSyncService.subscribeToTasks(() => {
+      void refetchTasks();
+    });
+    const techniciansSubscription =
+      realtimeSyncService.subscribeToAllTechnicians(() => {
+        void refetchTechnicians();
+      });
+
+    return () => {
+      tasksSubscription.unsubscribe();
+      techniciansSubscription.unsubscribe();
+    };
+  }, [refetchTasks, refetchTechnicians]);
 
   if (tasksLoading || techLoading) {
     return (

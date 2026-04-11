@@ -28,6 +28,7 @@ export interface SyncState {
 }
 
 const globalSyncEngine = SyncEngine.getInstance();
+let lastPeriodicPullAt = 0;
 
 function logSyncFailure(scope: 'full' | 'pull' | 'push', error: unknown) {
   if (
@@ -146,6 +147,40 @@ export function useOfflineSync() {
     }
   }, [refreshStatus, user]);
 
+  const performPullSync = useCallback(async () => {
+    if (!user) return null;
+    if (!globalSyncEngine.beginSync()) return null;
+
+    setSyncState(prev => ({ ...prev, isSyncing: true, error: null }));
+
+    try {
+      const result = await globalSyncEngine.pullSync();
+      setSyncState(prev => ({
+        ...prev,
+        lastPull: result,
+        isSyncing: false,
+      }));
+      await refreshStatus();
+      return result;
+    } catch (error) {
+      logSyncFailure('pull', error);
+      setSyncState(prev => ({ ...prev, isSyncing: false }));
+      if (
+        error instanceof SyncAuthUnavailableError ||
+        (error instanceof Error && error.name === 'SyncAuthUnavailableError') ||
+        error instanceof SyncNetworkUnavailableError ||
+        (error instanceof Error &&
+          (error.name === 'SyncNetworkUnavailableError' ||
+            error.message.includes('Network request failed')))
+      ) {
+        return null;
+      }
+      throw error;
+    } finally {
+      globalSyncEngine.endSync();
+    }
+  }, [refreshStatus, user]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -233,37 +268,45 @@ export function useOfflineSync() {
     user,
   ]);
 
+  useEffect(() => {
+    if (
+      !user ||
+      !isOnline ||
+      syncState.isSyncing ||
+      syncState.pendingItems > 0 ||
+      syncState.failedItems > 0
+    ) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      const now = Date.now();
+      if (now - lastPeriodicPullAt < 15_000) {
+        return;
+      }
+
+      lastPeriodicPullAt = now;
+      void performPullSync();
+    }, 15_000);
+
+    return () => clearInterval(intervalId);
+  }, [
+    isOnline,
+    performPullSync,
+    syncState.failedItems,
+    syncState.isSyncing,
+    syncState.pendingItems,
+    user,
+  ]);
+
   const sync = useCallback(async () => {
     if (!user) return;
     return performFullSync();
   }, [performFullSync, user]);
 
   const pull = useCallback(async () => {
-    if (!user) return;
-
-    setSyncState(prev => ({ ...prev, isSyncing: true, error: null }));
-    try {
-      const result = await globalSyncEngine.pullSync();
-      setSyncState(prev => ({ ...prev, isSyncing: false, lastPull: result }));
-      await refreshStatus();
-      return result;
-    } catch (error) {
-      logSyncFailure('pull', error);
-      setSyncState(prev => ({ ...prev, isSyncing: false }));
-      // Do not re-throw network errors to avoid crashing the app during transition
-      if (
-        error instanceof SyncAuthUnavailableError ||
-        (error instanceof Error && error.name === 'SyncAuthUnavailableError') ||
-        error instanceof SyncNetworkUnavailableError ||
-        (error instanceof Error &&
-          (error.name === 'SyncNetworkUnavailableError' ||
-            error.message.includes('Network request failed')))
-      ) {
-        return null;
-      }
-      throw error;
-    }
-  }, [refreshStatus, user]);
+    return performPullSync();
+  }, [performPullSync]);
 
   const push = useCallback(async () => {
     if (!user) return;

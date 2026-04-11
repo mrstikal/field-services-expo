@@ -24,7 +24,14 @@ export type TaskCategory = z.infer<typeof taskCategorySchema>;
 export const reportStatusSchema = z.enum(['draft', 'completed', 'synced']);
 export type ReportStatus = z.infer<typeof reportStatusSchema>;
 
-export const syncEntityTypeSchema = z.enum(['task', 'report', 'location']);
+export const syncEntityTypeSchema = z.enum([
+  'task',
+  'report',
+  'location',
+  'conversation',
+  'message',
+  'message_read',
+]);
 export type SyncEntityType = z.infer<typeof syncEntityTypeSchema>;
 
 export const syncActionSchema = z.enum(['create', 'update', 'delete']);
@@ -123,6 +130,34 @@ export const locationRecordSchema = z.object({
   created_at: isoDateTimeSchema.optional(),
 });
 export type Location = z.infer<typeof locationRecordSchema>;
+
+export const conversationRecordSchema = z.object({
+  id: z.string().uuid(),
+  user1_id: z.string().uuid(),
+  user2_id: z.string().uuid(),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+});
+export type ConversationRecord = z.infer<typeof conversationRecordSchema>;
+
+export const messageRecordSchema = z.object({
+  id: z.string().uuid(),
+  conversation_id: z.string().uuid(),
+  sender_id: z.string().uuid(),
+  content: z.string().trim().min(1).max(1000),
+  sent_at: isoDateTimeSchema,
+  edited_at: nullableIsoDateTimeSchema.optional(),
+  deleted_at: nullableIsoDateTimeSchema.optional(),
+});
+export type MessageRecord = z.infer<typeof messageRecordSchema>;
+
+export const messageReadRecordSchema = z.object({
+  id: z.string().uuid(),
+  message_id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  read_at: isoDateTimeSchema,
+});
+export type MessageReadRecord = z.infer<typeof messageReadRecordSchema>;
 
 export const syncChangeSchema = z.object({
   id: z.string().uuid(),
@@ -254,3 +289,63 @@ export interface TaskListResponse {
   page: number;
   pageSize: number;
 }
+
+export interface Conversation {
+  id: string;
+  user1_id: string;
+  user2_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  sent_at: string;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+}
+
+export interface MessageRead {
+  id: string;
+  message_id: string;
+  user_id: string;
+  read_at: string;
+}
+
+export interface ConversationWithDetails extends Conversation {
+  other_user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string | null;
+    role: BusinessRole;
+  };
+  last_message?: Message;
+  unread_count: number;
+}
+
+export interface MessageWithSender extends Message {
+  sender: {
+    id: string;
+    name: string;
+    avatar_url: string | null;
+  };
+  is_read: boolean;
+}
+
+export const CreateConversationInputSchema = z.object({
+  user1_id: z.string().trim().min(1),
+  user2_id: z.string().trim().min(1),
+});
+export type CreateConversationInput = z.infer<
+  typeof CreateConversationInputSchema
+>;
+
+export const SendMessageInputSchema = z.object({
+  conversation_id: z.string().trim().min(1),
+  content: z.string().trim().min(1).max(1000),
+});
+export type SendMessageInput = z.infer<typeof SendMessageInputSchema>;

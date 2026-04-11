@@ -7,6 +7,9 @@ ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE parts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE message_reads ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION public.current_app_role()
 RETURNS text
@@ -218,3 +221,82 @@ GRANT SELECT, INSERT, UPDATE ON locations TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON parts TO authenticated;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+-- Conversations policies
+DROP POLICY IF EXISTS "Users can view own conversations" ON conversations;
+DROP POLICY IF EXISTS "Users can create conversations" ON conversations;
+
+CREATE POLICY "Users can view own conversations"
+ON conversations FOR SELECT
+USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+CREATE POLICY "Users can create conversations"
+ON conversations FOR INSERT
+WITH CHECK (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- Messages policies
+DROP POLICY IF EXISTS "Users can view messages in own conversations" ON messages;
+DROP POLICY IF EXISTS "Users can insert messages in own conversations" ON messages;
+DROP POLICY IF EXISTS "Users can update own messages" ON messages;
+DROP POLICY IF EXISTS "Users can delete own messages" ON messages;
+
+CREATE POLICY "Users can view messages in own conversations"
+ON messages FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM conversations
+    WHERE conversations.id = messages.conversation_id
+      AND (conversations.user1_id = auth.uid() OR conversations.user2_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Users can insert messages in own conversations"
+ON messages FOR INSERT
+WITH CHECK (
+  sender_id = auth.uid()
+  AND EXISTS (
+    SELECT 1
+    FROM conversations
+    WHERE conversations.id = conversation_id
+      AND (conversations.user1_id = auth.uid() OR conversations.user2_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Users can update own messages"
+ON messages FOR UPDATE
+USING (sender_id = auth.uid())
+WITH CHECK (sender_id = auth.uid());
+
+CREATE POLICY "Users can delete own messages"
+ON messages FOR DELETE
+USING (sender_id = auth.uid());
+
+-- Message reads policies
+DROP POLICY IF EXISTS "Users can view message reads" ON message_reads;
+DROP POLICY IF EXISTS "Users can insert own message reads" ON message_reads;
+
+CREATE POLICY "Users can view message reads"
+ON message_reads FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM messages
+    JOIN conversations ON conversations.id = messages.conversation_id
+    WHERE messages.id = message_reads.message_id
+      AND (conversations.user1_id = auth.uid() OR conversations.user2_id = auth.uid())
+  )
+);
+
+CREATE POLICY "Users can insert own message reads"
+ON message_reads FOR INSERT
+WITH CHECK (user_id = auth.uid());
+
+-- Grant permissions for messaging tables
+REVOKE ALL ON conversations FROM authenticated;
+REVOKE ALL ON messages FROM authenticated;
+REVOKE ALL ON message_reads FROM authenticated;
+
+GRANT SELECT, INSERT ON conversations TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON messages TO authenticated;
+GRANT SELECT, INSERT ON message_reads TO authenticated;

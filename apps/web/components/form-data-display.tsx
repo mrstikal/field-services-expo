@@ -2,10 +2,10 @@
 
 import { Check, X } from 'lucide-react';
 import { formTemplates } from './report-form-templates';
-import { TaskCategory, FormFieldType } from '@field-service/shared-types';
+import { TaskCategory } from '@field-service/shared-types';
 
 interface FormDataDisplayProps {
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   category?: TaskCategory;
 }
 
@@ -30,10 +30,11 @@ export function FormDataDisplay({ data, category }: FormDataDisplayProps) {
             case 'checkbox':
               displayValue = value ? 'Yes' : 'No';
               break;
-            case 'select':
+            case 'select': {
               const option = field.options?.find((o) => o.value === value);
               displayValue = option ? option.label : String(value);
               break;
+            }
             case 'number':
               displayValue = Number(value).toFixed(2);
               break;
@@ -84,11 +85,11 @@ export function FormDataDisplay({ data, category }: FormDataDisplayProps) {
           );
         }
 
-        if (typeof value === 'object') {
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
           return (
             <div key={key} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
               <div className="font-medium text-sm text-gray-700 mb-3 border-b pb-2">{label}</div>
-              <FormDataDisplay data={value} />
+              <FormDataDisplay data={value as Record<string, unknown>} />
             </div>
           );
         }

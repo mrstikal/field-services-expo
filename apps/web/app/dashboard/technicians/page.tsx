@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,9 +14,89 @@ interface Technician {
   last_location_lat: number | null;
   last_location_lng: number | null;
   created_at: string;
+  updated_at: string;
+}
+
+const APP_ACTIVE_WINDOW_MS = 2 * 60 * 1000;
+const TECHNICIANS_PRESENCE_CHANNEL = 'technicians-presence';
+
+interface TechnicianPresencePayload {
+  technician_id?: string;
+}
+
+function isRecentlyActive(tech: Technician) {
+  if (!tech.is_online) {
+    return false;
+  }
+
+  const lastSeenAt = Date.parse(tech.updated_at ?? tech.created_at);
+  if (Number.isNaN(lastSeenAt)) {
+    return false;
+  }
+
+  return Date.now() - lastSeenAt <= APP_ACTIVE_WINDOW_MS;
+}
+
+function getPresenceTechnicianIds(
+  state: Record<string, TechnicianPresencePayload[]>
+) {
+  const activeIds = new Set<string>();
+
+  for (const [key, presences] of Object.entries(state)) {
+    if (key) {
+      activeIds.add(key);
+    }
+
+    for (const presence of presences) {
+      if (typeof presence.technician_id === 'string') {
+        activeIds.add(presence.technician_id);
+      }
+    }
+  }
+
+  return activeIds;
 }
 
 export default function TechniciansPage() {
+  const [presenceTechnicianIds, setPresenceTechnicianIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [isPresenceSynced, setIsPresenceSynced] = useState(false);
+
+  useEffect(() => {
+    const channel = supabase.channel(TECHNICIANS_PRESENCE_CHANNEL);
+
+    const syncPresence = () => {
+      const presenceState = channel.presenceState<TechnicianPresencePayload>();
+      setPresenceTechnicianIds(getPresenceTechnicianIds(presenceState));
+      setIsPresenceSynced(true);
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, syncPresence)
+      .on('presence', { event: 'join' }, syncPresence)
+      .on('presence', { event: 'leave' }, syncPresence)
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') {
+          syncPresence();
+          return;
+        }
+
+        if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          setIsPresenceSynced(false);
+          setPresenceTechnicianIds(new Set());
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const { data: technicians = [], isLoading } = useQuery({
     queryKey: ['technicians'],
     queryFn: async () => {
@@ -29,7 +110,11 @@ export default function TechniciansPage() {
   });
 
   const filteredTechnicians = technicians as Technician[];
-  const onlineTechnicians = filteredTechnicians.filter(t => t.is_online).length;
+  const isAppActive = (tech: Technician) =>
+    isPresenceSynced
+      ? presenceTechnicianIds.has(tech.id)
+      : isRecentlyActive(tech);
+  const onlineTechnicians = filteredTechnicians.filter(isAppActive).length;
 
   return (
     <div className="p-8">
@@ -112,6 +197,9 @@ export default function TechniciansPage() {
                       Status
                     </th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">
+                      App Active
+                    </th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700">
                       Location
                     </th>
                     <th className="text-left py-3 px-4 font-semibold text-gray-700">
@@ -120,7 +208,10 @@ export default function TechniciansPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTechnicians.map(tech => (
+                  {filteredTechnicians.map(tech => {
+                    const appActive = isAppActive(tech);
+
+                    return (
                     <tr
                       className="border-b border-gray-100 hover:bg-gray-50"
                       key={tech.id}
@@ -138,16 +229,21 @@ export default function TechniciansPage() {
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-2 h-2 rounded-full ${
-                              tech.is_online ? 'bg-green-600' : 'bg-gray-400'
+                              appActive ? 'bg-green-600' : 'bg-gray-400'
                             }`}
                           />
                           <span className="text-sm font-medium text-gray-700">
-                            {tech.is_online ? 'Online' : 'Offline'}
+                            {appActive ? 'Online' : 'Offline'}
                           </span>
                         </div>
                       </td>
+                      <td className="py-3 px-4 text-sm text-gray-700">
+                        {appActive ? 'Yes' : 'No'}
+                      </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        {tech.last_location_lat && tech.last_location_lng
+                        {appActive &&
+                        tech.last_location_lat &&
+                        tech.last_location_lng
                           ? `${parseFloat(tech.last_location_lat.toString()).toFixed(4)}, ${parseFloat(tech.last_location_lng.toString()).toFixed(4)}`
                           : 'No location'}
                       </td>
@@ -155,7 +251,8 @@ export default function TechniciansPage() {
                         {new Date(tech.created_at).toLocaleDateString()}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

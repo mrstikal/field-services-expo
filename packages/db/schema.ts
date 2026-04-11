@@ -130,3 +130,46 @@ export const parts = pgTable('parts', {
 });
 
 export const partsSchema = createSelectSchema(parts);
+
+export const conversations = pgTable('conversations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user1_id: uuid('user1_id')
+    .notNull()
+    .references(() => users.id),
+  user2_id: uuid('user2_id')
+    .notNull()
+    .references(() => users.id),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const conversationsSchema = createSelectSchema(conversations);
+
+export const messages = pgTable('messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  conversation_id: uuid('conversation_id')
+    .notNull()
+    .references(() => conversations.id),
+  sender_id: uuid('sender_id')
+    .notNull()
+    .references(() => users.id),
+  content: text('content').notNull(),
+  sent_at: timestamp('sent_at').defaultNow().notNull(),
+  edited_at: timestamp('edited_at'),
+  deleted_at: timestamp('deleted_at'),
+});
+
+export const messagesSchema = createSelectSchema(messages);
+
+export const message_reads = pgTable('message_reads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  message_id: uuid('message_id')
+    .notNull()
+    .references(() => messages.id),
+  user_id: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  read_at: timestamp('read_at').defaultNow().notNull(),
+});
+
+export const messageReadsSchema = createSelectSchema(message_reads);

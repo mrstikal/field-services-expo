@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
+  StyleSheet,
 } from 'react-native';
 import { useNetworkStatus, useIsOffline } from '@/lib/hooks/use-network-status';
 import { useOfflineSync } from '@/lib/hooks/use-offline-sync';
@@ -34,6 +35,21 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   const isOffline = useIsOffline();
 
   const pulseAnim = useRef(new Animated.Value(0.5)).current;
+  const safeAreaStyles = useRef(
+    StyleSheet.create({
+      contentInset: {
+        paddingTop: insets.top + 12,
+      },
+    })
+  );
+
+  useEffect(() => {
+    safeAreaStyles.current = StyleSheet.create({
+      contentInset: {
+        paddingTop: insets.top + 12,
+      },
+    });
+  }, [insets.top]);
 
   useEffect(() => {
     if (isOffline) {
@@ -75,20 +91,10 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
   };
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 999,
-        elevation: 999,
-      }}
-    >
+    <View pointerEvents="box-none" style={styles.container}>
       <View
         className="border-b border-slate-200 bg-slate-50 px-4 py-3"
-        style={{ paddingTop: insets.top + 12 }}
+        style={safeAreaStyles.current.contentInset}
         testID="offline-banner"
       >
         <View className="flex-row items-center justify-between">
@@ -168,3 +174,14 @@ export function OfflineBanner({ showSyncButton = true }: OfflineBannerProps) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999,
+    elevation: 999,
+  },
+});

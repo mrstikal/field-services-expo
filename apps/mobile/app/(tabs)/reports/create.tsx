@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -89,6 +84,7 @@ export default function CreateReportScreen() {
   const [currentReportId, setCurrentReportId] = useState<string>(() =>
     createReportId()
   );
+  const [isRequiredFormValid, setIsRequiredFormValid] = useState(false);
 
   // Barcode scanner hook
   const {
@@ -122,13 +118,16 @@ export default function CreateReportScreen() {
     signatureUrlRef.current = signature;
   }, [signature]);
 
-  const cleanupUploadedSignature = useCallback(async (publicUrl?: string | null) => {
-    if (!publicUrl) {
-      return;
-    }
+  const cleanupUploadedSignature = useCallback(
+    async (publicUrl?: string | null) => {
+      if (!publicUrl) {
+        return;
+      }
 
-    await deleteStorageFileByPublicUrl(publicUrl);
-  }, []);
+      await deleteStorageFileByPublicUrl(publicUrl);
+    },
+    []
+  );
 
   useEffect(() => {
     return () => {
@@ -354,7 +353,10 @@ export default function CreateReportScreen() {
     setIsProcessing(true);
     try {
       const previousSignature = signatureUrlRef.current;
-      const signatureUrl = await uploadSignature(signatureData, currentReportId);
+      const signatureUrl = await uploadSignature(
+        signatureData,
+        currentReportId
+      );
       if (previousSignature && previousSignature !== signatureUrl) {
         await cleanupUploadedSignature(previousSignature);
       }
@@ -509,6 +511,7 @@ export default function CreateReportScreen() {
         technicianId,
         photos: photos.map(photo => photo.uri),
         formData: reportFormData,
+        taskCategory: selectedTask.category,
         signature: signature,
         createdAt: nowIso,
         completedAt: nowIso,
@@ -647,6 +650,8 @@ export default function CreateReportScreen() {
   }
 
   const formTemplate = getFormTemplate();
+  const hasRequiredDataForSave =
+    Boolean(selectedTask) && isRequiredFormValid && photos.length > 0;
 
   return (
     <ScrollView
@@ -718,6 +723,7 @@ export default function CreateReportScreen() {
           <DynamicForm
             ref={dynamicFormRef}
             defaultValues={{ ...detectionValues, ...reportFormDraft }}
+            onValidationChange={setIsRequiredFormValid}
             template={formTemplate}
           />
         </View>
@@ -827,9 +833,17 @@ export default function CreateReportScreen() {
 
       {/* Save Button */}
       <View className="p-4">
+        {!hasRequiredDataForSave ? (
+          <View className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+            <Text className="text-sm text-amber-900">
+              Before saving, fill in all required fields and add at least one
+              photo.
+            </Text>
+          </View>
+        ) : null}
         <TouchableOpacity
-          className={`flex-row items-center justify-center rounded-lg p-4 ${photos.length === 0 ? 'bg-gray-400' : 'bg-blue-800'}`}
-          disabled={photos.length === 0 || isProcessing}
+          className={`flex-row items-center justify-center rounded-lg p-4 ${!hasRequiredDataForSave || isProcessing ? 'bg-gray-400' : 'bg-blue-800'}`}
+          disabled={!hasRequiredDataForSave || isProcessing}
           onPress={handleSaveReport}
           testID="reports-save-button"
         >

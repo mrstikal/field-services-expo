@@ -12,9 +12,13 @@ vi.mock('expo-sharing', () => ({
 
 vi.mock('expo-file-system/legacy', () => ({
   documentDirectory: 'file://documents/',
+  EncodingType: {
+    Base64: 'base64',
+  },
   copyAsync: vi.fn(() => Promise.resolve()),
   deleteAsync: vi.fn(() => Promise.resolve()),
   getInfoAsync: vi.fn(() => Promise.resolve({ exists: true })),
+  readAsStringAsync: vi.fn(() => Promise.resolve('ZmFrZS1pbWFnZS1kYXRh')),
 }));
 
 import {
@@ -43,6 +47,7 @@ describe('PDF Generator', () => {
         technicianId: 'tech-1',
         photos: ['photo1.jpg', 'photo2.jpg'],
         signature: 'signature.png',
+        taskCategory: 'repair',
         formData: {
           fault_type: 'electrical',
           fault_description: 'Circuit breaker tripping',
@@ -66,8 +71,11 @@ describe('PDF Generator', () => {
       expect(html).toContain('January 1, 2025');
       expect(html).toContain('photo1.jpg');
       expect(html).toContain('signature.png');
-      expect(html).toContain('electrical');
+      expect(html).toContain('Type of Fault');
+      expect(html).toContain('Electrical');
       expect(html).toContain('Circuit breaker tripping');
+      expect(html).not.toContain('<strong>fault_type:</strong>');
+      expect(html).not.toContain('Form Data');
     });
 
     it('should handle empty photos array', () => {
@@ -82,6 +90,7 @@ describe('PDF Generator', () => {
         technicianId: 'tech-1',
         photos: [],
         signature: null,
+        taskCategory: 'repair',
         formData: {
           fault_type: 'electrical',
           fault_description: 'Circuit breaker tripping',
@@ -114,6 +123,7 @@ describe('PDF Generator', () => {
         technicianId: 'tech-1',
         photos: ['photo1.jpg'],
         signature: null,
+        taskCategory: 'repair',
         formData: {
           fault_type: 'electrical',
           fault_description: 'Circuit breaker tripping',
@@ -165,6 +175,12 @@ describe('PDF Generator', () => {
   describe('generatePDF', () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      vi.mocked(FileSystem.getInfoAsync).mockResolvedValue({
+        exists: true,
+      } as never);
+      vi.mocked(FileSystem.readAsStringAsync).mockResolvedValue(
+        'ZmFrZS1pbWFnZS1kYXRh' as never
+      );
     });
 
     afterEach(() => {
@@ -183,6 +199,7 @@ describe('PDF Generator', () => {
         technicianId: 'tech-1',
         photos: ['photo1.jpg'],
         signature: 'signature.png',
+        taskCategory: 'repair',
         formData: {
           fault_type: 'electrical',
           fault_description: 'Circuit breaker tripping',
@@ -211,6 +228,48 @@ describe('PDF Generator', () => {
       });
     });
 
+    it('should inline local image assets before printing', async () => {
+      const data: ReportData = {
+        id: 'report-local-assets',
+        taskTitle: 'Repair Electrical Panel',
+        taskDescription: 'Fix electrical panel issue',
+        taskAddress: '123 Main St',
+        customerName: 'John Doe',
+        customerPhone: '123456789',
+        technicianName: 'Tech 1',
+        technicianId: 'tech-1',
+        photos: ['file:///cache/photo.jpg'],
+        signature: 'file:///cache/signature.png',
+        taskCategory: 'repair',
+        formData: {
+          fault_type: 'electrical',
+          fault_description: 'Circuit breaker tripping',
+        },
+        createdAt: '2025-01-01T10:00:00.000Z',
+        completedAt: '2025-01-01T12:00:00.000Z',
+      };
+
+      vi.mocked(Print.printToFileAsync).mockResolvedValue({
+        uri: 'file:///tmp/report.pdf',
+      } as never);
+
+      await generatePDF(data);
+
+      expect(FileSystem.getInfoAsync).toHaveBeenCalledWith(
+        'file:///cache/photo.jpg'
+      );
+      expect(FileSystem.readAsStringAsync).toHaveBeenCalledWith(
+        'file:///cache/photo.jpg',
+        { encoding: FileSystem.EncodingType.Base64 }
+      );
+      expect(Print.printToFileAsync).toHaveBeenCalledWith({
+        html: expect.stringContaining(
+          'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh'
+        ),
+        base64: false,
+      });
+    });
+
     it('should throw error if PDF generation fails', async () => {
       const data: ReportData = {
         id: 'report-5',
@@ -223,6 +282,7 @@ describe('PDF Generator', () => {
         technicianId: 'tech-1',
         photos: ['photo1.jpg'],
         signature: 'signature.png',
+        taskCategory: 'repair',
         formData: {
           fault_type: 'electrical',
           fault_description: 'Circuit breaker tripping',

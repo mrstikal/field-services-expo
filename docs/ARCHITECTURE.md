@@ -10,9 +10,9 @@ field-service/
 │   ├── mobile/              # Expo application (React Native)
 │   │   ├── app/             # Expo Router (file-based routing)
 │   │   │   ├── (auth)/      # Auth flow (login)
-│   │   │   ├── (tabs)/      # Tab navigation (home, tasks, reports, profile)
-│   │   │   └── tasks/       # Task detail screen
-│   │   ├── lib/             # Utility functions
+│   │   │   ├── (tabs)/      # Tab navigation (home, scanner, chat, reports, tasks, profile)
+│   │   │   └── tasks/       # Task detail screen [id].tsx
+│   │   ├── lib/             # Core logic & integrations
 │   │   │   ├── auth-context.tsx    # Auth provider
 │   │   │   └── supabase.ts         # Supabase client
 │   │   └── package.json
@@ -23,7 +23,9 @@ field-service/
 │       │   ├── dashboard/   # Protected dashboard
 │       │   │   ├── page.tsx        # Dashboard overview
 │       │   │   ├── tasks/          # Task management
-│       │   │   └── technicians/    # Technician management
+│       │   │   ├── technicians/    # Technician management
+│       │   │   ├── chat/           # Real-time communication
+│       │   │   └── reports/        # Field reports & analytics
 │       │   └── api/         # Next.js route handlers (sync/tasks/vision/...)
 │       │   ├── layout.tsx          # Root layout
 │       │   └── page.tsx            # Root redirect page
@@ -50,9 +52,9 @@ field-service/
 │
 ├── docs/
 │   ├── SETUP.md             # Setup guide
-│   └── ARCHITECTURE.md      # This file
+│   ├── ARCHITECTURE.md      # This file
+│   └── TESTING.md           # Testing strategy & commands
 │
-├── PLAN.md                  # Detailed implementation plan
 ├── README.md                # Project overview
 ├── turbo.json               # Turborepo config
 ├── pnpm-workspace.yaml      # pnpm workspaces

@@ -6,6 +6,7 @@ import {
 import { logApiError } from '@/lib/api-errors';
 import { checkRateLimit } from '@/lib/api-rate-limit';
 import { requireBearerUser } from '@/lib/server-supabase';
+import { createServiceRoleClient } from '@/lib/server-supabase-admin';
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -13,6 +14,119 @@ function getBearerToken(request: NextRequest) {
     return null;
   }
   return authHeader.slice(7);
+}
+
+async function loadChatSyncData(userId: string, lastSyncTimestamp: string) {
+  const admin = createServiceRoleClient();
+
+  const { data: accessibleConversations, error: conversationsAccessError } =
+    await admin
+      .from('conversations')
+      .select('*')
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+  if (conversationsAccessError) {
+    throw conversationsAccessError;
+  }
+
+  const allConversations = accessibleConversations ?? [];
+  const conversationIds = allConversations
+    .map(conversation => conversation.id)
+    .filter((id): id is string => typeof id === 'string');
+
+  const conversations = allConversations.filter(conversation => {
+    const updatedAt = Date.parse(conversation.updated_at);
+    return Number.isFinite(updatedAt)
+      ? updatedAt >= Date.parse(lastSyncTimestamp)
+      : false;
+  });
+
+  if (conversationIds.length === 0) {
+    return {
+      conversations,
+      messages: [],
+      messageReads: [],
+      chatUsers: [],
+    };
+  }
+
+  const messagesResult = await admin
+    .from('messages')
+    .select('*')
+    .in('conversation_id', conversationIds)
+    .or(
+      `sent_at.gte.${lastSyncTimestamp},edited_at.gte.${lastSyncTimestamp},deleted_at.gte.${lastSyncTimestamp}`
+    )
+    .order('sent_at', { ascending: true });
+
+  if (messagesResult.error) {
+    throw messagesResult.error;
+  }
+
+  const messages = messagesResult.data ?? [];
+  const accessibleMessageIdsResult = await admin
+    .from('messages')
+    .select('id')
+    .in('conversation_id', conversationIds);
+
+  if (accessibleMessageIdsResult.error) {
+    throw accessibleMessageIdsResult.error;
+  }
+
+  const messageIds = (accessibleMessageIdsResult.data ?? [])
+    .map(message => message.id)
+    .filter((id): id is string => typeof id === 'string');
+
+  const messageReadsResult =
+    messageIds.length > 0
+      ? await admin
+          .from('message_reads')
+          .select('*')
+          .in('message_id', messageIds)
+          .gte('read_at', lastSyncTimestamp)
+          .order('read_at', { ascending: true })
+      : { data: [], error: null };
+
+  if (messageReadsResult.error) {
+    throw messageReadsResult.error;
+  }
+
+  const relatedUserIds = new Set<string>();
+  relatedUserIds.add(userId);
+
+  for (const conversation of allConversations) {
+    if (typeof conversation.user1_id === 'string') {
+      relatedUserIds.add(conversation.user1_id);
+    }
+    if (typeof conversation.user2_id === 'string') {
+      relatedUserIds.add(conversation.user2_id);
+    }
+  }
+
+  for (const message of messages) {
+    if (typeof message.sender_id === 'string') {
+      relatedUserIds.add(message.sender_id);
+    }
+  }
+
+  const chatUsersResult =
+    relatedUserIds.size > 0
+      ? await admin
+          .from('users')
+          .select('id, email, role, name, phone, avatar_url')
+          .in('id', [...relatedUserIds])
+      : { data: [], error: null };
+
+  if (chatUsersResult.error) {
+    throw chatUsersResult.error;
+  }
+
+  return {
+    conversations,
+    messages,
+    messageReads: messageReadsResult.data ?? [],
+    chatUsers: chatUsersResult.data ?? [],
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -66,6 +180,7 @@ export async function POST(request: NextRequest) {
       (userProfile as { role?: string } | null)?.role
     );
     const userRole = parsedRole.success ? parsedRole.data : 'technician';
+    const chatData = await loadChatSyncData(user.id, lastSyncTimestamp);
 
     if (userRole === 'technician') {
       const [tasksResult, locationsResult] = await Promise.all([
@@ -111,6 +226,10 @@ export async function POST(request: NextRequest) {
           tasks: tasksResult.data ?? [],
           reports: reportsResult.data ?? [],
           locations: locationsResult.data ?? [],
+          conversations: chatData.conversations,
+          messages: chatData.messages,
+          messageReads: chatData.messageReads,
+          chatUsers: chatData.chatUsers,
           serverTimestamp: new Date().toISOString(),
         },
       });
@@ -144,6 +263,10 @@ export async function POST(request: NextRequest) {
         tasks: tasksResult.data ?? [],
         reports: reportsResult.data ?? [],
         locations: locationsResult.data ?? [],
+        conversations: chatData.conversations,
+        messages: chatData.messages,
+        messageReads: chatData.messageReads,
+        chatUsers: chatData.chatUsers,
         serverTimestamp: new Date().toISOString(),
       },
     });

@@ -24,10 +24,7 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-console.log('Running drizzle-kit generate...');
-execSync('pnpm drizzle-kit generate', { stdio: 'inherit' });
-
-console.log('\nApplying migrations using Supabase client...');
+console.log('Applying existing migrations...');
 execSync('tsx scripts/apply-migrations.ts', { stdio: 'inherit' });
 
 console.log('\nMigration completed successfully!');

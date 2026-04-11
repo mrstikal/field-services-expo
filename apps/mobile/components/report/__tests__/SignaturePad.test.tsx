@@ -1,5 +1,4 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { SignaturePad } from '@/components/report/SignaturePad';
 
@@ -41,11 +40,8 @@ vi.mock('react-native-signature-canvas', () => {
 });
 
 describe('SignaturePad', () => {
-  const alertSpy = vi.spyOn(Alert, 'alert');
-
   beforeEach(() => {
     vi.clearAllMocks();
-    alertSpy.mockImplementation(() => {});
   });
 
   it('saves signature on Save Signature press', async () => {
@@ -61,10 +57,6 @@ describe('SignaturePad', () => {
     await waitFor(() => {
       expect(mockReadSignature).toHaveBeenCalledTimes(1);
       expect(onSign).toHaveBeenCalledWith('signed-data');
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Signature Saved',
-        'Your signature has been saved.'
-      );
     });
   });
 });

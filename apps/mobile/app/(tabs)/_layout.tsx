@@ -1,11 +1,15 @@
 import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { View, Text, ActivityIndicator } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { OfflineBanner } from '@/components/offline-banner';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePushTokenRegistration } from '@/lib/hooks/use-push-token-registration';
 import type { ComponentProps } from 'react';
+import { getDatabase } from '@/lib/db/local-database';
+import { getTotalUnreadCount } from '@/lib/db/conversation-repository';
+import { subscribeToSyncEvents } from '@/lib/sync/sync-events';
 
 type TabScreenOptions = NonNullable<
   ComponentProps<typeof Tabs.Screen>['options']
@@ -30,7 +34,37 @@ export default function TabsLayout() {
   const { user, isLoading } = useAuth();
   const insets = useSafeAreaInsets();
   const bannerReservedHeight = insets.top + 10;
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   usePushTokenRegistration(user?.id);
+
+  const loadChatUnreadCount = useCallback(async () => {
+    if (!user) {
+      setChatUnreadCount(0);
+      return;
+    }
+
+    try {
+      const db = getDatabase();
+      const unreadCount = await getTotalUnreadCount(db, user.id);
+      setChatUnreadCount(unreadCount);
+    } catch (error) {
+      console.error('Error loading chat unread count:', error);
+      setChatUnreadCount(0);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void loadChatUnreadCount();
+    const unsubscribe = subscribeToSyncEvents(() => {
+      void loadChatUnreadCount();
+    });
+
+    return unsubscribe;
+  }, [loadChatUnreadCount, user]);
 
   if (isLoading) {
     return (
@@ -92,10 +126,17 @@ export default function TabsLayout() {
           )}
         />
         <Tabs.Screen
+          name="chat/index"
+          options={{
+            ...createTabOptions('Chat', 'tab-chat', 'chatbubble-outline'),
+            tabBarBadge: chatUnreadCount > 0 ? (chatUnreadCount > 99 ? '99+' : chatUnreadCount) : undefined,
+          }}
+        />
+        <Tabs.Screen
           name="profile"
           options={createTabOptions('Profile', 'tab-profile', 'person-outline')}
         />
-        {/* Hide scanner and nested report screens from tab bar */}
+        {/* Hide scanner, nested report and chat screens from tab bar */}
         <Tabs.Screen
           name="scanner"
           options={{
@@ -112,6 +153,20 @@ export default function TabsLayout() {
         />
         <Tabs.Screen
           name="reports/[id]"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="chat/new"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="chat/[id]"
           options={{
             href: null,
             headerShown: false,

@@ -1,3 +1,5 @@
+$env:EXPO_NATIVE_TESTS="1"; pnpm --filter field-service-mobile vitest run lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
+EXPO_NATIVE_TESTS=1 pnpm --filter field-service-mobile vitest run lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
 # Testing Guide
 
 This project uses Vitest for unit/integration tests and Playwright + Maestro for E2E.
@@ -32,21 +34,22 @@ pnpm run test:all
 
 ## Mobile native-only suites
 
+- `apps/mobile/lib/db/__tests__/conversation-repository.test.ts`
 Some mobile suites require Expo native runtime and are excluded from default jsdom runs:
+- `apps/mobile/lib/db/__tests__/message-repository.test.ts`
 
-- `apps/mobile/lib/db/__tests__/db-integration.test.ts`
 - `apps/mobile/__tests__/integration/sync-flow.test.ts`
 - `apps/mobile/__tests__/integration/sync-resilience.test.ts`
 
 Run them only when native runtime prerequisites are available:
 
-```bash
+EXPO_NATIVE_TESTS=1 pnpm --filter field-service-mobile vitest run lib/db/__tests__/conversation-repository.test.ts lib/db/__tests__/message-repository.test.ts lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
 EXPO_NATIVE_TESTS=1 pnpm --filter field-service-mobile vitest run lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
 ```
 
 PowerShell variant:
 
-```powershell
+$env:EXPO_NATIVE_TESTS="1"; pnpm --filter field-service-mobile vitest run lib/db/__tests__/conversation-repository.test.ts lib/db/__tests__/message-repository.test.ts lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
 $env:EXPO_NATIVE_TESTS="1"; pnpm --filter field-service-mobile vitest run lib/db/__tests__/db-integration.test.ts __tests__/integration/sync-flow.test.ts __tests__/integration/sync-resilience.test.ts
 ```
 

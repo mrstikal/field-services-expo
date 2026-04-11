@@ -8,6 +8,7 @@ export interface RealtimeSubscription {
 export class RealtimeSyncService {
   private static instance: RealtimeSyncService;
   private subscriptions: Map<string, RealtimeSubscription> = new Map();
+  private channelCounter = 0;
 
   private constructor() {}
 
@@ -16,6 +17,11 @@ export class RealtimeSyncService {
       RealtimeSyncService.instance = new RealtimeSyncService();
     }
     return RealtimeSyncService.instance;
+  }
+
+  private createChannelName(prefix: string): string {
+    this.channelCounter += 1;
+    return `${prefix}-${this.channelCounter}`;
   }
 
   /**
@@ -29,7 +35,7 @@ export class RealtimeSyncService {
     }) => void
   ): RealtimeSubscription {
     const channel = supabase
-      .channel('tasks-changes')
+      .channel(this.createChannelName('tasks-changes'))
       .on(
         'postgres_changes' as const,
         {
@@ -72,7 +78,7 @@ export class RealtimeSyncService {
     }) => void
   ): RealtimeSubscription {
     const channel = supabase
-      .channel(`technician-${technicianId}`)
+      .channel(this.createChannelName(`technician-${technicianId}`))
       .on(
         'postgres_changes' as const,
         {
@@ -114,7 +120,7 @@ export class RealtimeSyncService {
     }) => void
   ): RealtimeSubscription {
     const channel = supabase
-      .channel('reports-changes')
+      .channel(this.createChannelName('reports-changes'))
       .on(
         'postgres_changes' as const,
         {
@@ -139,6 +145,89 @@ export class RealtimeSyncService {
     };
 
     const subscriptionId = `reports-${Date.now()}`;
+    this.subscriptions.set(subscriptionId, subscription);
+
+    return subscription;
+  }
+
+  /**
+   * Subscribe to real-time updates for all technicians
+   */
+  public subscribeToAllTechnicians(
+    callback: (payload: {
+      eventType: string;
+      newData?: Record<string, unknown>;
+      oldData?: Record<string, unknown>;
+    }) => void
+  ): RealtimeSubscription {
+    const channel = supabase
+      .channel(this.createChannelName('all-technicians-changes'))
+      .on(
+        'postgres_changes' as const,
+        {
+          event: '*' as const,
+          schema: 'public',
+          table: 'users',
+          filter: 'role=eq.technician',
+        },
+        payload => {
+          callback({
+            eventType: payload.eventType,
+            newData: payload.new,
+            oldData: payload.old,
+          });
+        }
+      )
+      .subscribe();
+
+    const subscription = {
+      unsubscribe: () => {
+        supabase.removeChannel(channel);
+      },
+    };
+
+    const subscriptionId = `all-technicians-${Date.now()}`;
+    this.subscriptions.set(subscriptionId, subscription);
+
+    return subscription;
+  }
+
+  /**
+   * Subscribe to real-time updates for all messages
+   */
+  public subscribeToAllMessages(
+    callback: (payload: {
+      eventType: string;
+      newData?: Record<string, unknown>;
+      oldData?: Record<string, unknown>;
+    }) => void
+  ): RealtimeSubscription {
+    const channel = supabase
+      .channel(this.createChannelName('all-messages-changes'))
+      .on(
+        'postgres_changes' as const,
+        {
+          event: '*' as const,
+          schema: 'public',
+          table: 'messages',
+        },
+        payload => {
+          callback({
+            eventType: payload.eventType,
+            newData: payload.new,
+            oldData: payload.old,
+          });
+        }
+      )
+      .subscribe();
+
+    const subscription = {
+      unsubscribe: () => {
+        supabase.removeChannel(channel);
+      },
+    };
+
+    const subscriptionId = `all-messages-${Date.now()}`;
     this.subscriptions.set(subscriptionId, subscription);
 
     return subscription;
@@ -192,7 +281,7 @@ export class RealtimeSyncService {
   ): RealtimeSubscription {
     // For communication we use database changes instead of broadcast channels
     const channel = supabase
-      .channel(`broadcast-${channelName}`)
+      .channel(this.createChannelName(`broadcast-${channelName}`))
       .on(
         'postgres_changes' as const,
         {

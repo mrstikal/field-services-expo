@@ -18,8 +18,16 @@ appId: com.fieldservicemonorepo
     id: "reports-gallery-button"
 - assertVisible:
     id: "reports-scan-barcode-button"
+- scrollUntilVisible:
+    element:
+      id: "reports-save-button"
+    direction: DOWN
 - assertVisible:
     id: "reports-save-button"
+- scrollUntilVisible:
+    element:
+      id: "reports-create-back-button"
+    direction: UP
 - tapOn:
     id: "reports-create-back-button"
 - assertVisible: "My Reports"

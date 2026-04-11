@@ -129,6 +129,41 @@ async function deleteAllRows(table) {
   }
 }
 
+function isMissingTableError(error, table) {
+  if (!error) return false;
+
+  const message =
+    typeof error.message === 'string' ? error.message.toLowerCase() : '';
+
+  return (
+    error.code === 'PGRST205' &&
+    (message.includes(`'public.${table.toLowerCase()}'`) ||
+      message.includes(table.toLowerCase()))
+  );
+}
+
+async function detectTableAvailability(tables) {
+  const availability = new Map();
+
+  for (const table of tables) {
+    const { error } = await supabase.from(table).select('id').limit(1);
+
+    if (!error) {
+      availability.set(table, true);
+      continue;
+    }
+
+    if (isMissingTableError(error, table)) {
+      availability.set(table, false);
+      continue;
+    }
+
+    throw error;
+  }
+
+  return availability;
+}
+
 async function resetDatabase() {
   try {
     console.log('Resetting Supabase database...\n');
@@ -151,13 +186,45 @@ async function resetDatabase() {
     }
     console.log('User IDs fetched\n');
 
+    const tablesUsedByReset = [
+      'users',
+      'tasks',
+      'reports',
+      'parts',
+      'locations',
+      'conversations',
+      'messages',
+      'message_reads',
+      'sync_queue',
+    ];
+    const tableAvailability = await detectTableAvailability(tablesUsedByReset);
+    const missingTables = tablesUsedByReset.filter((table) => !tableAvailability.get(table));
+
+    if (missingTables.length > 0) {
+      console.log(
+        `Some tables are missing in this Supabase project and will be skipped: ${missingTables.join(', ')}\n`
+      );
+    }
+
     console.log('Clearing existing data...');
-    await deleteAllRows('locations');
-    await deleteAllRows('sync_queue');
-    await deleteAllRows('reports');
-    await deleteAllRows('tasks');
-    await deleteAllRows('parts');
-    await deleteAllRows('users');
+    for (const table of [
+      'message_reads',
+      'messages',
+      'conversations',
+      'locations',
+      'sync_queue',
+      'reports',
+      'tasks',
+      'parts',
+      'users',
+    ]) {
+      if (!tableAvailability.get(table)) {
+        console.log(`Skipping ${table}: table does not exist in Supabase schema cache`);
+        continue;
+      }
+
+      await deleteAllRows(table);
+    }
     console.log('Data cleared\n');
 
     console.log('Inserting demo users...');
@@ -241,9 +308,13 @@ async function resetDatabase() {
       },
     ];
 
-    const { error: usersError } = await supabase.from('users').insert(usersToInsert);
-    if (usersError) throw usersError;
-    console.log('Users inserted\n');
+    if (tableAvailability.get('users')) {
+      const { error: usersError } = await supabase.from('users').insert(usersToInsert);
+      if (usersError) throw usersError;
+      console.log('Users inserted\n');
+    } else {
+      console.log('Skipping users insert: table does not exist in Supabase schema cache\n');
+    }
 
     const technik1Id = userIdMap.get('technik1@demo.cz');
     const technik2Id = userIdMap.get('technik2@demo.cz');
@@ -422,12 +493,17 @@ async function resetDatabase() {
       },
     ];
 
-    const { error: tasksError } = await supabase.from('tasks').insert(tasksToInsert);
-    if (tasksError) throw tasksError;
-    console.log('Tasks inserted\n');
+    if (tableAvailability.get('tasks')) {
+      const { error: tasksError } = await supabase.from('tasks').insert(tasksToInsert);
+      if (tasksError) throw tasksError;
+      console.log('Tasks inserted\n');
+    } else {
+      console.log('Skipping tasks insert: table does not exist in Supabase schema cache\n');
+    }
 
     console.log('Inserting demo reports...');
-    const { error: reportsError } = await supabase.from('reports').insert([
+    if (tableAvailability.get('reports') && tableAvailability.get('tasks')) {
+      const { error: reportsError } = await supabase.from('reports').insert([
       {
         id: '750e8400-e29b-41d4-a716-446655440001',
         task_id: '650e8400-e29b-41d4-a716-446655440001',
@@ -448,12 +524,16 @@ async function resetDatabase() {
           'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMTAwIj48cGF0aCBkPSJNMTAgOTBDMTAgOTAgNTAgNjAgMTAwIDQwQzE1MCAyMCAxOTAgMTAgMTkwIDEwQzE5MCAxMCAxOTAgMTAgMTkwIDEwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjIiIGZpbGw9Im5vbmUiLz48L3N2Zz4=',
         version: 1,
       },
-    ]);
-    if (reportsError) throw reportsError;
-    console.log('Reports inserted\n');
+      ]);
+      if (reportsError) throw reportsError;
+      console.log('Reports inserted\n');
+    } else {
+      console.log('Skipping reports insert: required tables are missing in Supabase schema cache\n');
+    }
 
     console.log('Inserting demo parts...');
-    const { error: partsError } = await supabase.from('parts').insert([
+    if (tableAvailability.get('parts')) {
+      const { error: partsError } = await supabase.from('parts').insert([
       {
         id: '850e8400-e29b-41d4-a716-446655440001',
         name: 'Circuit breaker 16A',
@@ -499,9 +579,12 @@ async function resetDatabase() {
         stock: 15,
         category: 'cables',
       },
-    ]);
-    if (partsError) throw partsError;
-    console.log('Parts inserted\n');
+      ]);
+      if (partsError) throw partsError;
+      console.log('Parts inserted\n');
+    } else {
+      console.log('Skipping parts insert: table does not exist in Supabase schema cache\n');
+    }
 
     console.log('Inserting demo locations...');
     const locationsToInsert = [
@@ -523,9 +606,221 @@ async function resetDatabase() {
       },
     ];
 
-    const { error: locationsError } = await supabase.from('locations').insert(locationsToInsert);
-    if (locationsError) throw locationsError;
-    console.log('Locations inserted\n');
+    if (tableAvailability.get('locations')) {
+      const { error: locationsError } = await supabase.from('locations').insert(locationsToInsert);
+      if (locationsError) throw locationsError;
+      console.log('Locations inserted\n');
+    } else {
+      console.log('Skipping locations insert: table does not exist in Supabase schema cache\n');
+    }
+
+    const dispatcher1Id = userIdMap.get('dispatcher1@demo.cz');
+    const dispatcher2Id = userIdMap.get('dispatcher2@demo.cz');
+
+    console.log('Inserting demo conversations...');
+    const conversationsToInsert = [
+      {
+        id: 'a50e8400-e29b-41d4-a716-446655440001',
+        user1_id: dispatcher1Id,
+        user2_id: technik1Id,
+        created_at: new Date(Date.now() - 172800000).toISOString(),
+        updated_at: new Date(Date.now() - 3600000).toISOString(),
+      },
+      {
+        id: 'a50e8400-e29b-41d4-a716-446655440002',
+        user1_id: dispatcher2Id,
+        user2_id: technik2Id,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        updated_at: new Date(Date.now() - 1800000).toISOString(),
+      },
+      {
+        id: 'a50e8400-e29b-41d4-a716-446655440003',
+        user1_id: technik1Id,
+        user2_id: technik2Id,
+        created_at: new Date(Date.now() - 10800000).toISOString(),
+        updated_at: new Date(Date.now() - 600000).toISOString(),
+      },
+    ];
+
+    if (tableAvailability.get('conversations')) {
+      const { error: conversationsError } = await supabase.from('conversations').insert(conversationsToInsert);
+      if (conversationsError) throw conversationsError;
+      console.log('Conversations inserted\n');
+    } else {
+      console.log('Skipping conversations insert: table does not exist in Supabase schema cache\n');
+    }
+
+    console.log('Inserting demo messages...');
+    const messagesToInsert = [
+      // Conversation 1: Dispatcher1 <-> Technician1
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440001',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440001',
+        sender_id: dispatcher1Id,
+        content: 'Hi Peter, I have assigned you a new urgent task for switchboard repair. Can you handle it today?',
+        sent_at: new Date(Date.now() - 172800000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440002',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440001',
+        sender_id: technik1Id,
+        content: 'Yes, I can take care of it. What time should I be there?',
+        sent_at: new Date(Date.now() - 172800000 + 900000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440003',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440001',
+        sender_id: dispatcher1Id,
+        content: 'The customer is available from 2 PM. Please confirm when you arrive.',
+        sent_at: new Date(Date.now() - 172800000 + 1200000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440004',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440001',
+        sender_id: technik1Id,
+        content: 'Perfect, I will be there at 2 PM. Thanks!',
+        sent_at: new Date(Date.now() - 172800000 + 1500000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440005',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440001',
+        sender_id: technik1Id,
+        content: 'Task completed successfully. Report submitted.',
+        sent_at: new Date(Date.now() - 3600000).toISOString(),
+      },
+      // Conversation 2: Dispatcher2 <-> Technician2
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440006',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440002',
+        sender_id: dispatcher2Id,
+        content: 'Anna, please check the circuit breaker installation task in Brno.',
+        sent_at: new Date(Date.now() - 86400000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440007',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440002',
+        sender_id: technik2Id,
+        content: 'I saw it. Do I need any special equipment?',
+        sent_at: new Date(Date.now() - 86400000 + 600000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440008',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440002',
+        sender_id: dispatcher2Id,
+        content: 'Standard tools should be enough. The parts are already at the location.',
+        sent_at: new Date(Date.now() - 86400000 + 900000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440009',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440002',
+        sender_id: technik2Id,
+        content: 'Great, I will head there tomorrow morning.',
+        sent_at: new Date(Date.now() - 1800000).toISOString(),
+      },
+      // Conversation 3: Technician1 <-> Technician2
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440010',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440003',
+        sender_id: technik1Id,
+        content: 'Hey Anna, do you have a spare multimeter? Mine just broke.',
+        sent_at: new Date(Date.now() - 10800000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440011',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440003',
+        sender_id: technik2Id,
+        content: 'Yes, I have one. When do you need it?',
+        sent_at: new Date(Date.now() - 9000000).toISOString(),
+      },
+      {
+        id: 'b50e8400-e29b-41d4-a716-446655440012',
+        conversation_id: 'a50e8400-e29b-41d4-a716-446655440003',
+        sender_id: technik1Id,
+        content: 'Tomorrow would be perfect. Can we meet at the office?',
+        sent_at: new Date(Date.now() - 600000).toISOString(),
+      },
+    ];
+
+    if (tableAvailability.get('messages') && tableAvailability.get('conversations')) {
+      const { error: messagesError } = await supabase.from('messages').insert(messagesToInsert);
+      if (messagesError) throw messagesError;
+      console.log('Messages inserted\n');
+    } else {
+      console.log('Skipping messages insert: required tables are missing in Supabase schema cache\n');
+    }
+
+    console.log('Inserting demo message reads...');
+    const messageReadsToInsert = [
+      // Conversation 1 - all messages read except the last one
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440001',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440001',
+        user_id: technik1Id,
+        read_at: new Date(Date.now() - 172800000 + 300000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440002',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440002',
+        user_id: dispatcher1Id,
+        read_at: new Date(Date.now() - 172800000 + 960000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440003',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440003',
+        user_id: technik1Id,
+        read_at: new Date(Date.now() - 172800000 + 1260000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440004',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440004',
+        user_id: dispatcher1Id,
+        read_at: new Date(Date.now() - 172800000 + 1560000).toISOString(),
+      },
+      // Conversation 2 - all messages read except the last one
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440005',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440006',
+        user_id: technik2Id,
+        read_at: new Date(Date.now() - 86400000 + 300000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440006',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440007',
+        user_id: dispatcher2Id,
+        read_at: new Date(Date.now() - 86400000 + 660000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440007',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440008',
+        user_id: technik2Id,
+        read_at: new Date(Date.now() - 86400000 + 960000).toISOString(),
+      },
+      // Conversation 3 - all messages read except the last one
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440008',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440010',
+        user_id: technik2Id,
+        read_at: new Date(Date.now() - 10800000 + 300000).toISOString(),
+      },
+      {
+        id: 'c50e8400-e29b-41d4-a716-446655440009',
+        message_id: 'b50e8400-e29b-41d4-a716-446655440011',
+        user_id: technik1Id,
+        read_at: new Date(Date.now() - 9000000 + 60000).toISOString(),
+      },
+    ];
+
+    if (
+      tableAvailability.get('message_reads') &&
+      tableAvailability.get('messages') &&
+      tableAvailability.get('conversations')
+    ) {
+      const { error: messageReadsError } = await supabase.from('message_reads').insert(messageReadsToInsert);
+      if (messageReadsError) throw messageReadsError;
+      console.log('Message reads inserted\n');
+    } else {
+      console.log('Skipping message_reads insert: required tables are missing in Supabase schema cache\n');
+    }
 
     console.log('Database reset completed successfully!');
     console.log('Demo data is now ready for testing.\n');

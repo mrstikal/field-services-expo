@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { createClient } from '@supabase/supabase-js';
 import {
   businessRoleSchema,
   type BusinessRole,
+  conversationRecordSchema,
   locationRecordSchema,
+  messageReadRecordSchema,
+  messageRecordSchema,
   reportRecordSchema,
   taskPrioritySchema,
   taskStatusSchema,
@@ -15,6 +21,63 @@ import { logApiError } from '@/lib/api-errors';
 import { checkRateLimit } from '@/lib/api-rate-limit';
 import { requireBearerUser } from '@/lib/server-supabase';
 import { canMutateReport, canMutateTask } from '@/lib/sync-authorization';
+
+function loadEnvFilesIfNeeded() {
+  if (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY
+  ) {
+    return;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dotenv = require('dotenv') as typeof import('dotenv');
+  const visited = new Set<string>();
+  let currentDir = process.cwd();
+
+  for (let i = 0; i < 6; i++) {
+    const candidates = [
+      path.join(currentDir, 'env.local'),
+      path.join(currentDir, '.env.local'),
+    ];
+
+    for (const candidate of candidates) {
+      if (!visited.has(candidate) && existsSync(candidate)) {
+        visited.add(candidate);
+        dotenv.config({ path: candidate, override: false });
+      }
+    }
+
+    const parent = path.dirname(currentDir);
+    if (parent === currentDir) {
+      break;
+    }
+    currentDir = parent;
+  }
+}
+
+function createServiceRoleClient() {
+  loadEnvFilesIfNeeded();
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Missing required Supabase service role configuration.');
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -76,6 +139,37 @@ function parseLocationPayload(data: Record<string, unknown>) {
   return locationRecordSchema.safeParse(data);
 }
 
+function parseConversationPayload(data: Record<string, unknown>) {
+  return conversationRecordSchema.safeParse(data);
+}
+
+function parseMessagePayload(data: Record<string, unknown>) {
+  return messageRecordSchema.safeParse(data);
+}
+
+function parseMessageReadPayload(data: Record<string, unknown>) {
+  return messageReadRecordSchema.safeParse(data);
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === 'object' && error !== null) {
+    const record = error as Record<string, unknown>;
+    const parts = [record.message, record.details, record.hint, record.code]
+      .filter(value => typeof value === 'string' && value.trim().length > 0)
+      .map(value => String(value));
+
+    if (parts.length > 0) {
+      return parts.join(' | ');
+    }
+  }
+
+  return 'Unknown sync error';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const token = getBearerToken(request);
@@ -127,6 +221,7 @@ export async function POST(request: NextRequest) {
     const userRole: BusinessRole = parsedRole.success
       ? parsedRole.data
       : 'technician';
+    const admin = createServiceRoleClient();
 
     const results = {
       success: 0,
@@ -141,6 +236,7 @@ export async function POST(request: NextRequest) {
         serverRecord?: Record<string, unknown>;
       }>,
     };
+    const conversationIdMap = new Map<string, string>();
 
     for (const change of parsedBody.data.changes) {
       try {
@@ -210,8 +306,10 @@ export async function POST(request: NextRequest) {
                 throw new Error('Task not found for update.');
               }
 
-              const { id: _ignoredId, ...taskUpdateData } =
-                parsedTask.data as Record<string, unknown>;
+              const taskUpdateData = {
+                ...(parsedTask.data as Record<string, unknown>),
+              };
+              delete taskUpdateData.id;
               if (Object.keys(taskUpdateData).length === 0) {
                 throw new Error('Invalid task payload (no update fields).');
               }
@@ -384,10 +482,210 @@ export async function POST(request: NextRequest) {
             });
             break;
           }
+
+          case 'conversation': {
+            const parsedConversation = parseConversationPayload(change.data);
+            if (!parsedConversation.success) {
+              throw new Error('Invalid conversation payload.');
+            }
+
+            const conversation = parsedConversation.data;
+            if (
+              conversation.user1_id !== user.id &&
+              conversation.user2_id !== user.id
+            ) {
+              throw new Error(
+                'Forbidden: conversation must include the authenticated user.'
+              );
+            }
+
+            const { data: existingPreferred, error: existingPreferredError } =
+              await admin
+                .from('conversations')
+                .select('*')
+                .eq('user1_id', conversation.user1_id)
+                .eq('user2_id', conversation.user2_id)
+                .maybeSingle();
+            if (existingPreferredError) throw existingPreferredError;
+
+            const { data: existingReversed, error: existingReversedError } =
+              await admin
+                .from('conversations')
+                .select('*')
+                .eq('user1_id', conversation.user2_id)
+                .eq('user2_id', conversation.user1_id)
+                .maybeSingle();
+            if (existingReversedError) throw existingReversedError;
+
+            const existingConversation =
+              existingPreferred ?? existingReversed ?? null;
+
+            if (existingConversation) {
+              conversationIdMap.set(conversation.id, existingConversation.id);
+              results.success++;
+              results.itemResults.push({
+                id: change.id,
+                status: 'success',
+                record: existingConversation,
+              });
+              break;
+            }
+
+            const { data, error } = await admin
+              .from('conversations')
+              .insert([conversation])
+              .select('*')
+              .single();
+            if (error) throw error;
+
+            conversationIdMap.set(conversation.id, data.id);
+
+            results.success++;
+            results.itemResults.push({
+              id: change.id,
+              status: 'success',
+              record: data,
+            });
+            break;
+          }
+
+          case 'message': {
+            const parsedMessage = parseMessagePayload(change.data);
+            if (!parsedMessage.success) {
+              throw new Error('Invalid message payload.');
+            }
+
+            const originalMessage = parsedMessage.data;
+            const resolvedConversationId =
+              conversationIdMap.get(originalMessage.conversation_id) ??
+              originalMessage.conversation_id;
+            const message = {
+              ...originalMessage,
+              conversation_id: resolvedConversationId,
+            };
+            const { data: conversation, error: conversationError } =
+              await admin
+                .from('conversations')
+                .select('id, user1_id, user2_id')
+                .eq('id', message.conversation_id)
+                .maybeSingle();
+            if (conversationError) throw conversationError;
+            if (
+              !conversation ||
+              (conversation.user1_id !== user.id &&
+                conversation.user2_id !== user.id)
+            ) {
+              throw new Error(
+                'Forbidden: message is not linked to an accessible conversation.'
+              );
+            }
+
+            let messageRecord: Record<string, unknown> | null = null;
+            if (change.action === 'delete') {
+              const { data, error } = await admin
+                .from('messages')
+                .update({
+                  content: message.content,
+                  sent_at: message.sent_at,
+                  edited_at: message.edited_at ?? null,
+                  deleted_at: message.deleted_at ?? new Date().toISOString(),
+                })
+                .eq('id', change.entityId)
+                .select('*')
+                .single();
+              if (error) throw error;
+              messageRecord = data;
+            } else if (change.action === 'update') {
+              const { data, error } = await admin
+                .from('messages')
+                .update({
+                  content: message.content,
+                  sent_at: message.sent_at,
+                  edited_at: message.edited_at ?? null,
+                  deleted_at: message.deleted_at ?? null,
+                })
+                .eq('id', change.entityId)
+                .select('*')
+                .single();
+              if (error) throw error;
+              messageRecord = data;
+            } else {
+              const { data, error } = await admin
+                .from('messages')
+                .upsert([message], { onConflict: 'id' })
+                .select('*')
+                .single();
+              if (error) throw error;
+              messageRecord = data;
+            }
+
+            results.success++;
+            results.itemResults.push({
+              id: change.id,
+              status: 'success',
+              record: messageRecord ?? undefined,
+            });
+            break;
+          }
+
+          case 'message_read': {
+            const parsedMessageRead = parseMessageReadPayload(change.data);
+            if (!parsedMessageRead.success) {
+              throw new Error('Invalid message read payload.');
+            }
+
+            const messageRead = parsedMessageRead.data;
+            if (messageRead.user_id !== user.id) {
+              throw new Error(
+                'Forbidden: message read must belong to the authenticated user.'
+              );
+            }
+
+            const { data: message, error: messageError } = await admin
+              .from('messages')
+              .select('id, conversation_id')
+              .eq('id', messageRead.message_id)
+              .maybeSingle();
+            if (messageError) throw messageError;
+            if (!message) {
+              throw new Error('Message not found for read receipt.');
+            }
+
+            const { data: conversation, error: conversationError } =
+              await admin
+                .from('conversations')
+                .select('id, user1_id, user2_id')
+                .eq('id', message.conversation_id)
+                .maybeSingle();
+            if (conversationError) throw conversationError;
+            if (
+              !conversation ||
+              (conversation.user1_id !== user.id &&
+                conversation.user2_id !== user.id)
+            ) {
+              throw new Error(
+                'Forbidden: message read is not linked to an accessible conversation.'
+              );
+            }
+
+            const { data, error } = await admin
+              .from('message_reads')
+              .upsert([messageRead], { onConflict: 'message_id,user_id' })
+              .select('*')
+              .single();
+            if (error) throw error;
+
+            results.success++;
+            results.itemResults.push({
+              id: change.id,
+              status: 'success',
+              record: data,
+            });
+            break;
+          }
         }
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Unknown sync error';
+        const message = getErrorMessage(error);
         results.failed++;
         results.errors.push(message);
         results.itemResults.push({

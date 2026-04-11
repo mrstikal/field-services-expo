@@ -1,11 +1,18 @@
 import { supabase } from '@/lib/supabase';
+import { upsertChatUsers } from '@/lib/db/chat-user-repository';
 import { taskRepository } from '@/lib/db/task-repository';
 import { reportRepository } from '@/lib/db/report-repository';
 import { locationRepository } from '@/lib/db/location-repository';
 import { getDatabase } from '@/lib/db/local-database';
-import { emitSyncEvent } from '@/lib/sync/sync-events';
+import {
+  clearPendingChangesForEntity,
+  emitSyncEvent,
+} from '@/lib/sync/sync-events';
 import type {
+  Conversation,
   Location,
+  Message,
+  MessageRead,
   Report,
   SyncChange,
   Task,
@@ -34,7 +41,13 @@ export class SyncAuthUnavailableError extends Error {
 
 interface SyncQueueItem {
   id: string;
-  type: 'task' | 'report' | 'location';
+  type:
+    | 'task'
+    | 'report'
+    | 'location'
+    | 'conversation'
+    | 'message'
+    | 'message_read';
   action: 'create' | 'update' | 'delete';
   entity_id: string;
   data: string | Record<string, unknown>;
@@ -177,6 +190,20 @@ export class SyncEngine {
       result.locations++;
     }
 
+    await upsertChatUsers(getDatabase(), data.chatUsers ?? []);
+
+    for (const conversation of (data.conversations ?? []) as Conversation[]) {
+      await this.processServerConversation(conversation);
+    }
+
+    for (const message of (data.messages ?? []) as Message[]) {
+      await this.processServerMessage(message);
+    }
+
+    for (const messageRead of (data.messageReads ?? []) as MessageRead[]) {
+      await this.processServerMessageRead(messageRead);
+    }
+
     const serverTimestamp = data.serverTimestamp || new Date().toISOString();
     await taskRepository.setLastSyncTimestamp(serverTimestamp);
     this.lastSyncTimestamp = serverTimestamp;
@@ -219,6 +246,80 @@ export class SyncEngine {
     await reportRepository.upsertFromServer(serverReport);
   }
 
+  private async processServerConversation(serverConversation: Conversation) {
+    const db = getDatabase();
+
+    await db.runAsync(
+      `INSERT INTO conversations (id, user1_id, user2_id, created_at, updated_at, synced)
+       VALUES (?, ?, ?, ?, ?, 1)
+       ON CONFLICT(id) DO UPDATE SET
+         user1_id = excluded.user1_id,
+         user2_id = excluded.user2_id,
+         created_at = excluded.created_at,
+         updated_at = excluded.updated_at,
+         synced = 1`,
+      [
+        serverConversation.id,
+        serverConversation.user1_id,
+        serverConversation.user2_id,
+        serverConversation.created_at,
+        serverConversation.updated_at,
+      ]
+    );
+
+    await clearPendingChangesForEntity('conversation', serverConversation.id);
+  }
+
+  private async processServerMessage(serverMessage: Message) {
+    const db = getDatabase();
+
+    await db.runAsync(
+      `INSERT INTO messages (
+        id, conversation_id, sender_id, content, sent_at, edited_at, deleted_at, synced
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      ON CONFLICT(id) DO UPDATE SET
+        conversation_id = excluded.conversation_id,
+        sender_id = excluded.sender_id,
+        content = excluded.content,
+        sent_at = excluded.sent_at,
+        edited_at = excluded.edited_at,
+        deleted_at = excluded.deleted_at,
+        synced = 1`,
+      [
+        serverMessage.id,
+        serverMessage.conversation_id,
+        serverMessage.sender_id,
+        serverMessage.content,
+        serverMessage.sent_at,
+        serverMessage.edited_at ?? null,
+        serverMessage.deleted_at ?? null,
+      ]
+    );
+
+    await clearPendingChangesForEntity('message', serverMessage.id);
+  }
+
+  private async processServerMessageRead(serverMessageRead: MessageRead) {
+    const db = getDatabase();
+
+    await db.runAsync(
+      `INSERT INTO message_reads (id, message_id, user_id, read_at, synced)
+       VALUES (?, ?, ?, ?, 1)
+       ON CONFLICT(message_id, user_id) DO UPDATE SET
+         id = excluded.id,
+         read_at = excluded.read_at,
+         synced = 1`,
+      [
+        serverMessageRead.id,
+        serverMessageRead.message_id,
+        serverMessageRead.user_id,
+        serverMessageRead.read_at,
+      ]
+    );
+
+    await clearPendingChangesForEntity('message_read', serverMessageRead.id);
+  }
+
   private async hasPendingChanges(
     type: SyncQueueItem['type'],
     entityId: string
@@ -241,6 +342,84 @@ export class SyncEngine {
       data: typeof item.data === 'string' ? JSON.parse(item.data) : item.data,
       version: item.version,
     };
+  }
+
+  private async reconcileConversationId(
+    localConversationId: string,
+    serverConversationId: string
+  ) {
+    if (localConversationId === serverConversationId) {
+      return;
+    }
+
+    const db = getDatabase();
+
+    await db.runAsync(
+      'UPDATE conversations SET id = ? WHERE id = ?',
+      serverConversationId,
+      localConversationId
+    );
+    await db.runAsync(
+      'UPDATE messages SET conversation_id = ? WHERE conversation_id = ?',
+      serverConversationId,
+      localConversationId
+    );
+
+    const queueRows =
+      (await db.getAllAsync<{
+        id: string;
+        type: string;
+        entity_id: string;
+        data: string;
+      }>(
+        `SELECT id, type, entity_id, data
+         FROM sync_queue
+         WHERE status IN ('pending', 'failed')`
+      )) ?? [];
+
+    for (const row of queueRows) {
+      let nextEntityId = row.entity_id;
+      let nextData = row.data;
+
+      if (row.type === 'conversation' && row.entity_id === localConversationId) {
+        nextEntityId = serverConversationId;
+      }
+
+      try {
+        const parsed =
+          typeof row.data === 'string' ? JSON.parse(row.data) : row.data;
+
+        if (parsed && typeof parsed === 'object') {
+          const record = parsed as Record<string, unknown>;
+          let changed = false;
+
+          if (record.id === localConversationId && row.type === 'conversation') {
+            record.id = serverConversationId;
+            changed = true;
+          }
+
+          if (record.conversation_id === localConversationId) {
+            record.conversation_id = serverConversationId;
+            changed = true;
+          }
+
+          if (changed) {
+            nextData = JSON.stringify(record);
+          }
+        }
+      } catch {
+        // Keep the stored payload unchanged when it cannot be parsed.
+      }
+
+      if (nextEntityId !== row.entity_id || nextData !== row.data) {
+        await db.runAsync(
+          'UPDATE sync_queue SET entity_id = ?, data = ? WHERE id = ?',
+          nextEntityId,
+          nextData,
+          row.id
+        );
+      }
+    }
   }
 
   async pushSync(): Promise<{
@@ -353,6 +532,18 @@ export class SyncEngine {
       case 'location':
         await locationRepository.upsertFromServer(record as Location);
         break;
+      case 'conversation': {
+        const serverConversationId =
+          typeof record.id === 'string' ? record.id : queueItem.entity_id;
+        await this.reconcileConversationId(
+          queueItem.entity_id,
+          serverConversationId
+        );
+        break;
+      }
+      case 'message':
+      case 'message_read':
+        break;
     }
 
     await this.updateSyncQueueStatus(queueItem.id, 'synced');
@@ -400,6 +591,10 @@ export class SyncEngine {
       }
       case 'location':
         await locationRepository.upsertFromServer(serverRecord as Location);
+        break;
+      case 'conversation':
+      case 'message':
+      case 'message_read':
         break;
     }
 

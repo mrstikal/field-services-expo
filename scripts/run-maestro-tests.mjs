@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import os from 'node:os';
@@ -594,6 +594,24 @@ function shouldReinstallMaestroDriver() {
   return /^(1|true|yes)$/i.test(process.env.MAESTRO_REINSTALL_DRIVER ?? '');
 }
 
+function isWirelessAdbDevice(deviceId) {
+  if (!deviceId) {
+    return false;
+  }
+
+  // Example wireless id: adb-xxxxxx._adb-tls-connect._tcp
+  return /adb-tls-connect|_tcp|:\d+$/i.test(deviceId);
+}
+
+function flowUsesAirplaneMode(flowFile) {
+  try {
+    const content = readFileSync(flowFile, 'utf8');
+    return /\bsetAirplaneMode\s*:/m.test(content);
+  } catch {
+    return false;
+  }
+}
+
 async function runMaestroTests() {
   checkMaestroInstallation();
   const adbPath = resolveAdbPath();
@@ -654,6 +672,13 @@ async function runMaestroTests() {
 
   for (const flowFile of flowFiles) {
     console.log(`\n[Maestro E2E] Running flow: ${path.basename(flowFile)}`);
+
+    if (isWirelessAdbDevice(maestroDeviceId) && flowUsesAirplaneMode(flowFile)) {
+      console.warn(
+        `[Maestro E2E] Skipping ${path.basename(flowFile)}: flow uses setAirplaneMode and the device is connected over Wi-Fi ADB (${maestroDeviceId}), which disconnects the session.`
+      );
+      continue;
+    }
 
     if (adbPath && maestroDeviceId) {
       configureAdbReverse(adbPath, maestroDeviceId);

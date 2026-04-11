@@ -282,6 +282,25 @@ function resetAndroidAppData() {
 }
 
 function main() {
+  const migrateResult = runCommand('pnpm', ['db:migrate'], {
+    stdio: 'inherit',
+    shell: isWindows,
+  });
+
+  if (migrateResult.status !== 0) {
+    console.warn('');
+    console.warn(
+      'Database migration step failed (likely DATABASE_URL / direct Postgres access).'
+    );
+    console.warn(
+      'Continuing with Supabase demo reset so pnpm demo:reset still completes.'
+    );
+    console.warn(
+      'If chat tables are missing, fix DATABASE_URL and run `pnpm db:migrate` once.'
+    );
+    console.warn('');
+  }
+
   const supabaseReset = runCommand(process.execPath, [path.join(process.cwd(), 'scripts', 'reset-supabase.mjs')], {
     stdio: 'inherit',
   });

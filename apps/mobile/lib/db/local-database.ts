@@ -2,7 +2,7 @@ import { openDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system/legacy';
 
 const DATABASE_NAME = 'field-service.db';
-const DATABASE_VERSION = 5;
+const DATABASE_VERSION = 6;
 
 let db: SQLiteDatabase | null = null;
 let initPromise: Promise<SQLiteDatabase> | null = null;
@@ -481,6 +481,63 @@ async function runMigrations(database: SQLiteDatabase) {
     await runMigration5(database);
     await setSchemaVersion(database, 5);
   }
+
+  if (version < 6) {
+    await runMigration6(database);
+    await setSchemaVersion(database, 6);
+  }
+}
+
+async function runMigration6(database: SQLiteDatabase) {
+  logDatabaseStep('checking migration 6 - adding messaging tables');
+  
+  await database.execAsync(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      role TEXT NOT NULL,
+      name TEXT,
+      phone TEXT,
+      avatar_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      user1_id TEXT NOT NULL,
+      user2_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      synced INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      sender_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      sent_at TEXT NOT NULL,
+      edited_at TEXT,
+      deleted_at TEXT,
+      synced INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS message_reads (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      read_at TEXT NOT NULL,
+      synced INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (message_id) REFERENCES messages(id)
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_users ON conversations(user1_id, user2_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_message_reads_message_user ON message_reads(message_id, user_id);
+  `);
 }
 
 async function setSchemaVersion(database: SQLiteDatabase, version: number) {
@@ -521,6 +578,10 @@ export async function closeDatabase() {
 
 export async function clearAllTables(database: SQLiteDatabase) {
   await database.execAsync(`
+    DROP TABLE IF EXISTS message_reads;
+    DROP TABLE IF EXISTS messages;
+    DROP TABLE IF EXISTS conversations;
+    DROP TABLE IF EXISTS users;
     DROP TABLE IF EXISTS tasks;
     DROP TABLE IF EXISTS reports;
     DROP TABLE IF EXISTS sync_queue;

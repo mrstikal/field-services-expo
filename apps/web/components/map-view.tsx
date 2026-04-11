@@ -14,6 +14,7 @@ import type { Task, Technician as SharedTechnician } from '@field-service/shared
 import { supabase } from '@/lib/supabase';
 import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { formatLastSeen, getLastSeenTimestamp } from './map-view.utils';
+import { realtimeSyncService } from '@/lib/realtime-sync';
 
 type Technician = SharedTechnician;
 
@@ -69,7 +70,6 @@ export default function MapView({ height }: MapViewProps) {
   // Only render MapGL after component is mounted on client
   useEffect(() => {
     setIsMounted(true);
-    setIsMapReady(true);
   }, []);
 
   useEffect(() => {
@@ -217,6 +217,16 @@ export default function MapView({ height }: MapViewProps) {
     };
   }, [loadActiveTasks]);
 
+  useEffect(() => {
+    const tasksSubscription = realtimeSyncService.subscribeToTasks(() => {
+      void loadActiveTasks();
+    });
+
+    return () => {
+      tasksSubscription.unsubscribe();
+    };
+  }, [loadActiveTasks]);
+
   // Handle marker click
   const handleMarkerClick = (technician: Technician) => {
     setSelectedTechnician(technician);
@@ -351,7 +361,7 @@ export default function MapView({ height }: MapViewProps) {
     }
   }, [dispatchableTasks, selectedDispatchTaskId, selectedTechnician]);
 
-  if (!isMapReady) {
+  if (!isMounted) {
     return (
       <div
         className="relative flex items-center justify-center bg-gray-100"
@@ -368,28 +378,39 @@ export default function MapView({ height }: MapViewProps) {
       style={{ height: height || '400px' }}
       suppressHydrationWarning
     >
-      {isMounted && isMapReady ? (
+      {isMounted ? (
         <MapGL
           ref={mapRef}
           initialViewState={viewport}
+          onLoad={() => setIsMapReady(true)}
           onMove={evt => setViewport(evt.viewState)}
           mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
           interactiveLayerIds={['technicians-layer']}
           mapStyle="mapbox://styles/mapbox/streets-v12"
           style={styles.mapContainer}
         >
+          {!isMapReady ? (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100/90"
+              aria-hidden="true"
+            >
+              <div className="text-gray-500">Loading map...</div>
+            </div>
+          ) : null}
+
           {/* Navigation controls */}
           <div className="absolute top-4 right-4 z-10">
-            <NavigationControl position="top-right" />
+            {isMapReady ? <NavigationControl position="top-right" /> : null}
           </div>
 
           {/* Geolocate control */}
           <div className="absolute top-40 right-4 z-10">
-            <GeolocateControl position="top-right" />
+            {isMapReady ? <GeolocateControl position="top-right" /> : null}
           </div>
 
           {/* Geofence zones for active tasks */}
-          {taskGeofences.map(task => (
+          {isMapReady
+            ? taskGeofences.map(task => (
             <Marker
               anchor="center"
               key={`geofence-${task.id}`}
@@ -401,10 +422,12 @@ export default function MapView({ height }: MapViewProps) {
                 title={`Geofence: ${task.title}`}
               />
             </Marker>
-          ))}
+              ))
+            : null}
 
           {/* Technicians markers (clustered by zoom level) */}
-          {clusteredPoints.map(cluster => {
+          {isMapReady
+            ? clusteredPoints.map(cluster => {
             const isCluster = cluster.technicians.length > 1;
             const representative = cluster.technicians[0];
 
@@ -434,10 +457,11 @@ export default function MapView({ height }: MapViewProps) {
                 </div>
               </Marker>
             );
-          })}
+              })
+            : null}
 
           {/* Popup for selected technician */}
-          {selectedTechnician && selectedTechnician.last_location ? (
+          {isMapReady && selectedTechnician && selectedTechnician.last_location ? (
             <Popup
               anchor="top"
               className="map-popup"

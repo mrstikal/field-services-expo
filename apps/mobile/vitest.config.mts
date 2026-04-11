@@ -38,7 +38,9 @@ export default defineConfig({
       // Native runtime-dependent suites are excluded from default jsdom run.
       ...(!isNativeTests
         ? [
+            '**/lib/db/__tests__/conversation-repository.test.ts',
             '**/lib/db/__tests__/db-integration.test.ts',
+            '**/lib/db/__tests__/message-repository.test.ts',
             '**/__tests__/integration/sync-flow.test.ts',
             '**/__tests__/integration/sync-resilience.test.ts',
           ]

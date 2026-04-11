@@ -19,6 +19,7 @@ describe('database schemas', () => {
         name: 'Test User',
         phone: '555-1234',
         avatar_url: null,
+        expo_push_token: null,
         is_online: true,
         last_location_lat: 40.7128,
         last_location_lng: -74.006,

@@ -69,6 +69,7 @@ Important:
 
 - In Expo Go, scan the QR printed by `dev:all:wifi` (`Direct Expo Go URL`).
 - Do not scan with system camera/Chrome.
+- Scan code after *Scan ONLY this QR in Expo Go. Ignore Expo CLI QR output.* in CLI only. 
 
 ### B) USB (fallback when Wi-Fi is not possible)
 

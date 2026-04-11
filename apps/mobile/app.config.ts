@@ -15,7 +15,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   );
   const shouldUseEasUpdates = env === 'production' && Boolean(resolveProjectId);
   const easExtra = shouldUseEasUpdates && resolveProjectId ? { eas: { projectId: resolveProjectId } } : {};
-  const { eas: _ignoredEasExtra, ...extraWithoutEas } = config.extra ?? {};
+  const extraWithoutEas = Object.fromEntries(
+    Object.entries(config.extra ?? {}).filter(([key]) => key !== 'eas')
+  );
   const configuredPlugins = (config.plugins || []).filter(plugin => {
     if (typeof plugin === 'string') {
       return ![

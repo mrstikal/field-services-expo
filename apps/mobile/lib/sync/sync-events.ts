@@ -17,7 +17,13 @@ export function emitSyncEvent() {
 }
 
 export async function enqueueSyncChange(change: {
-  type: 'task' | 'report' | 'location';
+  type:
+    | 'task'
+    | 'report'
+    | 'location'
+    | 'conversation'
+    | 'message'
+    | 'message_read';
   action: 'create' | 'update' | 'delete';
   entityId: string;
   data: Record<string, unknown>;
@@ -45,7 +51,13 @@ export async function enqueueSyncChange(change: {
 }
 
 export async function clearPendingChangesForEntity(
-  entityType: 'task' | 'report' | 'location',
+  entityType:
+    | 'task'
+    | 'report'
+    | 'location'
+    | 'conversation'
+    | 'message'
+    | 'message_read',
   entityId: string
 ) {
   const db = getDatabase();
@@ -57,7 +69,13 @@ export async function clearPendingChangesForEntity(
 }
 
 export async function hasPendingChangesForEntity(
-  entityType: 'task' | 'report' | 'location',
+  entityType:
+    | 'task'
+    | 'report'
+    | 'location'
+    | 'conversation'
+    | 'message'
+    | 'message_read',
   entityId: string
 ) {
   const db = getDatabase();
@@ -70,7 +88,13 @@ export async function hasPendingChangesForEntity(
 }
 
 export async function recordSyncConflict(conflict: {
-  entityType: 'task' | 'report' | 'location';
+  entityType:
+    | 'task'
+    | 'report'
+    | 'location'
+    | 'conversation'
+    | 'message'
+    | 'message_read';
   entityId: string;
   localData: Record<string, unknown>;
   serverData: Record<string, unknown>;

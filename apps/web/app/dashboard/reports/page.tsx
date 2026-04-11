@@ -21,7 +21,18 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import type { Report, Task } from '@field-service/shared-types';
+
+interface ReportListItem {
+  id: string;
+  status: string;
+  photos: string[] | null;
+  created_at: string;
+  pdf_url: string | null;
+  tasks?: {
+    title?: string | null;
+    customer_name?: string | null;
+  } | null;
+}
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -158,7 +169,7 @@ export default function ReportsPage() {
               </TableHeader>
               <TableBody>
                 {reports.length > 0 ? (
-                  reports.map((report: any) => (
+                  reports.map((report: ReportListItem) => (
                     <TableRow key={report.id}>
                       <TableCell className="font-medium">
                         {report.tasks?.title || 'Unknown Task'}

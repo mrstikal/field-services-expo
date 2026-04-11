@@ -223,7 +223,7 @@ const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
         >
           <View className="items-center">
             <Ionicons color="#ffffff" name="close" size={22} />
-            <Text className="mt-1 text-xs font-bold text-white">Dismiss</Text>
+            <Text className="mt-1 text-xs font-bold text-white">Incomplete</Text>
           </View>
         </TouchableOpacity>
       </View>
