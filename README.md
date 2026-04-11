@@ -7,7 +7,7 @@ This project is a high-performance field service management platform featuring a
 ### 🌟 Why this matters
 - **Cutting-Edge Stack:** Built on the absolute bleeding edge with **Next.js 16 (App Router)**, **React 19**, **Expo 54**, and **Tailwind CSS 4**.
 - **Architectural Depth:** Features a custom-built **offline sync engine** with delta-updates, tombstone deletions, and automated conflict resolution.
-- **Uncompromising Quality:** A comprehensive testing pyramid consisting of **over 50+ automated tests** across **Vitest** (unit/integration), **Playwright** (web E2E), and **Maestro** (mobile E2E) ensuring 100% confidence in mission-critical flows like offline sync and auth.
+- **Uncompromising Quality:** A comprehensive testing pyramid consisting of **over 430+ automated tests** across **Vitest** (unit/integration), **Playwright** (web E2E), and **Maestro** (mobile E2E) ensuring 100% confidence in mission-critical flows like offline sync and auth.
 - **Type-Safe Excellence:** Strict end-to-end type safety using a shared **Zod** validation layer and **Drizzle ORM** for a unified, error-resistant developer experience.
 - **Production-Ready Features:** Includes background GPS tracking, geofencing, multi-stage photo documentation with reactive UI, and on-device PDF generation.
 
